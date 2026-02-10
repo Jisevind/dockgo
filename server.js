@@ -47,6 +47,33 @@ app.use((req, res, next) => {
 });
 
 // Log helper
+// Log helper with rotation
+const MAX_LOG_SIZE = 5 * 1024 * 1024; // 5MB
+
+const checkLogRotation = async () => {
+    try {
+        const stats = await fs.promises.stat(logFile);
+        if (stats.size > MAX_LOG_SIZE) {
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const backupFile = `${logFile}.${timestamp}.old`;
+            await fs.promises.rename(logFile, backupFile);
+            console.log(`Log file rotated to ${backupFile}`);
+
+            // Optional: keep only last N logs? 
+            // For now, just rotating away from main file is sufficient to prevent "growing forever" blocking the main file.
+            // A cron job or external tool can clean up .old files, or we can add cleanup logic later.
+        }
+    } catch (err) {
+        if (err.code !== 'ENOENT') {
+            console.error('Log rotation check failed:', err);
+        }
+    }
+};
+
+// Check rotation on startup and every 10 minutes
+checkLogRotation();
+setInterval(checkLogRotation, 10 * 60 * 1000);
+
 const log = (message) => {
     const timestamp = new Date().toISOString();
     const logMessage = `[${timestamp}] ${message}`;
