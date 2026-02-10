@@ -1,0 +1,1536 @@
+[2026-02-10T11:32:59.474Z] Dockviewer listening at http://localhost:3000
+[2026-02-10T11:33:07.427Z] GET /api/containers
+[2026-02-10T11:33:07.539Z] Image: sha256:7fcb6109db2ba31b22a5709c1eaf9e84f76c9f1b9b9031ef09f24092f7f207cc Tags: ["mariadb:11"]
+[2026-02-10T11:33:07.540Z] Image: sha256:c2052d6a1bcdd412514e560abaa4e87ca5a7ffbe1364e97148f1d1819a814182 Tags: ["dashboard:latest"]
+[2026-02-10T11:33:07.540Z] Image: sha256:b416c5adfd2a542668dcd6464a7a2bc85e8e7222a7e8ef57a1f15e4ce7ca6b51 Tags: ["lscr.io/linuxserver/changedetection.io:latest"]
+[2026-02-10T11:33:07.541Z] Image: sha256:df361f4e14fe34c85c37d20612c03454dc975425ae3e17913b2f80060799b226 Tags: ["tomtomw123/subsyncarr-plus:latest"]
+[2026-02-10T11:33:07.541Z] Image: sha256:36bc27244d4e34b4ba4883885a4266c4f7d3c7779fce5e456cdce228f1dd5e93 Tags: []
+[2026-02-10T11:33:07.556Z] Image: sha256:345fa26d595e8c7fe298e0c4098ed400356f502458769c8902229b3437d6da2b Tags: []
+[2026-02-10T11:33:07.557Z] Image: sha256:506793da79f24b7bdb988c5f1752a803941e331c43ef6ac2ce7ea1f7fb217f77 Tags: ["ghcr.io/rockbenben/subtitle-translator:latest"]
+[2026-02-10T11:33:07.557Z] Image: sha256:4102a65cf63f6faac63a21d9efb9b3fcb3b0444598a824f50d5e2fc7605f23a3 Tags: ["rss-keep-app:latest"]
+[2026-02-10T11:33:07.557Z] Image: sha256:d6484a3b9bf04a1137abf2f71759637ced752c846b2136f9be6c5491ea495576 Tags: ["bolt-ai:development","bolt-ai:latest"]
+[2026-02-10T11:33:07.558Z] Image: sha256:0e48f41dad86b08faacdce2d4b312bbd91b3007ab497c8eed87b215f88d931d0 Tags: ["ghcr.io/open-webui/open-webui:cuda"]
+[2026-02-10T11:33:07.558Z] Image: sha256:b5e1104b1f041fccb366b20087f0079e43694f79b1767b0e9fc2b0d6292bc943 Tags: ["timesheet-timesheet:latest"]
+[2026-02-10T11:33:07.558Z] Image: sha256:c5fef0ff85050a0caafe621133a811c16916f4468777d43b0b090f281cf9a81a Tags: ["kometateam/imagemaid:latest"]
+[2026-02-10T11:33:07.558Z] Refreshing update cache...
+[2026-02-10T11:33:07.559Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -n -m
+[2026-02-10T11:33:10.725Z] GET /api/containers?fresh=7
+[2026-02-10T11:33:10.834Z] Image: sha256:7fcb6109db2ba31b22a5709c1eaf9e84f76c9f1b9b9031ef09f24092f7f207cc Tags: ["mariadb:11"]
+[2026-02-10T11:33:10.835Z] Image: sha256:c2052d6a1bcdd412514e560abaa4e87ca5a7ffbe1364e97148f1d1819a814182 Tags: ["dashboard:latest"]
+[2026-02-10T11:33:10.835Z] Image: sha256:b416c5adfd2a542668dcd6464a7a2bc85e8e7222a7e8ef57a1f15e4ce7ca6b51 Tags: ["lscr.io/linuxserver/changedetection.io:latest"]
+[2026-02-10T11:33:10.836Z] Image: sha256:df361f4e14fe34c85c37d20612c03454dc975425ae3e17913b2f80060799b226 Tags: ["tomtomw123/subsyncarr-plus:latest"]
+[2026-02-10T11:33:10.836Z] Image: sha256:36bc27244d4e34b4ba4883885a4266c4f7d3c7779fce5e456cdce228f1dd5e93 Tags: []
+[2026-02-10T11:33:10.836Z] Image: sha256:345fa26d595e8c7fe298e0c4098ed400356f502458769c8902229b3437d6da2b Tags: []
+[2026-02-10T11:33:10.837Z] Image: sha256:506793da79f24b7bdb988c5f1752a803941e331c43ef6ac2ce7ea1f7fb217f77 Tags: ["ghcr.io/rockbenben/subtitle-translator:latest"]
+[2026-02-10T11:33:10.837Z] Image: sha256:4102a65cf63f6faac63a21d9efb9b3fcb3b0444598a824f50d5e2fc7605f23a3 Tags: ["rss-keep-app:latest"]
+[2026-02-10T11:33:10.837Z] Image: sha256:d6484a3b9bf04a1137abf2f71759637ced752c846b2136f9be6c5491ea495576 Tags: ["bolt-ai:development","bolt-ai:latest"]
+[2026-02-10T11:33:10.838Z] Image: sha256:0e48f41dad86b08faacdce2d4b312bbd91b3007ab497c8eed87b215f88d931d0 Tags: ["ghcr.io/open-webui/open-webui:cuda"]
+[2026-02-10T11:33:10.838Z] Image: sha256:b5e1104b1f041fccb366b20087f0079e43694f79b1767b0e9fc2b0d6292bc943 Tags: ["timesheet-timesheet:latest"]
+[2026-02-10T11:33:10.838Z] Image: sha256:c5fef0ff85050a0caafe621133a811c16916f4468777d43b0b090f281cf9a81a Tags: ["kometateam/imagemaid:latest"]
+[2026-02-10T11:33:10.839Z] Refreshing update cache...
+[2026-02-10T11:33:10.839Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -n -m
+[2026-02-10T11:33:13.703Z] Dockcheck Output (first 200 chars): 
+Containers on latest version:
+subtitle-translator
+
+Containers with updates available:
+changedetection
+mariadb
+
+No updates installed.
+...
+[2026-02-10T11:33:13.704Z] Parsing 10 lines of output
+[2026-02-10T11:33:13.704Z] Processing line: ""
+[2026-02-10T11:33:13.704Z] Processing line: "Containers on latest version:"
+[2026-02-10T11:33:13.705Z] Processing line: "subtitle-translator"
+[2026-02-10T11:33:13.705Z] Processing line: ""
+[2026-02-10T11:33:13.705Z] Processing line: "Containers with updates available:"
+[2026-02-10T11:33:13.705Z] Found header: Containers with updates available
+[2026-02-10T11:33:13.706Z] Processing line: "changedetection"
+[2026-02-10T11:33:13.706Z] Found container update: changedetection
+[2026-02-10T11:33:13.706Z] Processing line: "mariadb"
+[2026-02-10T11:33:13.707Z] Found container update: mariadb
+[2026-02-10T11:33:13.707Z] Processing line: ""
+[2026-02-10T11:33:13.707Z] Empty line, stopping read
+[2026-02-10T11:33:13.707Z] Processing line: "No updates installed."
+[2026-02-10T11:33:13.708Z] Processing line: ""
+[2026-02-10T11:33:13.708Z] Parsed updates: ["changedetection","mariadb"]
+[2026-02-10T11:33:13.708Z] Container changedetection: Image=sha256:36bc27244d4e34b4ba4883885a4266c4f7d3c7779fce5e456cdce228f1dd5e93, ImageID=sha256:36bc27244d4e34b4ba4883885a4266c4f7d3c7779fce5e456cdce228f1dd5e93
+[2026-02-10T11:33:13.709Z] Lookup ImageMap[sha256:36bc27244d4e34b4ba4883885a4266c4f7d3c7779fce5e456cdce228f1dd5e93] = undefined
+[2026-02-10T11:33:13.709Z] Container mariadb: Image=sha256:345fa26d595e8c7fe298e0c4098ed400356f502458769c8902229b3437d6da2b, ImageID=sha256:345fa26d595e8c7fe298e0c4098ed400356f502458769c8902229b3437d6da2b
+[2026-02-10T11:33:13.709Z] Lookup ImageMap[sha256:345fa26d595e8c7fe298e0c4098ed400356f502458769c8902229b3437d6da2b] = undefined
+[2026-02-10T11:33:16.578Z] Dockcheck Output (first 200 chars): 
+Containers on latest version:
+subtitle-translator
+
+Containers with updates available:
+changedetection
+mariadb
+
+No updates installed.
+...
+[2026-02-10T11:33:16.579Z] Parsing 10 lines of output
+[2026-02-10T11:33:16.579Z] Processing line: ""
+[2026-02-10T11:33:16.580Z] Processing line: "Containers on latest version:"
+[2026-02-10T11:33:16.580Z] Processing line: "subtitle-translator"
+[2026-02-10T11:33:16.580Z] Processing line: ""
+[2026-02-10T11:33:16.580Z] Processing line: "Containers with updates available:"
+[2026-02-10T11:33:16.581Z] Found header: Containers with updates available
+[2026-02-10T11:33:16.581Z] Processing line: "changedetection"
+[2026-02-10T11:33:16.581Z] Found container update: changedetection
+[2026-02-10T11:33:16.581Z] Processing line: "mariadb"
+[2026-02-10T11:33:16.582Z] Found container update: mariadb
+[2026-02-10T11:33:16.582Z] Processing line: ""
+[2026-02-10T11:33:16.582Z] Empty line, stopping read
+[2026-02-10T11:33:16.583Z] Processing line: "No updates installed."
+[2026-02-10T11:33:16.583Z] Processing line: ""
+[2026-02-10T11:33:16.583Z] Parsed updates: ["changedetection","mariadb"]
+[2026-02-10T11:33:16.583Z] Container changedetection: Image=sha256:36bc27244d4e34b4ba4883885a4266c4f7d3c7779fce5e456cdce228f1dd5e93, ImageID=sha256:36bc27244d4e34b4ba4883885a4266c4f7d3c7779fce5e456cdce228f1dd5e93
+[2026-02-10T11:33:16.584Z] Lookup ImageMap[sha256:36bc27244d4e34b4ba4883885a4266c4f7d3c7779fce5e456cdce228f1dd5e93] = undefined
+[2026-02-10T11:33:16.584Z] Container mariadb: Image=sha256:345fa26d595e8c7fe298e0c4098ed400356f502458769c8902229b3437d6da2b, ImageID=sha256:345fa26d595e8c7fe298e0c4098ed400356f502458769c8902229b3437d6da2b
+[2026-02-10T11:33:16.584Z] Lookup ImageMap[sha256:345fa26d595e8c7fe298e0c4098ed400356f502458769c8902229b3437d6da2b] = undefined
+[2026-02-10T11:33:37.429Z] GET /api/containers
+[2026-02-10T11:33:37.539Z] Image: sha256:7fcb6109db2ba31b22a5709c1eaf9e84f76c9f1b9b9031ef09f24092f7f207cc Tags: ["mariadb:11"]
+[2026-02-10T11:33:37.540Z] Image: sha256:c2052d6a1bcdd412514e560abaa4e87ca5a7ffbe1364e97148f1d1819a814182 Tags: ["dashboard:latest"]
+[2026-02-10T11:33:37.540Z] Image: sha256:b416c5adfd2a542668dcd6464a7a2bc85e8e7222a7e8ef57a1f15e4ce7ca6b51 Tags: ["lscr.io/linuxserver/changedetection.io:latest"]
+[2026-02-10T11:33:37.540Z] Image: sha256:df361f4e14fe34c85c37d20612c03454dc975425ae3e17913b2f80060799b226 Tags: ["tomtomw123/subsyncarr-plus:latest"]
+[2026-02-10T11:33:37.541Z] Image: sha256:36bc27244d4e34b4ba4883885a4266c4f7d3c7779fce5e456cdce228f1dd5e93 Tags: []
+[2026-02-10T11:33:37.541Z] Image: sha256:345fa26d595e8c7fe298e0c4098ed400356f502458769c8902229b3437d6da2b Tags: []
+[2026-02-10T11:33:37.541Z] Image: sha256:506793da79f24b7bdb988c5f1752a803941e331c43ef6ac2ce7ea1f7fb217f77 Tags: ["ghcr.io/rockbenben/subtitle-translator:latest"]
+[2026-02-10T11:33:37.541Z] Image: sha256:4102a65cf63f6faac63a21d9efb9b3fcb3b0444598a824f50d5e2fc7605f23a3 Tags: ["rss-keep-app:latest"]
+[2026-02-10T11:33:37.542Z] Image: sha256:d6484a3b9bf04a1137abf2f71759637ced752c846b2136f9be6c5491ea495576 Tags: ["bolt-ai:development","bolt-ai:latest"]
+[2026-02-10T11:33:37.542Z] Image: sha256:0e48f41dad86b08faacdce2d4b312bbd91b3007ab497c8eed87b215f88d931d0 Tags: ["ghcr.io/open-webui/open-webui:cuda"]
+[2026-02-10T11:33:37.542Z] Image: sha256:b5e1104b1f041fccb366b20087f0079e43694f79b1767b0e9fc2b0d6292bc943 Tags: ["timesheet-timesheet:latest"]
+[2026-02-10T11:33:37.543Z] Image: sha256:c5fef0ff85050a0caafe621133a811c16916f4468777d43b0b090f281cf9a81a Tags: ["kometateam/imagemaid:latest"]
+[2026-02-10T11:33:37.543Z] Container changedetection: Image=sha256:36bc27244d4e34b4ba4883885a4266c4f7d3c7779fce5e456cdce228f1dd5e93, ImageID=sha256:36bc27244d4e34b4ba4883885a4266c4f7d3c7779fce5e456cdce228f1dd5e93
+[2026-02-10T11:33:37.543Z] Lookup ImageMap[sha256:36bc27244d4e34b4ba4883885a4266c4f7d3c7779fce5e456cdce228f1dd5e93] = undefined
+[2026-02-10T11:33:37.543Z] Container mariadb: Image=sha256:345fa26d595e8c7fe298e0c4098ed400356f502458769c8902229b3437d6da2b, ImageID=sha256:345fa26d595e8c7fe298e0c4098ed400356f502458769c8902229b3437d6da2b
+[2026-02-10T11:33:37.544Z] Lookup ImageMap[sha256:345fa26d595e8c7fe298e0c4098ed400356f502458769c8902229b3437d6da2b] = undefined
+[2026-02-10T11:34:07.425Z] GET /api/containers
+[2026-02-10T11:34:07.530Z] Image: sha256:7fcb6109db2ba31b22a5709c1eaf9e84f76c9f1b9b9031ef09f24092f7f207cc Tags: ["mariadb:11"]
+[2026-02-10T11:34:07.531Z] Image: sha256:c2052d6a1bcdd412514e560abaa4e87ca5a7ffbe1364e97148f1d1819a814182 Tags: ["dashboard:latest"]
+[2026-02-10T11:34:07.531Z] Image: sha256:b416c5adfd2a542668dcd6464a7a2bc85e8e7222a7e8ef57a1f15e4ce7ca6b51 Tags: ["lscr.io/linuxserver/changedetection.io:latest"]
+[2026-02-10T11:34:07.532Z] Image: sha256:df361f4e14fe34c85c37d20612c03454dc975425ae3e17913b2f80060799b226 Tags: ["tomtomw123/subsyncarr-plus:latest"]
+[2026-02-10T11:34:07.532Z] Image: sha256:36bc27244d4e34b4ba4883885a4266c4f7d3c7779fce5e456cdce228f1dd5e93 Tags: []
+[2026-02-10T11:34:07.532Z] Image: sha256:345fa26d595e8c7fe298e0c4098ed400356f502458769c8902229b3437d6da2b Tags: []
+[2026-02-10T11:34:07.533Z] Image: sha256:506793da79f24b7bdb988c5f1752a803941e331c43ef6ac2ce7ea1f7fb217f77 Tags: ["ghcr.io/rockbenben/subtitle-translator:latest"]
+[2026-02-10T11:34:07.533Z] Image: sha256:4102a65cf63f6faac63a21d9efb9b3fcb3b0444598a824f50d5e2fc7605f23a3 Tags: ["rss-keep-app:latest"]
+[2026-02-10T11:34:07.533Z] Image: sha256:d6484a3b9bf04a1137abf2f71759637ced752c846b2136f9be6c5491ea495576 Tags: ["bolt-ai:development","bolt-ai:latest"]
+[2026-02-10T11:34:07.533Z] Image: sha256:0e48f41dad86b08faacdce2d4b312bbd91b3007ab497c8eed87b215f88d931d0 Tags: ["ghcr.io/open-webui/open-webui:cuda"]
+[2026-02-10T11:34:07.534Z] Image: sha256:b5e1104b1f041fccb366b20087f0079e43694f79b1767b0e9fc2b0d6292bc943 Tags: ["timesheet-timesheet:latest"]
+[2026-02-10T11:34:07.534Z] Image: sha256:c5fef0ff85050a0caafe621133a811c16916f4468777d43b0b090f281cf9a81a Tags: ["kometateam/imagemaid:latest"]
+[2026-02-10T11:34:07.534Z] Container changedetection: Image=sha256:36bc27244d4e34b4ba4883885a4266c4f7d3c7779fce5e456cdce228f1dd5e93, ImageID=sha256:36bc27244d4e34b4ba4883885a4266c4f7d3c7779fce5e456cdce228f1dd5e93
+[2026-02-10T11:34:07.535Z] Lookup ImageMap[sha256:36bc27244d4e34b4ba4883885a4266c4f7d3c7779fce5e456cdce228f1dd5e93] = undefined
+[2026-02-10T11:34:07.535Z] Container mariadb: Image=sha256:345fa26d595e8c7fe298e0c4098ed400356f502458769c8902229b3437d6da2b, ImageID=sha256:345fa26d595e8c7fe298e0c4098ed400356f502458769c8902229b3437d6da2b
+[2026-02-10T11:34:07.535Z] Lookup ImageMap[sha256:345fa26d595e8c7fe298e0c4098ed400356f502458769c8902229b3437d6da2b] = undefined
+[2026-02-10T11:34:37.420Z] GET /api/containers
+[2026-02-10T11:34:37.530Z] Image: sha256:7fcb6109db2ba31b22a5709c1eaf9e84f76c9f1b9b9031ef09f24092f7f207cc Tags: ["mariadb:11"]
+[2026-02-10T11:34:37.530Z] Image: sha256:c2052d6a1bcdd412514e560abaa4e87ca5a7ffbe1364e97148f1d1819a814182 Tags: ["dashboard:latest"]
+[2026-02-10T11:34:37.531Z] Image: sha256:b416c5adfd2a542668dcd6464a7a2bc85e8e7222a7e8ef57a1f15e4ce7ca6b51 Tags: ["lscr.io/linuxserver/changedetection.io:latest"]
+[2026-02-10T11:34:37.531Z] Image: sha256:df361f4e14fe34c85c37d20612c03454dc975425ae3e17913b2f80060799b226 Tags: ["tomtomw123/subsyncarr-plus:latest"]
+[2026-02-10T11:34:37.531Z] Image: sha256:36bc27244d4e34b4ba4883885a4266c4f7d3c7779fce5e456cdce228f1dd5e93 Tags: []
+[2026-02-10T11:34:37.532Z] Image: sha256:345fa26d595e8c7fe298e0c4098ed400356f502458769c8902229b3437d6da2b Tags: []
+[2026-02-10T11:34:37.532Z] Image: sha256:506793da79f24b7bdb988c5f1752a803941e331c43ef6ac2ce7ea1f7fb217f77 Tags: ["ghcr.io/rockbenben/subtitle-translator:latest"]
+[2026-02-10T11:34:37.532Z] Image: sha256:4102a65cf63f6faac63a21d9efb9b3fcb3b0444598a824f50d5e2fc7605f23a3 Tags: ["rss-keep-app:latest"]
+[2026-02-10T11:34:37.532Z] Image: sha256:d6484a3b9bf04a1137abf2f71759637ced752c846b2136f9be6c5491ea495576 Tags: ["bolt-ai:development","bolt-ai:latest"]
+[2026-02-10T11:34:37.533Z] Image: sha256:0e48f41dad86b08faacdce2d4b312bbd91b3007ab497c8eed87b215f88d931d0 Tags: ["ghcr.io/open-webui/open-webui:cuda"]
+[2026-02-10T11:34:37.533Z] Image: sha256:b5e1104b1f041fccb366b20087f0079e43694f79b1767b0e9fc2b0d6292bc943 Tags: ["timesheet-timesheet:latest"]
+[2026-02-10T11:34:37.533Z] Image: sha256:c5fef0ff85050a0caafe621133a811c16916f4468777d43b0b090f281cf9a81a Tags: ["kometateam/imagemaid:latest"]
+[2026-02-10T11:34:37.534Z] Container changedetection: Image=sha256:36bc27244d4e34b4ba4883885a4266c4f7d3c7779fce5e456cdce228f1dd5e93, ImageID=sha256:36bc27244d4e34b4ba4883885a4266c4f7d3c7779fce5e456cdce228f1dd5e93
+[2026-02-10T11:34:37.534Z] Lookup ImageMap[sha256:36bc27244d4e34b4ba4883885a4266c4f7d3c7779fce5e456cdce228f1dd5e93] = undefined
+[2026-02-10T11:34:37.534Z] Container mariadb: Image=sha256:345fa26d595e8c7fe298e0c4098ed400356f502458769c8902229b3437d6da2b, ImageID=sha256:345fa26d595e8c7fe298e0c4098ed400356f502458769c8902229b3437d6da2b
+[2026-02-10T11:34:37.534Z] Lookup ImageMap[sha256:345fa26d595e8c7fe298e0c4098ed400356f502458769c8902229b3437d6da2b] = undefined
+[2026-02-10T11:34:49.091Z] Dockviewer listening at http://localhost:3000
+[2026-02-10T11:35:07.435Z] GET /api/containers
+[2026-02-10T11:35:07.484Z] Refreshing update cache...
+[2026-02-10T11:35:07.484Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -n -m
+[2026-02-10T11:35:12.958Z] Dockcheck Output (first 200 chars): 
+Containers on latest version:
+subtitle-translator
+
+Containers with updates available:
+changedetection
+mariadb
+
+No updates installed.
+...
+[2026-02-10T11:35:12.959Z] Parsing 10 lines of output
+[2026-02-10T11:35:12.959Z] Processing line: ""
+[2026-02-10T11:35:12.959Z] Processing line: "Containers on latest version:"
+[2026-02-10T11:35:12.960Z] Processing line: "subtitle-translator"
+[2026-02-10T11:35:12.960Z] Processing line: ""
+[2026-02-10T11:35:12.960Z] Processing line: "Containers with updates available:"
+[2026-02-10T11:35:12.960Z] Found header: Containers with updates available
+[2026-02-10T11:35:12.961Z] Processing line: "changedetection"
+[2026-02-10T11:35:12.961Z] Found container update: changedetection
+[2026-02-10T11:35:12.961Z] Processing line: "mariadb"
+[2026-02-10T11:35:12.961Z] Found container update: mariadb
+[2026-02-10T11:35:12.962Z] Processing line: ""
+[2026-02-10T11:35:12.962Z] Empty line, stopping read
+[2026-02-10T11:35:12.962Z] Processing line: "No updates installed."
+[2026-02-10T11:35:12.962Z] Processing line: ""
+[2026-02-10T11:35:12.963Z] Parsed updates: ["changedetection","mariadb"]
+[2026-02-10T11:35:37.418Z] GET /api/containers
+[2026-02-10T11:35:43.816Z] GET /api/containers?fresh=8
+[2026-02-10T11:35:53.183Z] GET /api/containers
+[2026-02-10T11:36:21.994Z] GET /api/containers
+[2026-02-10T11:36:52.003Z] GET /api/containers
+[2026-02-10T11:37:22.008Z] GET /api/containers
+[2026-02-10T11:38:38.479Z] Dockviewer listening at http://localhost:3000
+[2026-02-10T11:38:42.442Z] GET /api/containers
+[2026-02-10T11:38:42.493Z] Refreshing update cache...
+[2026-02-10T11:38:42.493Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -n -m
+[2026-02-10T11:38:45.788Z] GET /api/containers?fresh=1
+[2026-02-10T11:38:45.838Z] Refreshing update cache...
+[2026-02-10T11:38:45.838Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -n -m
+[2026-02-10T11:38:48.605Z] Dockcheck Output (first 200 chars): 
+Containers on latest version:
+subtitle-translator
+
+Containers with updates available:
+changedetection
+mariadb
+
+No updates installed.
+...
+[2026-02-10T11:38:48.606Z] Parsing 10 lines of output
+[2026-02-10T11:38:48.606Z] Processing line: ""
+[2026-02-10T11:38:48.607Z] Processing line: "Containers on latest version:"
+[2026-02-10T11:38:48.607Z] Processing line: "subtitle-translator"
+[2026-02-10T11:38:48.607Z] Processing line: ""
+[2026-02-10T11:38:48.608Z] Processing line: "Containers with updates available:"
+[2026-02-10T11:38:48.608Z] Found header: Containers with updates available
+[2026-02-10T11:38:48.608Z] Processing line: "changedetection"
+[2026-02-10T11:38:48.609Z] Found container update: changedetection
+[2026-02-10T11:38:48.609Z] Processing line: "mariadb"
+[2026-02-10T11:38:48.609Z] Found container update: mariadb
+[2026-02-10T11:38:48.610Z] Processing line: ""
+[2026-02-10T11:38:48.610Z] Empty line, stopping read
+[2026-02-10T11:38:48.610Z] Processing line: "No updates installed."
+[2026-02-10T11:38:48.611Z] Processing line: ""
+[2026-02-10T11:38:48.611Z] Parsed updates: ["changedetection","mariadb"]
+[2026-02-10T11:38:51.824Z] Dockcheck Output (first 200 chars): 
+Containers on latest version:
+subtitle-translator
+
+Containers with updates available:
+changedetection
+mariadb
+
+No updates installed.
+...
+[2026-02-10T11:38:51.825Z] Parsing 10 lines of output
+[2026-02-10T11:38:51.825Z] Processing line: ""
+[2026-02-10T11:38:51.826Z] Processing line: "Containers on latest version:"
+[2026-02-10T11:38:51.826Z] Processing line: "subtitle-translator"
+[2026-02-10T11:38:51.826Z] Processing line: ""
+[2026-02-10T11:38:51.827Z] Processing line: "Containers with updates available:"
+[2026-02-10T11:38:51.827Z] Found header: Containers with updates available
+[2026-02-10T11:38:51.827Z] Processing line: "changedetection"
+[2026-02-10T11:38:51.828Z] Found container update: changedetection
+[2026-02-10T11:38:51.828Z] Processing line: "mariadb"
+[2026-02-10T11:38:51.828Z] Found container update: mariadb
+[2026-02-10T11:38:51.828Z] Processing line: ""
+[2026-02-10T11:38:51.829Z] Empty line, stopping read
+[2026-02-10T11:38:51.829Z] Processing line: "No updates installed."
+[2026-02-10T11:38:51.829Z] Processing line: ""
+[2026-02-10T11:38:51.830Z] Parsed updates: ["changedetection","mariadb"]
+[2026-02-10T11:38:52.116Z] GET /api/containers
+[2026-02-10T11:38:55.419Z] GET /api/containers?fresh=1
+[2026-02-10T11:39:01.668Z] POST /api/update/changedetection
+[2026-02-10T11:39:01.669Z] Updating container: changedetection
+[2026-02-10T11:39:01.670Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -y -m changedetection
+[2026-02-10T11:39:07.376Z] Dockcheck Output (first 200 chars): 
+Containers with updates available:
+changedetection
+
+Updating container(s):
+changedetection
+
+Now updating (1/1): changedetection
+latest: Pulling from linuxserver/changedetection.io
+Digest: sha256:b416...
+[2026-02-10T11:39:09.392Z] GET /api/containers
+[2026-02-10T11:39:13.344Z] GET /api/containers
+[2026-02-10T11:39:14.256Z] GET /api/containers
+[2026-02-10T11:39:27.464Z] GET /api/containers?fresh=1
+[2026-02-10T11:39:30.919Z] GET /api/containers?fresh=1
+[2026-02-10T11:39:35.341Z] GET /api/containers
+[2026-02-10T11:39:38.421Z] GET /api/containers
+[2026-02-10T11:39:38.599Z] GET /favicon.ico
+[2026-02-10T11:39:41.271Z] GET /api/containers
+[2026-02-10T11:40:11.288Z] GET /api/containers
+[2026-02-10T11:40:41.278Z] GET /api/containers
+[2026-02-10T11:41:11.285Z] GET /api/containers
+[2026-02-10T11:41:41.283Z] GET /api/containers
+[2026-02-10T11:42:11.289Z] GET /api/containers
+[2026-02-10T11:42:41.287Z] GET /api/containers
+[2026-02-10T11:43:11.284Z] GET /api/containers
+[2026-02-10T11:43:41.277Z] GET /api/containers
+[2026-02-10T11:44:11.287Z] GET /api/containers
+[2026-02-10T11:44:41.280Z] GET /api/containers
+[2026-02-10T11:45:11.280Z] GET /api/containers
+[2026-02-10T11:45:41.279Z] GET /api/containers
+[2026-02-10T11:46:11.278Z] GET /api/containers
+[2026-02-10T11:46:41.428Z] GET /api/containers
+[2026-02-10T11:47:11.433Z] GET /api/containers
+[2026-02-10T11:47:55.423Z] GET /api/containers
+[2026-02-10T11:48:55.426Z] GET /api/containers
+[2026-02-10T11:49:55.435Z] GET /api/containers
+[2026-02-10T11:50:55.433Z] GET /api/containers
+[2026-02-10T11:51:55.423Z] GET /api/containers
+[2026-02-10T11:52:55.435Z] GET /api/containers
+[2026-02-10T11:53:55.425Z] GET /api/containers
+[2026-02-10T11:53:55.477Z] Refreshing update cache...
+[2026-02-10T11:53:55.478Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -n -m
+[2026-02-10T11:54:01.928Z] Dockcheck Output (first 200 chars): 
+Containers on latest version:
+changedetection
+subtitle-translator
+
+Containers with updates available:
+mariadb
+
+No updates installed.
+...
+[2026-02-10T11:54:01.928Z] Parsing 10 lines of output
+[2026-02-10T11:54:01.929Z] Processing line: ""
+[2026-02-10T11:54:01.929Z] Processing line: "Containers on latest version:"
+[2026-02-10T11:54:01.929Z] Processing line: "changedetection"
+[2026-02-10T11:54:01.929Z] Processing line: "subtitle-translator"
+[2026-02-10T11:54:01.930Z] Processing line: ""
+[2026-02-10T11:54:01.930Z] Processing line: "Containers with updates available:"
+[2026-02-10T11:54:01.930Z] Found header: Containers with updates available
+[2026-02-10T11:54:01.931Z] Processing line: "mariadb"
+[2026-02-10T11:54:01.931Z] Found container update: mariadb
+[2026-02-10T11:54:01.932Z] Processing line: ""
+[2026-02-10T11:54:01.932Z] Empty line, stopping read
+[2026-02-10T11:54:01.932Z] Processing line: "No updates installed."
+[2026-02-10T11:54:01.933Z] Processing line: ""
+[2026-02-10T11:54:01.933Z] Parsed updates: ["mariadb"]
+[2026-02-10T11:54:55.432Z] GET /api/containers
+[2026-02-10T11:55:55.431Z] GET /api/containers
+[2026-02-10T11:56:55.424Z] GET /api/containers
+[2026-02-10T11:57:55.438Z] GET /api/containers
+[2026-02-10T11:58:55.435Z] GET /api/containers
+[2026-02-10T11:59:55.424Z] GET /api/containers
+[2026-02-10T12:00:17.140Z] GET /api/containers
+[2026-02-10T12:00:32.920Z] GET /api/containers
+[2026-02-10T12:00:32.998Z] GET /favicon.ico
+[2026-02-10T12:00:33.995Z] GET /api/containers
+[2026-02-10T12:01:04.419Z] GET /api/containers
+[2026-02-10T12:01:34.418Z] GET /api/containers
+[2026-02-10T12:02:04.432Z] GET /api/containers
+[2026-02-10T12:02:34.427Z] GET /api/containers
+[2026-02-10T12:03:04.420Z] GET /api/containers
+[2026-02-10T12:03:34.430Z] GET /api/containers
+[2026-02-10T12:04:55.430Z] GET /api/containers
+[2026-02-10T12:05:55.435Z] GET /api/containers
+[2026-02-10T12:06:55.434Z] GET /api/containers
+[2026-02-10T12:07:55.434Z] GET /api/containers
+[2026-02-10T12:08:55.423Z] GET /api/containers
+[2026-02-10T12:08:55.479Z] Refreshing update cache...
+[2026-02-10T12:08:55.479Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -n -m
+[2026-02-10T12:09:04.398Z] Dockcheck Output (first 200 chars): 
+Containers on latest version:
+!test-nginx - not checked, no compose file
+changedetection
+subtitle-translator
+
+Containers with updates available:
+mariadb
+
+No updates installed.
+...
+[2026-02-10T12:09:04.398Z] Parsing 11 lines of output
+[2026-02-10T12:09:04.399Z] Processing line: ""
+[2026-02-10T12:09:04.399Z] Processing line: "Containers on latest version:"
+[2026-02-10T12:09:04.400Z] Processing line: "!test-nginx - not checked, no compose file"
+[2026-02-10T12:09:04.400Z] Processing line: "changedetection"
+[2026-02-10T12:09:04.400Z] Processing line: "subtitle-translator"
+[2026-02-10T12:09:04.400Z] Processing line: ""
+[2026-02-10T12:09:04.401Z] Processing line: "Containers with updates available:"
+[2026-02-10T12:09:04.401Z] Found header: Containers with updates available
+[2026-02-10T12:09:04.401Z] Processing line: "mariadb"
+[2026-02-10T12:09:04.402Z] Found container update: mariadb
+[2026-02-10T12:09:04.402Z] Processing line: ""
+[2026-02-10T12:09:04.402Z] Empty line, stopping read
+[2026-02-10T12:09:04.402Z] Processing line: "No updates installed."
+[2026-02-10T12:09:04.403Z] Processing line: ""
+[2026-02-10T12:09:04.403Z] Parsed updates: ["mariadb"]
+[2026-02-10T12:09:55.422Z] GET /api/containers
+[2026-02-10T12:10:55.434Z] GET /api/containers
+[2026-02-10T12:11:55.419Z] GET /api/containers
+[2026-02-10T12:12:55.434Z] GET /api/containers
+[2026-02-10T12:13:55.426Z] GET /api/containers
+[2026-02-10T12:14:55.429Z] GET /api/containers
+[2026-02-10T12:15:55.427Z] GET /api/containers
+[2026-02-10T12:16:55.424Z] GET /api/containers
+[2026-02-10T12:17:55.428Z] GET /api/containers
+[2026-02-10T12:18:55.435Z] GET /api/containers
+[2026-02-10T12:19:55.431Z] GET /api/containers
+[2026-02-10T12:20:55.425Z] GET /api/containers
+[2026-02-10T12:21:55.431Z] GET /api/containers
+[2026-02-10T12:22:55.426Z] GET /api/containers
+[2026-02-10T12:23:55.423Z] GET /api/containers
+[2026-02-10T12:24:55.435Z] GET /api/containers
+[2026-02-10T12:24:55.493Z] Refreshing update cache...
+[2026-02-10T12:24:55.493Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -n -m
+[2026-02-10T12:25:01.407Z] Dockcheck Output (first 200 chars): 
+Containers on latest version:
+!test-nginx - not checked, no compose file
+changedetection
+subtitle-translator
+
+Containers with updates available:
+mariadb
+
+No updates installed.
+...
+[2026-02-10T12:25:01.407Z] Parsing 11 lines of output
+[2026-02-10T12:25:01.408Z] Processing line: ""
+[2026-02-10T12:25:01.408Z] Processing line: "Containers on latest version:"
+[2026-02-10T12:25:01.408Z] Processing line: "!test-nginx - not checked, no compose file"
+[2026-02-10T12:25:01.408Z] Processing line: "changedetection"
+[2026-02-10T12:25:01.409Z] Processing line: "subtitle-translator"
+[2026-02-10T12:25:01.409Z] Processing line: ""
+[2026-02-10T12:25:01.409Z] Processing line: "Containers with updates available:"
+[2026-02-10T12:25:01.410Z] Found header: Containers with updates available
+[2026-02-10T12:25:01.410Z] Processing line: "mariadb"
+[2026-02-10T12:25:01.410Z] Found container update: mariadb
+[2026-02-10T12:25:01.411Z] Processing line: ""
+[2026-02-10T12:25:01.411Z] Empty line, stopping read
+[2026-02-10T12:25:01.411Z] Processing line: "No updates installed."
+[2026-02-10T12:25:01.411Z] Processing line: ""
+[2026-02-10T12:25:01.412Z] Parsed updates: ["mariadb"]
+[2026-02-10T12:25:55.432Z] GET /api/containers
+[2026-02-10T12:26:55.433Z] GET /api/containers
+[2026-02-10T12:27:55.434Z] GET /api/containers
+[2026-02-10T12:28:55.430Z] GET /api/containers
+[2026-02-10T12:29:55.423Z] GET /api/containers
+[2026-02-10T12:30:55.428Z] GET /api/containers
+[2026-02-10T12:31:55.428Z] GET /api/containers
+[2026-02-10T12:32:55.431Z] GET /api/containers
+[2026-02-10T12:33:55.435Z] GET /api/containers
+[2026-02-10T12:34:55.424Z] GET /api/containers
+[2026-02-10T12:35:55.424Z] GET /api/containers
+[2026-02-10T12:36:55.432Z] GET /api/containers
+[2026-02-10T12:37:55.429Z] GET /api/containers
+[2026-02-10T12:38:55.425Z] GET /api/containers
+[2026-02-10T12:39:55.433Z] GET /api/containers
+[2026-02-10T12:40:55.421Z] GET /api/containers
+[2026-02-10T12:40:55.477Z] Refreshing update cache...
+[2026-02-10T12:40:55.478Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -n -m
+[2026-02-10T12:41:05.070Z] Dockcheck Output (first 200 chars): 
+Containers on latest version:
+changedetection
+subtitle-translator
+test-nginx
+
+Containers with updates available:
+mariadb
+
+No updates installed.
+...
+[2026-02-10T12:41:05.070Z] Parsing 11 lines of output
+[2026-02-10T12:41:05.071Z] Processing line: ""
+[2026-02-10T12:41:05.071Z] Processing line: "Containers on latest version:"
+[2026-02-10T12:41:05.072Z] Processing line: "changedetection"
+[2026-02-10T12:41:05.072Z] Processing line: "subtitle-translator"
+[2026-02-10T12:41:05.072Z] Processing line: "test-nginx"
+[2026-02-10T12:41:05.072Z] Processing line: ""
+[2026-02-10T12:41:05.073Z] Processing line: "Containers with updates available:"
+[2026-02-10T12:41:05.073Z] Found header: Containers with updates available
+[2026-02-10T12:41:05.073Z] Processing line: "mariadb"
+[2026-02-10T12:41:05.074Z] Found container update: mariadb
+[2026-02-10T12:41:05.074Z] Processing line: ""
+[2026-02-10T12:41:05.074Z] Empty line, stopping read
+[2026-02-10T12:41:05.075Z] Processing line: "No updates installed."
+[2026-02-10T12:41:05.075Z] Processing line: ""
+[2026-02-10T12:41:05.075Z] Parsed updates: ["mariadb"]
+[2026-02-10T12:41:55.422Z] GET /api/containers
+[2026-02-10T12:42:55.419Z] GET /api/containers
+[2026-02-10T12:43:55.423Z] GET /api/containers
+[2026-02-10T12:44:55.425Z] GET /api/containers
+[2026-02-10T12:45:55.433Z] GET /api/containers
+[2026-02-10T12:46:55.434Z] GET /api/containers
+[2026-02-10T12:47:55.422Z] GET /api/containers
+[2026-02-10T12:48:55.432Z] GET /api/containers
+[2026-02-10T12:49:38.850Z] GET /api/containers
+[2026-02-10T12:49:41.326Z] GET /api/containers
+[2026-02-10T12:49:44.846Z] GET /api/containers
+[2026-02-10T12:50:01.754Z] GET /api/containers
+[2026-02-10T12:50:31.755Z] GET /api/containers
+[2026-02-10T12:51:01.768Z] GET /api/containers
+[2026-02-10T12:51:31.756Z] GET /api/containers
+[2026-02-10T12:52:01.764Z] GET /api/containers
+[2026-02-10T12:52:31.763Z] GET /api/containers
+[2026-02-10T12:53:01.759Z] GET /api/containers
+[2026-02-10T12:53:31.766Z] GET /api/containers
+[2026-02-10T12:54:01.759Z] GET /api/containers
+[2026-02-10T12:54:32.422Z] GET /api/containers
+[2026-02-10T12:55:02.432Z] GET /api/containers
+[2026-02-10T12:55:55.428Z] GET /api/containers
+[2026-02-10T12:55:55.488Z] Refreshing update cache...
+[2026-02-10T12:55:55.489Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -n -m
+[2026-02-10T12:56:00.777Z] Dockcheck Output (first 200 chars): 
+Containers on latest version:
+changedetection
+subtitle-translator
+
+Containers with updates available:
+mariadb
+
+No updates installed.
+...
+[2026-02-10T12:56:00.778Z] Parsing 10 lines of output
+[2026-02-10T12:56:00.778Z] Processing line: ""
+[2026-02-10T12:56:00.778Z] Processing line: "Containers on latest version:"
+[2026-02-10T12:56:00.779Z] Processing line: "changedetection"
+[2026-02-10T12:56:00.779Z] Processing line: "subtitle-translator"
+[2026-02-10T12:56:00.779Z] Processing line: ""
+[2026-02-10T12:56:00.779Z] Processing line: "Containers with updates available:"
+[2026-02-10T12:56:00.780Z] Found header: Containers with updates available
+[2026-02-10T12:56:00.780Z] Processing line: "mariadb"
+[2026-02-10T12:56:00.780Z] Found container update: mariadb
+[2026-02-10T12:56:00.780Z] Processing line: ""
+[2026-02-10T12:56:00.781Z] Empty line, stopping read
+[2026-02-10T12:56:00.781Z] Processing line: "No updates installed."
+[2026-02-10T12:56:00.781Z] Processing line: ""
+[2026-02-10T12:56:00.781Z] Parsed updates: ["mariadb"]
+[2026-02-10T12:56:55.438Z] GET /api/containers
+[2026-02-10T12:57:55.434Z] GET /api/containers
+[2026-02-10T12:58:55.430Z] GET /api/containers
+[2026-02-10T12:59:55.421Z] GET /api/containers
+[2026-02-10T13:00:55.432Z] GET /api/containers
+[2026-02-10T13:01:55.430Z] GET /api/containers
+[2026-02-10T13:02:55.427Z] GET /api/containers
+[2026-02-10T13:03:55.423Z] GET /api/containers
+[2026-02-10T13:04:55.428Z] GET /api/containers
+[2026-02-10T13:05:55.418Z] GET /api/containers
+[2026-02-10T13:06:55.434Z] GET /api/containers
+[2026-02-10T13:07:55.431Z] GET /api/containers
+[2026-02-10T13:08:55.432Z] GET /api/containers
+[2026-02-10T13:09:55.423Z] GET /api/containers
+[2026-02-10T13:10:55.430Z] GET /api/containers
+[2026-02-10T13:11:55.427Z] GET /api/containers
+[2026-02-10T13:11:55.483Z] Refreshing update cache...
+[2026-02-10T13:11:55.484Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -n -m
+[2026-02-10T13:12:02.140Z] Dockcheck Output (first 200 chars): 
+Containers on latest version:
+changedetection
+subtitle-translator
+
+Containers with updates available:
+mariadb
+
+No updates installed.
+...
+[2026-02-10T13:12:02.141Z] Parsing 10 lines of output
+[2026-02-10T13:12:02.141Z] Processing line: ""
+[2026-02-10T13:12:02.141Z] Processing line: "Containers on latest version:"
+[2026-02-10T13:12:02.142Z] Processing line: "changedetection"
+[2026-02-10T13:12:02.142Z] Processing line: "subtitle-translator"
+[2026-02-10T13:12:02.142Z] Processing line: ""
+[2026-02-10T13:12:02.143Z] Processing line: "Containers with updates available:"
+[2026-02-10T13:12:02.143Z] Found header: Containers with updates available
+[2026-02-10T13:12:02.143Z] Processing line: "mariadb"
+[2026-02-10T13:12:02.144Z] Found container update: mariadb
+[2026-02-10T13:12:02.144Z] Processing line: ""
+[2026-02-10T13:12:02.144Z] Empty line, stopping read
+[2026-02-10T13:12:02.144Z] Processing line: "No updates installed."
+[2026-02-10T13:12:02.145Z] Processing line: ""
+[2026-02-10T13:12:02.145Z] Parsed updates: ["mariadb"]
+[2026-02-10T13:12:55.441Z] GET /api/containers
+[2026-02-10T13:13:55.419Z] GET /api/containers
+[2026-02-10T13:14:55.433Z] GET /api/containers
+[2026-02-10T13:15:55.428Z] GET /api/containers
+[2026-02-10T13:16:55.435Z] GET /api/containers
+[2026-02-10T13:17:55.427Z] GET /api/containers
+[2026-02-10T13:18:55.431Z] GET /api/containers
+[2026-02-10T13:19:55.429Z] GET /api/containers
+[2026-02-10T13:20:55.435Z] GET /api/containers
+[2026-02-10T13:21:55.430Z] GET /api/containers
+[2026-02-10T13:22:55.430Z] GET /api/containers
+[2026-02-10T13:23:55.436Z] GET /api/containers
+[2026-02-10T13:24:55.431Z] GET /api/containers
+[2026-02-10T13:25:55.421Z] GET /api/containers
+[2026-02-10T13:26:55.434Z] GET /api/containers
+[2026-02-10T13:26:55.496Z] Refreshing update cache...
+[2026-02-10T13:26:55.496Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -n -m
+[2026-02-10T13:27:01.896Z] Dockcheck Output (first 200 chars): 
+Containers on latest version:
+changedetection
+subtitle-translator
+
+Containers with updates available:
+mariadb
+
+No updates installed.
+...
+[2026-02-10T13:27:01.896Z] Parsing 10 lines of output
+[2026-02-10T13:27:01.896Z] Processing line: ""
+[2026-02-10T13:27:01.897Z] Processing line: "Containers on latest version:"
+[2026-02-10T13:27:01.897Z] Processing line: "changedetection"
+[2026-02-10T13:27:01.898Z] Processing line: "subtitle-translator"
+[2026-02-10T13:27:01.898Z] Processing line: ""
+[2026-02-10T13:27:01.898Z] Processing line: "Containers with updates available:"
+[2026-02-10T13:27:01.898Z] Found header: Containers with updates available
+[2026-02-10T13:27:01.899Z] Processing line: "mariadb"
+[2026-02-10T13:27:01.899Z] Found container update: mariadb
+[2026-02-10T13:27:01.899Z] Processing line: ""
+[2026-02-10T13:27:01.900Z] Empty line, stopping read
+[2026-02-10T13:27:01.900Z] Processing line: "No updates installed."
+[2026-02-10T13:27:01.900Z] Processing line: ""
+[2026-02-10T13:27:01.901Z] Parsed updates: ["mariadb"]
+[2026-02-10T13:27:55.431Z] GET /api/containers
+[2026-02-10T13:28:55.433Z] GET /api/containers
+[2026-02-10T13:29:55.432Z] GET /api/containers
+[2026-02-10T13:30:55.427Z] GET /api/containers
+[2026-02-10T13:31:55.430Z] GET /api/containers
+[2026-02-10T13:32:55.421Z] GET /api/containers
+[2026-02-10T13:33:55.421Z] GET /api/containers
+[2026-02-10T13:34:55.432Z] GET /api/containers
+[2026-02-10T13:35:55.429Z] GET /api/containers
+[2026-02-10T13:36:55.429Z] GET /api/containers
+[2026-02-10T13:37:55.430Z] GET /api/containers
+[2026-02-10T13:38:55.427Z] GET /api/containers
+[2026-02-10T13:39:55.434Z] GET /api/containers
+[2026-02-10T13:40:55.432Z] GET /api/containers
+[2026-02-10T13:41:55.434Z] GET /api/containers
+[2026-02-10T13:42:55.430Z] GET /api/containers
+[2026-02-10T13:42:55.489Z] Refreshing update cache...
+[2026-02-10T13:42:55.490Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -n -m
+[2026-02-10T13:43:01.990Z] Dockcheck Output (first 200 chars): 
+Containers on latest version:
+changedetection
+subtitle-translator
+
+Containers with updates available:
+mariadb
+
+No updates installed.
+...
+[2026-02-10T13:43:01.990Z] Parsing 10 lines of output
+[2026-02-10T13:43:01.991Z] Processing line: ""
+[2026-02-10T13:43:01.991Z] Processing line: "Containers on latest version:"
+[2026-02-10T13:43:01.991Z] Processing line: "changedetection"
+[2026-02-10T13:43:01.992Z] Processing line: "subtitle-translator"
+[2026-02-10T13:43:01.992Z] Processing line: ""
+[2026-02-10T13:43:01.992Z] Processing line: "Containers with updates available:"
+[2026-02-10T13:43:01.993Z] Found header: Containers with updates available
+[2026-02-10T13:43:01.993Z] Processing line: "mariadb"
+[2026-02-10T13:43:01.993Z] Found container update: mariadb
+[2026-02-10T13:43:01.993Z] Processing line: ""
+[2026-02-10T13:43:01.994Z] Empty line, stopping read
+[2026-02-10T13:43:01.994Z] Processing line: "No updates installed."
+[2026-02-10T13:43:01.995Z] Processing line: ""
+[2026-02-10T13:43:01.995Z] Parsed updates: ["mariadb"]
+[2026-02-10T13:43:55.421Z] GET /api/containers
+[2026-02-10T13:44:55.431Z] GET /api/containers
+[2026-02-10T13:45:55.431Z] GET /api/containers
+[2026-02-10T13:46:55.422Z] GET /api/containers
+[2026-02-10T13:47:55.430Z] GET /api/containers
+[2026-02-10T13:48:55.429Z] GET /api/containers
+[2026-02-10T13:49:55.434Z] GET /api/containers
+[2026-02-10T13:50:55.435Z] GET /api/containers
+[2026-02-10T13:51:55.429Z] GET /api/containers
+[2026-02-10T13:52:55.428Z] GET /api/containers
+[2026-02-10T13:53:55.428Z] GET /api/containers
+[2026-02-10T13:54:55.421Z] GET /api/containers
+[2026-02-10T13:55:55.421Z] GET /api/containers
+[2026-02-10T13:56:55.438Z] GET /api/containers
+[2026-02-10T13:57:55.433Z] GET /api/containers
+[2026-02-10T13:57:55.508Z] Refreshing update cache...
+[2026-02-10T13:57:55.509Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -n -m
+[2026-02-10T13:58:05.253Z] Dockcheck Output (first 200 chars): 
+Containers on latest version:
+changedetection
+registry-server
+registry-ui
+subtitle-translator
+
+Containers with updates available:
+mariadb
+
+No updates installed.
+...
+[2026-02-10T13:58:05.284Z] Parsing 12 lines of output
+[2026-02-10T13:58:05.285Z] Processing line: ""
+[2026-02-10T13:58:05.285Z] Processing line: "Containers on latest version:"
+[2026-02-10T13:58:05.285Z] Processing line: "changedetection"
+[2026-02-10T13:58:05.286Z] Processing line: "registry-server"
+[2026-02-10T13:58:05.286Z] Processing line: "registry-ui"
+[2026-02-10T13:58:05.286Z] Processing line: "subtitle-translator"
+[2026-02-10T13:58:05.287Z] Processing line: ""
+[2026-02-10T13:58:05.287Z] Processing line: "Containers with updates available:"
+[2026-02-10T13:58:05.287Z] Found header: Containers with updates available
+[2026-02-10T13:58:05.287Z] Processing line: "mariadb"
+[2026-02-10T13:58:05.288Z] Found container update: mariadb
+[2026-02-10T13:58:05.288Z] Processing line: ""
+[2026-02-10T13:58:05.288Z] Empty line, stopping read
+[2026-02-10T13:58:05.288Z] Processing line: "No updates installed."
+[2026-02-10T13:58:05.289Z] Processing line: ""
+[2026-02-10T13:58:05.289Z] Parsed updates: ["mariadb"]
+[2026-02-10T13:58:55.439Z] GET /api/containers
+[2026-02-10T13:59:55.421Z] GET /api/containers
+[2026-02-10T14:00:55.438Z] GET /api/containers
+[2026-02-10T14:01:55.430Z] GET /api/containers
+[2026-02-10T14:02:55.424Z] GET /api/containers
+[2026-02-10T14:03:55.428Z] GET /api/containers
+[2026-02-10T14:04:55.430Z] GET /api/containers
+[2026-02-10T14:05:55.425Z] GET /api/containers
+[2026-02-10T14:06:55.428Z] GET /api/containers
+[2026-02-10T14:07:55.442Z] GET /api/containers
+[2026-02-10T14:08:55.434Z] GET /api/containers
+[2026-02-10T14:09:55.433Z] GET /api/containers
+[2026-02-10T14:10:55.428Z] GET /api/containers
+[2026-02-10T14:11:55.426Z] GET /api/containers
+[2026-02-10T14:12:55.424Z] GET /api/containers
+[2026-02-10T14:13:55.429Z] GET /api/containers
+[2026-02-10T14:13:55.498Z] Refreshing update cache...
+[2026-02-10T14:13:55.499Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -n -m
+[2026-02-10T14:14:00.131Z] Dockcheck Output (first 200 chars): 
+No updates available.
+...
+[2026-02-10T14:14:00.131Z] Parsing 3 lines of output
+[2026-02-10T14:14:00.131Z] Processing line: ""
+[2026-02-10T14:14:00.132Z] Processing line: "No updates available."
+[2026-02-10T14:14:00.132Z] Processing line: ""
+[2026-02-10T14:14:00.132Z] Parsed updates: []
+[2026-02-10T14:14:55.432Z] GET /api/containers
+[2026-02-10T14:15:55.429Z] GET /api/containers
+[2026-02-10T14:16:55.426Z] GET /api/containers
+[2026-02-10T14:17:55.443Z] GET /api/containers
+[2026-02-10T14:18:55.425Z] GET /api/containers
+[2026-02-10T14:19:55.435Z] GET /api/containers
+[2026-02-10T14:20:55.433Z] GET /api/containers
+[2026-02-10T14:21:55.427Z] GET /api/containers
+[2026-02-10T14:22:55.438Z] GET /api/containers
+[2026-02-10T14:23:55.431Z] GET /api/containers
+[2026-02-10T14:24:55.426Z] GET /api/containers
+[2026-02-10T14:53:58.515Z] GET /favicon.ico
+[2026-02-10T14:54:14.778Z] GET /api/containers
+[2026-02-10T14:54:14.841Z] Refreshing update cache...
+[2026-02-10T14:54:14.841Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -n -m
+[2026-02-10T14:54:15.112Z] GET /api/containers
+[2026-02-10T14:54:15.171Z] Refreshing update cache...
+[2026-02-10T14:54:15.172Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -n -m
+[2026-02-10T14:54:15.403Z] GET /favicon.ico
+[2026-02-10T14:54:22.620Z] Dockcheck Output (first 200 chars): 
+Containers on latest version:
+!admiring_nash - not checked, no compose file
+docker-registry
+registry-ui
+
+No updates available.
+...
+[2026-02-10T14:54:22.621Z] Parsing 8 lines of output
+[2026-02-10T14:54:22.621Z] Processing line: ""
+[2026-02-10T14:54:22.621Z] Processing line: "Containers on latest version:"
+[2026-02-10T14:54:22.622Z] Processing line: "!admiring_nash - not checked, no compose file"
+[2026-02-10T14:54:22.622Z] Processing line: "docker-registry"
+[2026-02-10T14:54:22.622Z] Processing line: "registry-ui"
+[2026-02-10T14:54:22.623Z] Processing line: ""
+[2026-02-10T14:54:22.623Z] Processing line: "No updates available."
+[2026-02-10T14:54:22.623Z] Processing line: ""
+[2026-02-10T14:54:22.624Z] Parsed updates: []
+[2026-02-10T14:54:22.672Z] Dockcheck Output (first 200 chars): 
+Containers on latest version:
+!admiring_nash - not checked, no compose file
+docker-registry
+registry-ui
+
+No updates available.
+...
+[2026-02-10T14:54:22.673Z] Parsing 8 lines of output
+[2026-02-10T14:54:22.673Z] Processing line: ""
+[2026-02-10T14:54:22.674Z] Processing line: "Containers on latest version:"
+[2026-02-10T14:54:22.674Z] Processing line: "!admiring_nash - not checked, no compose file"
+[2026-02-10T14:54:22.674Z] Processing line: "docker-registry"
+[2026-02-10T14:54:22.674Z] Processing line: "registry-ui"
+[2026-02-10T14:54:22.675Z] Processing line: ""
+[2026-02-10T14:54:22.675Z] Processing line: "No updates available."
+[2026-02-10T14:54:22.675Z] Processing line: ""
+[2026-02-10T14:54:22.675Z] Parsed updates: []
+[2026-02-10T14:54:45.429Z] GET /api/containers
+[2026-02-10T14:55:15.431Z] GET /api/containers
+[2026-02-10T14:55:45.425Z] GET /api/containers
+[2026-02-10T14:56:15.434Z] GET /api/containers
+[2026-02-10T14:56:45.427Z] GET /api/containers
+[2026-02-10T14:57:15.433Z] GET /api/containers
+[2026-02-10T14:57:55.435Z] GET /api/containers
+[2026-02-10T14:58:55.438Z] GET /api/containers
+[2026-02-10T14:59:55.436Z] GET /api/containers
+[2026-02-10T15:00:55.428Z] GET /api/containers
+[2026-02-10T15:01:55.431Z] GET /api/containers
+[2026-02-10T15:02:55.435Z] GET /api/containers
+[2026-02-10T15:03:55.433Z] GET /api/containers
+[2026-02-10T15:04:55.433Z] GET /api/containers
+[2026-02-10T15:05:55.437Z] GET /api/containers
+[2026-02-10T15:06:55.427Z] GET /api/containers
+[2026-02-10T15:07:55.436Z] GET /api/containers
+[2026-02-10T15:08:55.436Z] GET /api/containers
+[2026-02-10T15:09:55.430Z] GET /api/containers
+[2026-02-10T15:09:55.497Z] Refreshing update cache...
+[2026-02-10T15:09:55.497Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -n -m
+[2026-02-10T15:10:00.769Z] Dockcheck Output (first 200 chars): 
+Containers on latest version:
+!amazing_swartz - not checked, no compose file
+!portainer - not checked, no compose file
+docker-registry
+registry-ui
+
+No updates available.
+...
+[2026-02-10T15:10:00.770Z] Parsing 9 lines of output
+[2026-02-10T15:10:00.770Z] Processing line: ""
+[2026-02-10T15:10:00.770Z] Processing line: "Containers on latest version:"
+[2026-02-10T15:10:00.771Z] Processing line: "!amazing_swartz - not checked, no compose file"
+[2026-02-10T15:10:00.771Z] Processing line: "!portainer - not checked, no compose file"
+[2026-02-10T15:10:00.771Z] Processing line: "docker-registry"
+[2026-02-10T15:10:00.772Z] Processing line: "registry-ui"
+[2026-02-10T15:10:00.772Z] Processing line: ""
+[2026-02-10T15:10:00.772Z] Processing line: "No updates available."
+[2026-02-10T15:10:00.773Z] Processing line: ""
+[2026-02-10T15:10:00.773Z] Parsed updates: []
+[2026-02-10T15:10:55.431Z] GET /api/containers
+[2026-02-10T15:11:55.423Z] GET /api/containers
+[2026-02-10T15:12:55.428Z] GET /api/containers
+[2026-02-10T15:13:55.423Z] GET /api/containers
+[2026-02-10T15:14:55.426Z] GET /api/containers
+[2026-02-10T15:15:55.432Z] GET /api/containers
+[2026-02-10T15:16:55.439Z] GET /api/containers
+[2026-02-10T15:17:55.436Z] GET /api/containers
+[2026-02-10T15:18:27.351Z] GET /api/containers
+[2026-02-10T15:18:29.205Z] GET /api/containers?fresh=1
+[2026-02-10T15:18:31.384Z] GET /api/containers?fresh=1
+[2026-02-10T15:18:34.367Z] GET /api/containers
+[2026-02-10T15:18:35.232Z] GET /api/containers
+[2026-02-10T15:18:37.582Z] GET /api/containers
+[2026-02-10T15:18:37.765Z] GET /favicon.ico
+[2026-02-10T15:18:38.648Z] GET /api/containers
+[2026-02-10T15:18:38.791Z] GET /favicon.ico
+[2026-02-10T15:19:00.335Z] GET /api/containers
+[2026-02-10T15:19:30.434Z] GET /api/containers
+[2026-02-10T15:20:00.431Z] GET /api/containers
+[2026-02-10T15:20:30.421Z] GET /api/containers
+[2026-02-10T15:20:34.422Z] GET /api/containers
+[2026-02-10T15:20:35.362Z] GET /api/containers
+[2026-02-10T15:20:36.003Z] GET /api/containers
+[2026-02-10T15:21:05.998Z] GET /api/containers
+[2026-02-10T15:21:35.999Z] GET /api/containers
+[2026-02-10T15:22:06.433Z] GET /api/containers
+[2026-02-10T15:22:36.433Z] GET /api/containers
+[2026-02-10T15:23:06.435Z] GET /api/containers
+[2026-02-10T15:23:36.425Z] GET /api/containers
+[2026-02-10T15:24:55.425Z] GET /api/containers
+[2026-02-10T15:25:55.432Z] GET /api/containers
+[2026-02-10T15:25:55.488Z] Refreshing update cache...
+[2026-02-10T15:25:55.488Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -n -m
+[2026-02-10T15:26:00.353Z] Dockcheck Output (first 200 chars): 
+Containers on latest version:
+!portainer - not checked, no compose file
+docker-registry
+registry-ui
+
+No updates available.
+...
+[2026-02-10T15:26:00.354Z] Parsing 8 lines of output
+[2026-02-10T15:26:00.354Z] Processing line: ""
+[2026-02-10T15:26:00.354Z] Processing line: "Containers on latest version:"
+[2026-02-10T15:26:00.355Z] Processing line: "!portainer - not checked, no compose file"
+[2026-02-10T15:26:00.355Z] Processing line: "docker-registry"
+[2026-02-10T15:26:00.355Z] Processing line: "registry-ui"
+[2026-02-10T15:26:00.355Z] Processing line: ""
+[2026-02-10T15:26:00.356Z] Processing line: "No updates available."
+[2026-02-10T15:26:00.356Z] Processing line: ""
+[2026-02-10T15:26:00.356Z] Parsed updates: []
+[2026-02-10T15:26:26.316Z] GET /api/containers
+[2026-02-10T15:26:30.321Z] GET /api/containers
+[2026-02-10T15:27:00.420Z] GET /api/containers
+[2026-02-10T15:27:30.429Z] GET /api/containers
+[2026-02-10T15:28:00.430Z] GET /api/containers
+[2026-02-10T15:28:30.428Z] GET /api/containers
+[2026-02-10T15:29:00.432Z] GET /api/containers
+[2026-02-10T15:29:30.429Z] GET /api/containers
+[2026-02-10T15:30:55.431Z] GET /api/containers
+[2026-02-10T15:31:28.892Z] GET /api/containers
+[2026-02-10T15:31:30.967Z] GET /api/containers
+[2026-02-10T15:31:31.202Z] GET /favicon.ico
+[2026-02-10T15:31:32.069Z] GET /api/containers
+[2026-02-10T15:31:32.155Z] GET /favicon.ico
+[2026-02-10T15:31:32.732Z] GET /api/containers
+[2026-02-10T15:31:32.846Z] GET /favicon.ico
+[2026-02-10T15:31:33.257Z] GET /api/containers
+[2026-02-10T15:31:33.347Z] GET /favicon.ico
+[2026-02-10T15:31:35.888Z] GET /api/containers?fresh=1
+[2026-02-10T15:31:38.365Z] GET /api/containers?fresh=1
+[2026-02-10T15:31:38.487Z] GET /favicon.ico
+[2026-02-10T15:31:39.009Z] GET /api/containers?fresh=1
+[2026-02-10T15:31:39.131Z] GET /favicon.ico
+[2026-02-10T15:31:45.136Z] GET /api/containers
+[2026-02-10T15:31:46.763Z] GET /api/containers
+[2026-02-10T15:32:00.793Z] GET /api/containers?fresh=7
+[2026-02-10T15:32:17.427Z] GET /api/containers
+[2026-02-10T15:32:33.180Z] Dockviewer listening at http://localhost:3000
+[2026-02-10T15:32:38.871Z] GET /api/containers?fresh=7
+[2026-02-10T15:32:38.946Z] Refreshing update cache...
+[2026-02-10T15:32:38.947Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -n -m
+[2026-02-10T15:32:44.697Z] Dockcheck Output (first 200 chars): 
+Containers on latest version:
+!portainer - not checked, no compose file
+docker-registry
+registry-ui
+testapp-2
+
+Containers with updates available:
+testapp-1
+
+No updates installed.
+...
+[2026-02-10T15:32:44.698Z] Parsing 12 lines of output
+[2026-02-10T15:32:44.698Z] Processing line: ""
+[2026-02-10T15:32:44.698Z] Processing line: "Containers on latest version:"
+[2026-02-10T15:32:44.699Z] Processing line: "!portainer - not checked, no compose file"
+[2026-02-10T15:32:44.699Z] Processing line: "docker-registry"
+[2026-02-10T15:32:44.699Z] Processing line: "registry-ui"
+[2026-02-10T15:32:44.700Z] Processing line: "testapp-2"
+[2026-02-10T15:32:44.700Z] Processing line: ""
+[2026-02-10T15:32:44.700Z] Processing line: "Containers with updates available:"
+[2026-02-10T15:32:44.700Z] Found header: Containers with updates available
+[2026-02-10T15:32:44.701Z] Processing line: "testapp-1"
+[2026-02-10T15:32:44.701Z] Found container update: testapp-1
+[2026-02-10T15:32:44.701Z] Processing line: ""
+[2026-02-10T15:32:44.702Z] Empty line, stopping read
+[2026-02-10T15:32:44.702Z] Processing line: "No updates installed."
+[2026-02-10T15:32:44.702Z] Processing line: ""
+[2026-02-10T15:32:44.703Z] Parsed updates: ["testapp-1"]
+[2026-02-10T15:32:46.764Z] GET /api/containers
+[2026-02-10T15:38:13.147Z] Dockviewer listening at http://localhost:3000
+[2026-02-10T15:38:45.562Z] GET /api/containers?force=true
+[2026-02-10T15:38:45.636Z] Refreshing update cache... (Force: true)
+[2026-02-10T15:38:45.637Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -n -m
+[2026-02-10T15:38:52.778Z] GET /api/containers
+[2026-02-10T15:38:52.840Z] Dockcheck Output (first 200 chars): 
+Containers on latest version:
+!portainer - not checked, no compose file
+docker-registry
+registry-ui
+testapp-2
+
+Containers with updates available:
+testapp-1
+
+No updates installed.
+...
+[2026-02-10T15:38:52.841Z] Parsing 12 lines of output
+[2026-02-10T15:38:52.841Z] Processing line: ""
+[2026-02-10T15:38:52.842Z] Processing line: "Containers on latest version:"
+[2026-02-10T15:38:52.842Z] Processing line: "!portainer - not checked, no compose file"
+[2026-02-10T15:38:52.843Z] Processing line: "docker-registry"
+[2026-02-10T15:38:52.843Z] Processing line: "registry-ui"
+[2026-02-10T15:38:52.843Z] Processing line: "testapp-2"
+[2026-02-10T15:38:52.844Z] Processing line: ""
+[2026-02-10T15:38:52.844Z] Processing line: "Containers with updates available:"
+[2026-02-10T15:38:52.845Z] Found header: Containers with updates available
+[2026-02-10T15:38:52.845Z] Processing line: "testapp-1"
+[2026-02-10T15:38:52.846Z] Found container update: testapp-1
+[2026-02-10T15:38:52.846Z] Processing line: ""
+[2026-02-10T15:38:52.847Z] Empty line, stopping read
+[2026-02-10T15:38:52.847Z] Processing line: "No updates installed."
+[2026-02-10T15:38:52.847Z] Processing line: ""
+[2026-02-10T15:38:52.848Z] Parsed updates: ["testapp-1"]
+[2026-02-10T15:39:22.770Z] GET /api/containers
+[2026-02-10T15:39:40.446Z] GET /api/containers
+[2026-02-10T15:40:11.434Z] GET /api/containers
+[2026-02-10T15:40:51.210Z] Dockviewer listening at http://localhost:3000
+[2026-02-10T15:41:10.755Z] GET /api/containers
+[2026-02-10T15:41:10.818Z] Refreshing update cache... (Force: false)
+[2026-02-10T15:41:10.818Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -n -m
+[2026-02-10T15:41:13.806Z] GET /api/containers
+[2026-02-10T15:41:13.868Z] Refreshing update cache... (Force: false)
+[2026-02-10T15:41:13.869Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -n -m
+[2026-02-10T15:41:14.018Z] GET /favicon.ico
+[2026-02-10T15:41:16.513Z] Dockcheck Output (first 200 chars): 
+Containers on latest version:
+!portainer - not checked, no compose file
+docker-registry
+registry-ui
+testapp-2
+
+Containers with updates available:
+testapp-1
+
+No updates installed.
+...
+[2026-02-10T15:41:16.513Z] Parsing 12 lines of output
+[2026-02-10T15:41:16.514Z] Processing line: ""
+[2026-02-10T15:41:16.514Z] Processing line: "Containers on latest version:"
+[2026-02-10T15:41:16.515Z] Processing line: "!portainer - not checked, no compose file"
+[2026-02-10T15:41:16.515Z] Processing line: "docker-registry"
+[2026-02-10T15:41:16.515Z] Processing line: "registry-ui"
+[2026-02-10T15:41:16.516Z] Processing line: "testapp-2"
+[2026-02-10T15:41:16.516Z] Processing line: ""
+[2026-02-10T15:41:16.516Z] Processing line: "Containers with updates available:"
+[2026-02-10T15:41:16.517Z] Found header: Containers with updates available
+[2026-02-10T15:41:16.517Z] Processing line: "testapp-1"
+[2026-02-10T15:41:16.517Z] Found container update: testapp-1
+[2026-02-10T15:41:16.517Z] Processing line: ""
+[2026-02-10T15:41:16.518Z] Empty line, stopping read
+[2026-02-10T15:41:16.518Z] Processing line: "No updates installed."
+[2026-02-10T15:41:16.518Z] Processing line: ""
+[2026-02-10T15:41:16.519Z] Parsed updates: ["testapp-1"]
+[2026-02-10T15:41:19.303Z] Dockcheck Output (first 200 chars): 
+Containers on latest version:
+!portainer - not checked, no compose file
+docker-registry
+registry-ui
+testapp-2
+
+Containers with updates available:
+testapp-1
+
+No updates installed.
+...
+[2026-02-10T15:41:19.304Z] Parsing 12 lines of output
+[2026-02-10T15:41:19.304Z] Processing line: ""
+[2026-02-10T15:41:19.304Z] Processing line: "Containers on latest version:"
+[2026-02-10T15:41:19.305Z] Processing line: "!portainer - not checked, no compose file"
+[2026-02-10T15:41:19.305Z] Processing line: "docker-registry"
+[2026-02-10T15:41:19.305Z] Processing line: "registry-ui"
+[2026-02-10T15:41:19.306Z] Processing line: "testapp-2"
+[2026-02-10T15:41:19.306Z] Processing line: ""
+[2026-02-10T15:41:19.306Z] Processing line: "Containers with updates available:"
+[2026-02-10T15:41:19.306Z] Found header: Containers with updates available
+[2026-02-10T15:41:19.306Z] Processing line: "testapp-1"
+[2026-02-10T15:41:19.307Z] Found container update: testapp-1
+[2026-02-10T15:41:19.307Z] Processing line: ""
+[2026-02-10T15:41:19.307Z] Empty line, stopping read
+[2026-02-10T15:41:19.308Z] Processing line: "No updates installed."
+[2026-02-10T15:41:19.308Z] Processing line: ""
+[2026-02-10T15:41:19.308Z] Parsed updates: ["testapp-1"]
+[2026-02-10T15:41:43.812Z] GET /api/containers
+[2026-02-10T15:42:14.427Z] GET /api/containers
+[2026-02-10T15:42:27.053Z] GET /.well-known/appspecific/com.chrome.devtools.json
+[2026-02-10T15:42:30.402Z] GET /.well-known/appspecific/com.chrome.devtools.json
+[2026-02-10T15:42:30.588Z] GET /api/containers
+[2026-02-10T15:42:36.097Z] POST /api/update/testapp-1
+[2026-02-10T15:42:36.098Z] Updating container: testapp-1
+[2026-02-10T15:42:36.099Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -y -m testapp-1
+[2026-02-10T15:42:40.750Z] Dockcheck Output (first 200 chars): 
+Containers with updates available:
+testapp-1
+
+Updating container(s):
+testapp-1
+
+Now updating (1/1): testapp-1
+latest: Pulling from testapp
+Digest: sha256:9a8a07135bd7b354255648760137065ba6c11b9e04af0...
+[2026-02-10T15:42:42.768Z] GET /api/containers
+[2026-02-10T15:43:01.420Z] GET /api/containers
+[2026-02-10T15:43:29.895Z] GET /.well-known/appspecific/com.chrome.devtools.json
+[2026-02-10T15:43:31.162Z] GET /api/containers
+[2026-02-10T15:43:31.350Z] GET /favicon.ico
+[2026-02-10T15:43:31.532Z] GET /api/containers?force=true
+[2026-02-10T15:43:31.587Z] Refreshing update cache... (Force: true)
+[2026-02-10T15:43:31.587Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -n -m
+[2026-02-10T15:43:37.310Z] Dockcheck Output (first 200 chars): 
+Containers on latest version:
+!portainer - not checked, no compose file
+docker-registry
+registry-ui
+testapp-2
+
+Containers with updates available:
+testapp-1
+
+No updates installed.
+...
+[2026-02-10T15:43:37.310Z] Parsing 12 lines of output
+[2026-02-10T15:43:37.311Z] Processing line: ""
+[2026-02-10T15:43:37.311Z] Processing line: "Containers on latest version:"
+[2026-02-10T15:43:37.311Z] Processing line: "!portainer - not checked, no compose file"
+[2026-02-10T15:43:37.312Z] Processing line: "docker-registry"
+[2026-02-10T15:43:37.312Z] Processing line: "registry-ui"
+[2026-02-10T15:43:37.312Z] Processing line: "testapp-2"
+[2026-02-10T15:43:37.312Z] Processing line: ""
+[2026-02-10T15:43:37.313Z] Processing line: "Containers with updates available:"
+[2026-02-10T15:43:37.313Z] Found header: Containers with updates available
+[2026-02-10T15:43:37.313Z] Processing line: "testapp-1"
+[2026-02-10T15:43:37.314Z] Found container update: testapp-1
+[2026-02-10T15:43:37.314Z] Processing line: ""
+[2026-02-10T15:43:37.315Z] Empty line, stopping read
+[2026-02-10T15:43:37.315Z] Processing line: "No updates installed."
+[2026-02-10T15:43:37.315Z] Processing line: ""
+[2026-02-10T15:43:37.316Z] Parsed updates: ["testapp-1"]
+[2026-02-10T15:44:01.424Z] GET /api/containers
+[2026-02-10T15:44:31.420Z] GET /api/containers
+[2026-02-10T15:46:15.981Z] Dockviewer listening at http://localhost:3000
+[2026-02-10T15:46:31.427Z] GET /api/containers
+[2026-02-10T15:46:31.483Z] Refreshing update cache... (Force: false)
+[2026-02-10T15:46:31.484Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -n -m
+[2026-02-10T15:46:41.938Z] Dockcheck Output:
+
+Containers on latest version:
+!portainer - not checked, no compose file
+docker-registry
+registry-ui
+testapp-2
+
+Containers with updates available:
+testapp-1
+
+No updates installed.
+
+[2026-02-10T15:46:41.938Z] Parsing 12 lines of output
+[2026-02-10T15:46:41.939Z] Processing line: ""
+[2026-02-10T15:46:41.939Z] Processing line: "Containers on latest version:"
+[2026-02-10T15:46:41.939Z] Processing line: "!portainer - not checked, no compose file"
+[2026-02-10T15:46:41.940Z] Processing line: "docker-registry"
+[2026-02-10T15:46:41.940Z] Processing line: "registry-ui"
+[2026-02-10T15:46:41.941Z] Processing line: "testapp-2"
+[2026-02-10T15:46:41.941Z] Processing line: ""
+[2026-02-10T15:46:41.941Z] Processing line: "Containers with updates available:"
+[2026-02-10T15:46:41.941Z] Found header: Containers with updates available
+[2026-02-10T15:46:41.942Z] Processing line: "testapp-1"
+[2026-02-10T15:46:41.942Z] Found container update: testapp-1
+[2026-02-10T15:46:41.942Z] Processing line: ""
+[2026-02-10T15:46:41.943Z] Empty line, stopping read
+[2026-02-10T15:46:41.943Z] Processing line: "No updates installed."
+[2026-02-10T15:46:41.943Z] Processing line: ""
+[2026-02-10T15:46:41.943Z] Parsed updates: ["testapp-1"]
+[2026-02-10T15:47:55.434Z] GET /api/containers
+[2026-02-10T15:48:55.423Z] GET /api/containers
+[2026-02-10T15:49:55.435Z] GET /api/containers
+[2026-02-10T15:50:43.023Z] GET /api/containers
+[2026-02-10T15:50:45.366Z] GET /.well-known/appspecific/com.chrome.devtools.json
+[2026-02-10T15:50:45.572Z] GET /api/containers
+[2026-02-10T15:50:50.036Z] POST /api/update/testapp-1
+[2026-02-10T15:50:50.037Z] Updating container: testapp-1
+[2026-02-10T15:50:50.038Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -y -m testapp-1
+[2026-02-10T15:50:54.260Z] Dockcheck Output:
+
+Containers with updates available:
+testapp-1
+
+Updating container(s):
+testapp-1
+
+Now updating (1/1): testapp-1
+latest: Pulling from testapp
+Digest: sha256:9a8a07135bd7b354255648760137065ba6c11b9e04af04018bd913f223930d95
+Status: Image is up to date for localhost:5000/testapp:latest
+localhost:5000/testapp:latest
+
+Done pulling updates.
+Recreating updated containers.
+
+Now recreating (1/1): testapp-1
+
+Path error - skipping testapp-1
+All updates done!
+
+[2026-02-10T15:50:56.271Z] GET /api/containers
+[2026-02-10T15:51:16.418Z] GET /api/containers
+[2026-02-10T15:51:46.429Z] GET /api/containers
+[2026-02-10T15:52:16.427Z] GET /api/containers
+[2026-02-10T15:52:28.023Z] GET /api/containers?force=true
+[2026-02-10T15:52:28.077Z] Refreshing update cache... (Force: true)
+[2026-02-10T15:52:28.078Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -n -m
+[2026-02-10T15:52:34.018Z] Dockcheck Output:
+
+Containers on latest version:
+!portainer - not checked, no compose file
+docker-registry
+registry-ui
+testapp-2
+
+Containers with updates available:
+testapp-1
+
+No updates installed.
+
+[2026-02-10T15:52:34.018Z] Parsing 12 lines of output
+[2026-02-10T15:52:34.019Z] Processing line: ""
+[2026-02-10T15:52:34.019Z] Processing line: "Containers on latest version:"
+[2026-02-10T15:52:34.019Z] Processing line: "!portainer - not checked, no compose file"
+[2026-02-10T15:52:34.020Z] Processing line: "docker-registry"
+[2026-02-10T15:52:34.020Z] Processing line: "registry-ui"
+[2026-02-10T15:52:34.020Z] Processing line: "testapp-2"
+[2026-02-10T15:52:34.021Z] Processing line: ""
+[2026-02-10T15:52:34.021Z] Processing line: "Containers with updates available:"
+[2026-02-10T15:52:34.021Z] Found header: Containers with updates available
+[2026-02-10T15:52:34.021Z] Processing line: "testapp-1"
+[2026-02-10T15:52:34.022Z] Found container update: testapp-1
+[2026-02-10T15:52:34.022Z] Processing line: ""
+[2026-02-10T15:52:34.022Z] Empty line, stopping read
+[2026-02-10T15:52:34.022Z] Processing line: "No updates installed."
+[2026-02-10T15:52:34.022Z] Processing line: ""
+[2026-02-10T15:52:34.023Z] Parsed updates: ["testapp-1"]
+[2026-02-10T15:52:46.422Z] GET /api/containers
+[2026-02-10T15:53:16.425Z] GET /api/containers
+[2026-02-10T15:53:46.432Z] GET /api/containers
+[2026-02-10T15:54:27.824Z] GET /api/containers
+[2026-02-10T15:54:46.420Z] GET /api/containers
+[2026-02-10T15:55:15.589Z] GET /api/containers
+[2026-02-10T15:55:46.422Z] GET /api/containers
+[2026-02-10T15:56:16.427Z] GET /api/containers
+[2026-02-10T15:56:55.430Z] GET /api/containers
+[2026-02-10T15:57:33.028Z] POST /api/update/testapp-1
+[2026-02-10T15:57:33.028Z] Updating container: testapp-1
+[2026-02-10T15:57:33.029Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -y -m testapp-1
+[2026-02-10T15:57:37.339Z] Dockcheck Output:
+
+Containers with updates available:
+testapp-1
+
+Updating container(s):
+testapp-1
+
+Now updating (1/1): testapp-1
+latest: Pulling from testapp
+Digest: sha256:9a8a07135bd7b354255648760137065ba6c11b9e04af04018bd913f223930d95
+Status: Image is up to date for localhost:5000/testapp:latest
+localhost:5000/testapp:latest
+
+Done pulling updates.
+Recreating updated containers.
+
+Now recreating (1/1): testapp-1
+
+Path error - skipping testapp-1 (Path: /d/Docker/test-apps/1)
+All updates done!
+
+[2026-02-10T15:57:55.436Z] GET /api/containers
+[2026-02-10T15:58:55.441Z] GET /api/containers
+[2026-02-10T15:59:55.425Z] GET /api/containers
+[2026-02-10T15:59:55.862Z] POST /api/update/testapp-1
+[2026-02-10T15:59:55.862Z] Updating container: testapp-1
+[2026-02-10T15:59:55.863Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -y -m testapp-1
+[2026-02-10T16:00:00.075Z] Dockcheck error: Command failed: bash dockcheck.sh -y -m testapp-1
+open /mnt/d/Docker/test-apps/1/D:\Docker\test-apps\1\compose.yml: no such file or directory
+
+[2026-02-10T16:00:00.076Z] Stderr: open /mnt/d/Docker/test-apps/1/D:\Docker\test-apps\1\compose.yml: no such file or directory
+
+[2026-02-10T16:00:00.077Z] Stdout: 
+Containers with updates available:
+testapp-1
+
+Updating container(s):
+testapp-1
+
+Now updating (1/1): testapp-1
+latest: Pulling from testapp
+Digest: sha256:9a8a07135bd7b354255648760137065ba6c11b9e04af04018bd913f223930d95
+Status: Image is up to date for localhost:5000/testapp:latest
+localhost:5000/testapp:latest
+
+Done pulling updates.
+Recreating updated containers.
+
+Now recreating (1/1): testapp-1
+
+Docker error, exiting!
+
+[2026-02-10T16:00:00.077Z] Update failed: Command failed: bash dockcheck.sh -y -m testapp-1
+open /mnt/d/Docker/test-apps/1/D:\Docker\test-apps\1\compose.yml: no such file or directory
+
+[2026-02-10T16:00:55.441Z] GET /api/containers
+[2026-02-10T16:01:17.686Z] POST /api/update/testapp-1
+[2026-02-10T16:01:17.686Z] Updating container: testapp-1
+[2026-02-10T16:01:17.686Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -y -m testapp-1
+[2026-02-10T16:01:24.328Z] Dockcheck Output:
+
+Containers with updates available:
+testapp-1
+
+Updating container(s):
+testapp-1
+
+Now updating (1/1): testapp-1
+latest: Pulling from testapp
+Digest: sha256:9a8a07135bd7b354255648760137065ba6c11b9e04af04018bd913f223930d95
+Status: Image is up to date for localhost:5000/testapp:latest
+localhost:5000/testapp:latest
+
+Done pulling updates.
+Recreating updated containers.
+
+Now recreating (1/1): testapp-1
+
+All updates done!
+
+[2026-02-10T16:01:55.434Z] GET /api/containers
+[2026-02-10T16:02:55.439Z] GET /api/containers
+[2026-02-10T16:03:55.423Z] GET /api/containers
+[2026-02-10T16:04:29.771Z] GET /api/containers
+[2026-02-10T16:04:31.740Z] GET /.well-known/appspecific/com.chrome.devtools.json
+[2026-02-10T16:04:31.956Z] GET /api/containers
+[2026-02-10T16:04:32.275Z] GET /favicon.ico
+[2026-02-10T16:04:33.132Z] GET /api/containers?force=true
+[2026-02-10T16:04:33.185Z] Refreshing update cache... (Force: true)
+[2026-02-10T16:04:33.185Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -n -m
+[2026-02-10T16:04:38.957Z] Dockcheck Output:
+
+Containers on latest version:
+!portainer - not checked, no compose file
+docker-registry
+registry-ui
+testapp-1
+testapp-2
+
+No updates available.
+
+[2026-02-10T16:04:38.958Z] Parsing 10 lines of output
+[2026-02-10T16:04:38.958Z] Processing line: ""
+[2026-02-10T16:04:38.958Z] Processing line: "Containers on latest version:"
+[2026-02-10T16:04:38.959Z] Processing line: "!portainer - not checked, no compose file"
+[2026-02-10T16:04:38.959Z] Processing line: "docker-registry"
+[2026-02-10T16:04:38.959Z] Processing line: "registry-ui"
+[2026-02-10T16:04:38.960Z] Processing line: "testapp-1"
+[2026-02-10T16:04:38.960Z] Processing line: "testapp-2"
+[2026-02-10T16:04:38.960Z] Processing line: ""
+[2026-02-10T16:04:38.961Z] Processing line: "No updates available."
+[2026-02-10T16:04:38.961Z] Processing line: ""
+[2026-02-10T16:04:38.961Z] Parsed updates: []
+[2026-02-10T16:05:02.421Z] GET /api/containers
+[2026-02-10T16:05:32.429Z] GET /api/containers
+[2026-02-10T16:06:02.433Z] GET /api/containers
+[2026-02-10T16:06:32.421Z] GET /api/containers
+[2026-02-10T16:07:02.421Z] GET /api/containers
+[2026-02-10T16:07:23.235Z] GET /.well-known/appspecific/com.chrome.devtools.json
+[2026-02-10T16:07:23.416Z] GET /api/containers
+[2026-02-10T16:07:24.872Z] GET /api/containers?force=true
+[2026-02-10T16:07:24.925Z] Refreshing update cache... (Force: true)
+[2026-02-10T16:07:24.926Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -n -m
+[2026-02-10T16:07:30.643Z] Dockcheck Output:
+
+Containers on latest version:
+!portainer - not checked, no compose file
+docker-registry
+registry-ui
+testapp-2
+
+Containers with updates available:
+testapp-1
+
+No updates installed.
+
+[2026-02-10T16:07:30.644Z] Parsing 12 lines of output
+[2026-02-10T16:07:30.644Z] Processing line: ""
+[2026-02-10T16:07:30.645Z] Processing line: "Containers on latest version:"
+[2026-02-10T16:07:30.645Z] Processing line: "!portainer - not checked, no compose file"
+[2026-02-10T16:07:30.645Z] Processing line: "docker-registry"
+[2026-02-10T16:07:30.645Z] Processing line: "registry-ui"
+[2026-02-10T16:07:30.646Z] Processing line: "testapp-2"
+[2026-02-10T16:07:30.646Z] Processing line: ""
+[2026-02-10T16:07:30.646Z] Processing line: "Containers with updates available:"
+[2026-02-10T16:07:30.646Z] Found header: Containers with updates available
+[2026-02-10T16:07:30.647Z] Processing line: "testapp-1"
+[2026-02-10T16:07:30.647Z] Found container update: testapp-1
+[2026-02-10T16:07:30.647Z] Processing line: ""
+[2026-02-10T16:07:30.647Z] Empty line, stopping read
+[2026-02-10T16:07:30.648Z] Processing line: "No updates installed."
+[2026-02-10T16:07:30.648Z] Processing line: ""
+[2026-02-10T16:07:30.648Z] Parsed updates: ["testapp-1"]
+[2026-02-10T16:07:37.568Z] POST /api/update/testapp-1
+[2026-02-10T16:07:37.569Z] Updating container: testapp-1
+[2026-02-10T16:07:37.569Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -y -m testapp-1
+[2026-02-10T16:07:43.690Z] Dockcheck Output:
+
+Containers with updates available:
+testapp-1
+
+Updating container(s):
+testapp-1
+
+Now updating (1/1): testapp-1
+latest: Pulling from testapp
+Digest: sha256:3cedc5621a9620ab6b7298bc3da4c4587f038bda5eb4c0380ff0f82481f32376
+Status: Image is up to date for localhost:5000/testapp:latest
+localhost:5000/testapp:latest
+
+Done pulling updates.
+Recreating updated containers.
+
+Now recreating (1/1): testapp-1
+
+All updates done!
+
+[2026-02-10T16:07:45.705Z] GET /api/containers
+[2026-02-10T16:07:53.420Z] GET /api/containers
+[2026-02-10T16:08:23.428Z] GET /api/containers
+[2026-02-10T16:08:53.427Z] GET /api/containers
+[2026-02-10T16:09:23.432Z] GET /api/containers
+[2026-02-10T16:09:53.424Z] GET /api/containers
+[2026-02-10T16:10:23.430Z] GET /api/containers
+[2026-02-10T16:10:55.438Z] GET /api/containers
+[2026-02-10T16:11:55.424Z] GET /api/containers
+[2026-02-10T16:12:55.429Z] GET /api/containers
+[2026-02-10T16:13:55.424Z] GET /api/containers
+[2026-02-10T16:14:44.769Z] GET /api/containers
+[2026-02-10T16:14:53.418Z] GET /api/containers
+[2026-02-10T16:14:54.207Z] GET /api/containers?force=true
+[2026-02-10T16:14:54.258Z] Refreshing update cache... (Force: true)
+[2026-02-10T16:14:54.273Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -n -m
+[2026-02-10T16:15:01.093Z] Dockcheck Output:
+
+Containers on latest version:
+!portainer - not checked, no compose file
+docker-registry
+registry-ui
+testapp-1
+testapp-2
+
+No updates available.
+
+[2026-02-10T16:15:01.094Z] Parsing 10 lines of output
+[2026-02-10T16:15:01.094Z] Processing line: ""
+[2026-02-10T16:15:01.094Z] Processing line: "Containers on latest version:"
+[2026-02-10T16:15:01.095Z] Processing line: "!portainer - not checked, no compose file"
+[2026-02-10T16:15:01.095Z] Processing line: "docker-registry"
+[2026-02-10T16:15:01.095Z] Processing line: "registry-ui"
+[2026-02-10T16:15:01.096Z] Processing line: "testapp-1"
+[2026-02-10T16:15:01.096Z] Processing line: "testapp-2"
+[2026-02-10T16:15:01.096Z] Processing line: ""
+[2026-02-10T16:15:01.097Z] Processing line: "No updates available."
+[2026-02-10T16:15:01.097Z] Processing line: ""
+[2026-02-10T16:15:01.097Z] Parsed updates: []
+[2026-02-10T16:15:14.577Z] GET /api/containers?fresh=7
+[2026-02-10T16:15:23.421Z] GET /api/containers
+[2026-02-10T16:15:53.433Z] GET /api/containers
+[2026-02-10T16:16:23.418Z] GET /api/containers
+[2026-02-10T16:16:53.427Z] GET /api/containers
+[2026-02-10T16:17:23.427Z] GET /api/containers
+[2026-02-10T16:17:53.423Z] GET /api/containers
+[2026-02-10T16:18:23.430Z] GET /api/containers
+[2026-02-10T16:18:53.423Z] GET /api/containers
+[2026-02-10T16:19:23.431Z] GET /api/containers
+[2026-02-10T16:19:53.429Z] GET /api/containers
+[2026-02-10T16:20:23.421Z] GET /api/containers
+[2026-02-10T16:20:53.425Z] GET /api/containers
+[2026-02-10T16:21:23.428Z] GET /api/containers
+[2026-02-10T16:21:53.430Z] GET /api/containers
+[2026-02-10T16:22:23.419Z] GET /api/containers
+[2026-02-10T16:22:53.421Z] GET /api/containers
+[2026-02-10T16:23:23.420Z] GET /api/containers
+[2026-02-10T16:23:53.428Z] GET /api/containers
+[2026-02-10T16:24:23.422Z] GET /api/containers
+[2026-02-10T16:24:53.430Z] GET /api/containers
+[2026-02-10T16:25:23.423Z] GET /api/containers
+[2026-02-10T16:25:53.417Z] GET /api/containers
+[2026-02-10T16:26:23.423Z] GET /api/containers
+[2026-02-10T16:26:53.420Z] GET /api/containers
+[2026-02-10T16:27:23.433Z] GET /api/containers
+[2026-02-10T16:27:53.423Z] GET /api/containers
+[2026-02-10T16:28:23.430Z] GET /api/containers
+[2026-02-10T16:28:53.422Z] GET /api/containers
+[2026-02-10T16:29:23.430Z] GET /api/containers
+[2026-02-10T16:29:53.430Z] GET /api/containers
+[2026-02-10T16:30:23.429Z] GET /api/containers
+[2026-02-10T16:30:23.480Z] Refreshing update cache... (Force: false)
+[2026-02-10T16:30:23.481Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -n -m
+[2026-02-10T16:30:30.088Z] Dockcheck Output:
+
+Containers on latest version:
+!portainer - not checked, no compose file
+docker-registry
+registry-ui
+testapp-1
+testapp-2
+
+No updates available.
+
+[2026-02-10T16:30:30.088Z] Parsing 10 lines of output
+[2026-02-10T16:30:30.089Z] Processing line: ""
+[2026-02-10T16:30:30.089Z] Processing line: "Containers on latest version:"
+[2026-02-10T16:30:30.089Z] Processing line: "!portainer - not checked, no compose file"
+[2026-02-10T16:30:30.090Z] Processing line: "docker-registry"
+[2026-02-10T16:30:30.090Z] Processing line: "registry-ui"
+[2026-02-10T16:30:30.090Z] Processing line: "testapp-1"
+[2026-02-10T16:30:30.091Z] Processing line: "testapp-2"
+[2026-02-10T16:30:30.091Z] Processing line: ""
+[2026-02-10T16:30:30.091Z] Processing line: "No updates available."
+[2026-02-10T16:30:30.092Z] Processing line: ""
+[2026-02-10T16:30:30.092Z] Parsed updates: []
+[2026-02-10T16:30:53.427Z] GET /api/containers
+[2026-02-10T16:31:23.429Z] GET /api/containers
+[2026-02-10T16:31:53.432Z] GET /api/containers
+[2026-02-10T16:32:23.432Z] GET /api/containers
+[2026-02-10T16:32:53.419Z] GET /api/containers
+[2026-02-10T16:33:23.430Z] GET /api/containers
+[2026-02-10T16:33:53.420Z] GET /api/containers
+[2026-02-10T16:34:23.420Z] GET /api/containers
+[2026-02-10T16:34:53.424Z] GET /api/containers
+[2026-02-10T16:35:23.432Z] GET /api/containers
+[2026-02-10T16:35:53.425Z] GET /api/containers
+[2026-02-10T16:36:23.420Z] GET /api/containers
+[2026-02-10T16:36:53.429Z] GET /api/containers
+[2026-02-10T16:37:23.429Z] GET /api/containers
+[2026-02-10T16:37:53.426Z] GET /api/containers
+[2026-02-10T16:38:23.430Z] GET /api/containers
+[2026-02-10T16:38:53.431Z] GET /api/containers
+[2026-02-10T16:39:23.426Z] GET /api/containers
+[2026-02-10T16:39:53.417Z] GET /api/containers
+[2026-02-10T16:40:23.419Z] GET /api/containers
+[2026-02-10T16:40:53.422Z] GET /api/containers
+[2026-02-10T16:41:23.432Z] GET /api/containers
+[2026-02-10T16:41:53.429Z] GET /api/containers
+[2026-02-10T16:42:23.419Z] GET /api/containers
+[2026-02-10T16:42:53.424Z] GET /api/containers
+[2026-02-10T16:43:23.419Z] GET /api/containers
+[2026-02-10T16:43:53.427Z] GET /api/containers
+[2026-02-10T16:44:23.429Z] GET /api/containers
+[2026-02-10T16:44:53.426Z] GET /api/containers
+[2026-02-10T16:45:23.418Z] GET /api/containers
+[2026-02-10T16:45:53.417Z] GET /api/containers
+[2026-02-10T16:45:53.471Z] Refreshing update cache... (Force: false)
+[2026-02-10T16:45:53.471Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -n -m
+[2026-02-10T16:45:59.655Z] Dockcheck Output:
+
+Containers on latest version:
+!portainer - not checked, no compose file
+docker-registry
+registry-ui
+testapp-1
+testapp-2
+
+No updates available.
+
+[2026-02-10T16:45:59.656Z] Parsing 10 lines of output
+[2026-02-10T16:45:59.656Z] Processing line: ""
+[2026-02-10T16:45:59.656Z] Processing line: "Containers on latest version:"
+[2026-02-10T16:45:59.657Z] Processing line: "!portainer - not checked, no compose file"
+[2026-02-10T16:45:59.657Z] Processing line: "docker-registry"
+[2026-02-10T16:45:59.657Z] Processing line: "registry-ui"
+[2026-02-10T16:45:59.657Z] Processing line: "testapp-1"
+[2026-02-10T16:45:59.658Z] Processing line: "testapp-2"
+[2026-02-10T16:45:59.658Z] Processing line: ""
+[2026-02-10T16:45:59.658Z] Processing line: "No updates available."
+[2026-02-10T16:45:59.658Z] Processing line: ""
+[2026-02-10T16:45:59.659Z] Parsed updates: []
+[2026-02-10T16:46:23.433Z] GET /api/containers
+[2026-02-10T16:46:53.430Z] GET /api/containers
+[2026-02-10T16:47:23.423Z] GET /api/containers
+[2026-02-10T16:47:53.425Z] GET /api/containers
+[2026-02-10T16:48:23.430Z] GET /api/containers
+[2026-02-10T16:48:53.426Z] GET /api/containers
+[2026-02-10T16:49:27.647Z] GET /api/containers
+[2026-02-10T16:49:53.421Z] GET /api/containers
+[2026-02-10T16:50:23.428Z] GET /api/containers
+[2026-02-10T16:50:53.421Z] GET /api/containers
+[2026-02-10T16:51:55.436Z] GET /api/containers
+[2026-02-10T16:52:55.435Z] GET /api/containers
+[2026-02-10T16:53:55.427Z] GET /api/containers
+[2026-02-10T16:54:23.435Z] GET /api/containers
+[2026-02-10T16:54:53.420Z] GET /api/containers
+[2026-02-10T16:55:23.420Z] GET /api/containers
+[2026-02-10T16:55:53.429Z] GET /api/containers
+[2026-02-10T16:56:23.424Z] GET /api/containers
+[2026-02-10T16:56:53.423Z] GET /api/containers
+[2026-02-10T16:57:23.424Z] GET /api/containers
+[2026-02-10T16:57:53.428Z] GET /api/containers
+[2026-02-10T16:58:55.435Z] GET /api/containers
+[2026-02-10T16:59:55.434Z] GET /api/containers

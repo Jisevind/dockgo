@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dockviewer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script src="app.js" defer></script>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Dockviewer</h1>
+            <div class="header-controls">
+                <span id="connection-status" class="status-indicator">Connecting...</span>
+                <button id="refresh-btn" class="btn secondary">Refresh Checks</button>
+            </div>
+        </header>
+
+        <main>
+            <div id="container-list" class="grid-list">
+                <!-- Containers will be injected here -->
+                <div class="loading">Loading containers...</div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Template for container card -->
+    <template id="container-card-template">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="container-name"></h3>
+                <span class="status-badge"></span>
+            </div>
+            <div class="card-body">
+                <p class="image-name"></p>
+                <div class="update-section hidden">
+                    <span class="update-badge">Update Available</span>
+                    <button class="btn-update">Update Now</button>
+                </div>
+                <div class="update-message hidden"></div>
+            </div>
+        </div>
+    </template>
+</body>
+
+</html>
