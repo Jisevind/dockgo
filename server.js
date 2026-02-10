@@ -8,17 +8,20 @@ const cors = require('cors');
 const app = express();
 const port = 3000;
 const docker = new Docker(); // Defaults to socket or pipe
+const logFile = 'server.log'; // Define log file path
 
 app.use(cors());
 app.use(express.static('public'));
 app.use(express.json());
 
 // Log helper
-const log = (msg) => {
+const log = (message) => {
     const timestamp = new Date().toISOString();
-    const logMsg = `[${timestamp}] ${msg}\n`;
-    console.log(msg);
-    fs.appendFileSync('server.log', logMsg);
+    const logMessage = `[${timestamp}] ${message}`;
+    console.log(logMessage);
+    fs.appendFile(logFile, logMessage + '\n', (err) => {
+        if (err) console.error('Failed to write to log file:', err);
+    });
 };
 
 app.use((req, res, next) => {
