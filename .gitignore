@@ -3,3 +3,4 @@ updates.cache
 
 *.log
 *.md
+.env

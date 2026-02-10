@@ -77,6 +77,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const handleUpdate = async (name, cardEl) => {
         if (!confirm(`Are you sure you want to update ${name}?`)) return;
 
+        let token = localStorage.getItem('dockview_token');
+        if (!token) {
+            token = prompt('Please enter the API Token to authorize this update:');
+            if (!token) return; // User cancelled
+            localStorage.setItem('dockview_token', token);
+        }
+
         console.log(`[Update] Starting update for ${name}`);
         const btn = cardEl.querySelector('.btn-update');
         const msgEl = cardEl.querySelector('.update-message');
@@ -88,8 +95,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             console.log(`[Update] Sending POST request to /api/update/${name}`);
-            const response = await fetch(`/api/update/${name}`, { method: 'POST' });
+            const response = await fetch(`/api/update/${name}`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
             console.log(`[Update] Response status: ${response.status}`);
+
+            if (response.status === 401) {
+                console.error('[Update] Unauthorized');
+                msgEl.textContent = 'Error: Unauthorized. Wrong API Token.';
+                localStorage.removeItem('dockview_token'); // Clear invalid token
+                btn.textContent = 'Retry (Auth Failed)';
+                btn.disabled = false;
+                return;
+            }
 
             const result = await response.json();
             console.log('[Update] Result:', result);

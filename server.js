@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const Docker = require('dockerode');
 const { exec, spawn } = require('child_process');
@@ -9,10 +10,29 @@ const app = express();
 const port = 3000;
 const docker = new Docker(); // Defaults to socket or pipe
 const logFile = 'server.log'; // Define log file path
+const API_TOKEN = process.env.API_TOKEN || 'dockview-secret'; // Simple token protection
 
 app.use(cors());
 app.use(express.static('public'));
 app.use(express.json());
+
+// Authentication middleware for update endpoint
+app.use((req, res, next) => {
+    if (req.path.startsWith('/api/update')) {
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            log(`Unauthorized access attempt to ${req.path}: No token provided`);
+            return res.status(401).json({ error: 'Unauthorized: No token provided' });
+        }
+
+        const token = authHeader.split(' ')[1];
+        if (token !== API_TOKEN) {
+            log(`Unauthorized access attempt to ${req.path}: Invalid token`);
+            return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+        }
+    }
+    next();
+});
 
 // Log helper
 const log = (message) => {
@@ -171,6 +191,13 @@ app.get('/api/containers', async (req, res) => {
 
 // API: Trigger Update
 app.post('/api/update/:name', async (req, res) => {
+    // Auth Check
+    const authHeader = req.headers.authorization;
+    if (!authHeader || authHeader !== `Bearer ${API_TOKEN}`) {
+        log(`Unauthorized access attempt to update ${req.params.name}`);
+        return res.status(401).json({ error: 'Unauthorized: Invalid API Token' });
+    }
+
     const name = req.params.name;
 
     // Basic validation
