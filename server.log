@@ -1534,3 +1534,111 @@ No updates available.
 [2026-02-10T16:57:53.428Z] GET /api/containers
 [2026-02-10T16:58:55.435Z] GET /api/containers
 [2026-02-10T16:59:55.434Z] GET /api/containers
+[2026-02-10T17:00:55.426Z] GET /api/containers
+[2026-02-10T17:00:55.481Z] Refreshing update cache... (Force: false)
+[2026-02-10T17:00:55.482Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -n -m
+[2026-02-10T17:01:01.308Z] Dockcheck Output:
+
+Containers on latest version:
+!portainer - not checked, no compose file
+docker-registry
+registry-ui
+testapp-2
+
+Containers with updates available:
+testapp-1
+
+No updates installed.
+
+[2026-02-10T17:01:01.308Z] Parsing 12 lines of output
+[2026-02-10T17:01:01.308Z] Processing line: ""
+[2026-02-10T17:01:01.309Z] Processing line: "Containers on latest version:"
+[2026-02-10T17:01:01.309Z] Processing line: "!portainer - not checked, no compose file"
+[2026-02-10T17:01:01.309Z] Processing line: "docker-registry"
+[2026-02-10T17:01:01.309Z] Processing line: "registry-ui"
+[2026-02-10T17:01:01.310Z] Processing line: "testapp-2"
+[2026-02-10T17:01:01.310Z] Processing line: ""
+[2026-02-10T17:01:01.310Z] Processing line: "Containers with updates available:"
+[2026-02-10T17:01:01.310Z] Found header: Containers with updates available
+[2026-02-10T17:01:01.311Z] Processing line: "testapp-1"
+[2026-02-10T17:01:01.311Z] Found container update: testapp-1
+[2026-02-10T17:01:01.311Z] Processing line: ""
+[2026-02-10T17:01:01.311Z] Empty line, stopping read
+[2026-02-10T17:01:01.311Z] Processing line: "No updates installed."
+[2026-02-10T17:01:01.312Z] Processing line: ""
+[2026-02-10T17:01:01.312Z] Parsed updates: ["testapp-1"]
+[2026-02-10T17:01:29.138Z] Dockviewer listening at http://localhost:3000
+[2026-02-10T17:01:34.166Z] GET /api/containers
+[2026-02-10T17:01:34.233Z] Refreshing update cache... (Force: false)
+[2026-02-10T17:01:34.233Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -n -m
+[2026-02-10T17:01:40.773Z] Dockcheck Output:
+
+Containers on latest version:
+!portainer - not checked, no compose file
+docker-registry
+registry-ui
+testapp-2
+
+Containers with updates available:
+testapp-1
+
+No updates installed.
+
+[2026-02-10T17:01:40.774Z] Parsing 12 lines of output
+[2026-02-10T17:01:40.775Z] Processing line: ""
+[2026-02-10T17:01:40.775Z] Processing line: "Containers on latest version:"
+[2026-02-10T17:01:40.775Z] Processing line: "!portainer - not checked, no compose file"
+[2026-02-10T17:01:40.775Z] Processing line: "docker-registry"
+[2026-02-10T17:01:40.776Z] Processing line: "registry-ui"
+[2026-02-10T17:01:40.776Z] Processing line: "testapp-2"
+[2026-02-10T17:01:40.776Z] Processing line: ""
+[2026-02-10T17:01:40.777Z] Processing line: "Containers with updates available:"
+[2026-02-10T17:01:40.777Z] Found header: Containers with updates available
+[2026-02-10T17:01:40.777Z] Processing line: "testapp-1"
+[2026-02-10T17:01:40.777Z] Found container update: testapp-1
+[2026-02-10T17:01:40.778Z] Processing line: ""
+[2026-02-10T17:01:40.778Z] Empty line, stopping read
+[2026-02-10T17:01:40.778Z] Processing line: "No updates installed."
+[2026-02-10T17:01:40.779Z] Processing line: ""
+[2026-02-10T17:01:40.779Z] Parsed updates: ["testapp-1"]
+[2026-02-10T17:01:53.431Z] GET /api/containers
+[2026-02-10T17:02:10.362Z] GET /api/containers?fresh=10
+[2026-02-10T17:02:23.425Z] GET /api/containers
+[2026-02-10T17:02:53.424Z] GET /api/containers
+[2026-02-10T17:02:55.385Z] GET /api/containers?fresh=7
+[2026-02-10T17:02:56.812Z] GET /api/containers?fresh=7
+[2026-02-10T17:03:03.295Z] GET /.well-known/appspecific/com.chrome.devtools.json
+[2026-02-10T17:03:03.680Z] GET /api/containers
+[2026-02-10T17:03:06.325Z] GET /api/containers?force=true
+[2026-02-10T17:03:06.377Z] Refreshing update cache... (Force: true)
+[2026-02-10T17:03:06.378Z] Running in D:\code\active\dockviewer\dockcheck: bash dockcheck.sh -n -m
+[2026-02-10T17:03:12.776Z] Dockcheck Output:
+
+Containers on latest version:
+!portainer - not checked, no compose file
+docker-registry
+registry-ui
+testapp-2
+
+Containers with updates available:
+testapp-1
+
+No updates installed.
+
+[2026-02-10T17:03:12.776Z] Parsing 12 lines of output
+[2026-02-10T17:03:12.776Z] Processing line: ""
+[2026-02-10T17:03:12.777Z] Processing line: "Containers on latest version:"
+[2026-02-10T17:03:12.777Z] Processing line: "!portainer - not checked, no compose file"
+[2026-02-10T17:03:12.777Z] Processing line: "docker-registry"
+[2026-02-10T17:03:12.778Z] Processing line: "registry-ui"
+[2026-02-10T17:03:12.778Z] Processing line: "testapp-2"
+[2026-02-10T17:03:12.778Z] Processing line: ""
+[2026-02-10T17:03:12.779Z] Processing line: "Containers with updates available:"
+[2026-02-10T17:03:12.779Z] Found header: Containers with updates available
+[2026-02-10T17:03:12.779Z] Processing line: "testapp-1"
+[2026-02-10T17:03:12.780Z] Found container update: testapp-1
+[2026-02-10T17:03:12.780Z] Processing line: ""
+[2026-02-10T17:03:12.780Z] Empty line, stopping read
+[2026-02-10T17:03:12.780Z] Processing line: "No updates installed."
+[2026-02-10T17:03:12.781Z] Processing line: ""
+[2026-02-10T17:03:12.781Z] Parsed updates: ["testapp-1"]

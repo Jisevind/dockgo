@@ -1,6 +1,6 @@
 const express = require('express');
 const Docker = require('dockerode');
-const { exec } = require('child_process');
+const { exec, spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const cors = require('cors');
@@ -37,21 +37,42 @@ const runDockcheck = (args = []) => {
         // Assume dockcheck is in ./dockcheck/dockcheck.sh
         // Use relative path execution from the dockcheck directory to avoid Windows path issues
         const scriptDir = path.join(__dirname, 'dockcheck');
-        const command = `bash dockcheck.sh ${args.join(' ')}`;
+        const scriptPath = 'dockcheck.sh';
 
-        log(`Running in ${scriptDir}: ${command}`);
+        log(`Running in ${scriptDir}: bash ${scriptPath} ${args.join(' ')}`);
 
-        exec(command, {
-            cwd: scriptDir,
-            maxBuffer: 1024 * 1024 * 10
-        }, (error, stdout, stderr) => {
-            if (error) {
-                log(`Dockcheck error: ${error.message}`);
+        const child = spawn('bash', [scriptPath, ...args], {
+            cwd: scriptDir
+        });
+
+        let stdout = '';
+        let stderr = '';
+
+        child.stdout.on('data', (data) => {
+            stdout += data.toString();
+        });
+
+        child.stderr.on('data', (data) => {
+            stderr += data.toString();
+        });
+
+        child.on('error', (error) => {
+            log(`Dockcheck spawn error: ${error.message}`);
+            reject(error);
+        });
+
+        child.on('close', (code) => {
+            if (code !== 0) {
+                log(`Dockcheck exited with code ${code}`);
                 log(`Stderr: ${stderr}`);
-                log(`Stdout: ${stdout}`); // Log stdout even on error
+                log(`Stdout: ${stdout}`);
+                const error = new Error(`Command failed with exit code ${code}`);
+                error.code = code;
+                error.stdout = stdout;
+                error.stderr = stderr;
                 return reject(error);
             }
-            log(`Dockcheck Output:\n${stdout}`); // Log full output
+            log(`Dockcheck Output:\n${stdout}`);
             resolve(stdout);
         });
     });
