@@ -92,6 +92,7 @@ app.use((req, res, next) => {
 // Cache for update status
 let updatesCache = null;
 let lastUpdateCheck = 0;
+let lastDockcheckStatus = null;
 const CACHE_DURATION = 1000 * 60 * 15; // 15 minutes
 
 // Helper to run dockcheck
@@ -121,11 +122,13 @@ const runDockcheck = (args = []) => {
 
         child.on('error', (error) => {
             log(`Dockcheck spawn error: ${error.message}`);
+            lastDockcheckStatus = 'error';
             reject(error);
         });
 
         child.on('close', (code) => {
             if (code !== 0) {
+                lastDockcheckStatus = 'error';
                 log(`Dockcheck exited with code ${code}`);
                 log(`Stderr: ${stderr}`);
                 log(`Stdout: ${stdout}`);
@@ -136,6 +139,7 @@ const runDockcheck = (args = []) => {
                 return reject(error);
             }
             log(`Dockcheck Output:\n${stdout}`);
+            lastDockcheckStatus = 'success';
             resolve(stdout);
         });
     });
@@ -171,23 +175,54 @@ const parseDockcheckOutput = (output) => {
     return [];
 };
 
+const formatUptime = (seconds) => {
+    const s = Math.floor(seconds);
+    const days = Math.floor(s / 86400);
+    const hours = Math.floor((s % 86400) / 3600);
+    const minutes = Math.floor((s % 3600) / 60);
+    const secs = s % 60;
+
+    const parts = [];
+    if (days) parts.push(`${days}d`);
+    if (hours) parts.push(`${hours}h`);
+    if (minutes) parts.push(`${minutes}m`);
+    parts.push(`${secs}s`);
+
+    return parts.join(' ');
+};
+
+
 // API: Health Check
 app.get('/api/health', async (req, res) => {
     try {
         await docker.ping();
+
         res.json({
             status: 'ok',
             version: packageJson.version,
             docker: 'connected',
-            last_update_check: lastUpdateCheck ? new Date(lastUpdateCheck).toISOString() : null
+            uptime_seconds: Math.floor(process.uptime()),
+            uptime_human: formatUptime(process.uptime()),
+            last_update_check: lastUpdateCheck
+                ? new Date(lastUpdateCheck).toISOString()
+                : null,
+            last_dockcheck_result: lastDockcheckStatus || 'unknown',
+            registry: updatesCache !== null ? 'reachable' : 'unknown'
         });
+
     } catch (error) {
         res.status(503).json({
             status: 'error',
             version: packageJson.version,
             docker: 'disconnected',
+            uptime_seconds: Math.floor(process.uptime()),
+            uptime_human: formatUptime(process.uptime()),
             error: error.message,
-            last_update_check: lastUpdateCheck ? new Date(lastUpdateCheck).toISOString() : null
+            last_update_check: lastUpdateCheck
+                ? new Date(lastUpdateCheck).toISOString()
+                : null,
+            last_dockcheck_result: lastDockcheckStatus || 'error',
+            registry: 'unknown'
         });
     }
 });
