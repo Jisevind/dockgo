@@ -198,6 +198,21 @@ app.post('/api/update/:name', async (req, res) => {
     }
 });
 
-app.listen(port, () => {
-    log(`Dockviewer listening at http://localhost:${port}`);
-});
+// Start Server with Docker Check
+const startServer = async () => {
+    try {
+        log('Checking Docker connection...');
+        await docker.ping();
+        log('Docker connection established successfully.');
+
+        app.listen(port, () => {
+            log(`Dockviewer listening at http://localhost:${port}`);
+        });
+    } catch (err) {
+        log(`FATAL ERROR: Could not connect to Docker: ${err.message}`);
+        log('Please ensure Docker Desktop is running.');
+        process.exit(1);
+    }
+};
+
+startServer();
