@@ -8,7 +8,7 @@ const cors = require('cors');
 const crypto = require('crypto'); // Built-in node module
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 const docker = new Docker(); // Defaults to socket or pipe
 const logFile = 'server.log'; // Define log file path
 
