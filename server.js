@@ -5,12 +5,21 @@ const { exec, spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const cors = require('cors');
+const crypto = require('crypto'); // Built-in node module
 
 const app = express();
 const port = 3000;
 const docker = new Docker(); // Defaults to socket or pipe
 const logFile = 'server.log'; // Define log file path
-const API_TOKEN = process.env.API_TOKEN || 'dockview-secret'; // Simple token protection
+
+let API_TOKEN = process.env.API_TOKEN;
+if (!API_TOKEN) {
+    API_TOKEN = crypto.randomBytes(32).toString('hex');
+    console.log('---------------------------------------------------');
+    console.log(`WARNING: API_TOKEN not set in .env!`);
+    console.log(`Generated ephemeral security token: ${API_TOKEN}`);
+    console.log('---------------------------------------------------');
+}
 
 app.use(cors());
 app.use(express.static('public'));
