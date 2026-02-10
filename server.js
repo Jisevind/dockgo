@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const Docker = require('dockerode');
-const { exec, spawn } = require('child_process');
+const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const cors = require('cors');
