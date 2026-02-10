@@ -21,7 +21,10 @@ if (!API_TOKEN) {
     console.log('---------------------------------------------------');
 }
 
-app.use(cors());
+const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:3000';
+app.use(cors({
+    origin: CORS_ORIGIN
+}));
 app.use(express.static('public'));
 app.use(express.json());
 
