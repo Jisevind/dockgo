@@ -3,5 +3,6 @@ updates.cache
 
 .contextignore
 *.log
+*.old
 *.md
 .env
