@@ -13,6 +13,5 @@ services:
       # or you can set environment variables here directly.
       # - ./.env:/app/.env
     environment:
-      - PORT=3000
       # - API_TOKEN=your_secure_token_here
       # - CORS_ORIGIN=http://localhost:3000
