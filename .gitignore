@@ -1,6 +1,7 @@
 node_modules
 updates.cache
 
+.contextignore
 *.log
 *.md
 .env
