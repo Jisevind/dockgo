@@ -230,13 +230,6 @@ app.get('/api/containers', async (req, res) => {
 
 // API: Trigger Update
 app.post('/api/update/:name', async (req, res) => {
-    // Auth Check
-    const authHeader = req.headers.authorization;
-    if (!authHeader || authHeader !== `Bearer ${API_TOKEN}`) {
-        log(`Unauthorized access attempt to update ${req.params.name}`);
-        return res.status(401).json({ error: 'Unauthorized: Invalid API Token' });
-    }
-
     const name = req.params.name;
 
     // Basic validation
