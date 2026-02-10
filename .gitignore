@@ -1,4 +1,5 @@
 node_modules
 updates.cache
 
+*.log
 *.md
