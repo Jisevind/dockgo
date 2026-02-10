@@ -83,41 +83,32 @@ const runDockcheck = (args = []) => {
 
 // Parse dockcheck output
 const parseDockcheckOutput = (output) => {
-    const updates = [];
-    const lines = output.split('\n');
-    let readingUpdates = false;
+    log(`Parsing output length: ${output.length} chars`);
 
-    log(`Parsing ${lines.length} lines of output`);
+    // Robust regex to find the updates section
+    // Captures content after "Containers with updates available:"
+    // Stops at "No updates" (installed/available) or EOF
+    const regex = /Containers with updates available:\s*([\s\S]*?)(?:No updates|Containers on|Containers with errors|$)/i;
+    const match = output.match(regex);
 
-    for (const line of lines) {
-        const trimmed = line.trim();
-        log(`Processing line: "${trimmed}"`);
-
-        if (trimmed.includes('Containers with updates available:')) {
-            log('Found header: Containers with updates available');
-            readingUpdates = true;
-            continue;
+    if (match && match[1]) {
+        const rawList = match[1].trim();
+        if (!rawList) {
+            log('Update section found but empty.');
+            return [];
         }
 
-        if (readingUpdates) {
-            if (!trimmed) {
-                log('Empty line, stopping read');
-                readingUpdates = false;
-                continue;
-            }
+        const updates = rawList
+            .split('\n')
+            .map(line => line.trim())
+            .filter(line => line && !line.includes('No updates')); // double check filter
 
-            if (trimmed.includes(':') || trimmed.includes('No updates installed')) {
-                log(`Found terminator: "${trimmed}"`);
-                readingUpdates = false;
-                continue;
-            }
-
-            log(`Found container update: ${trimmed}`);
-            updates.push(trimmed);
-        }
+        log(`Parsed updates (Regex): ${JSON.stringify(updates)}`);
+        return updates;
     }
-    log(`Parsed updates: ${JSON.stringify(updates)}`);
-    return updates;
+
+    log('No update section found in output.');
+    return [];
 };
 
 // API: Get Containers
