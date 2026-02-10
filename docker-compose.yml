@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  dockviewer:
+    build: .
+    container_name: dockviewer
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Mount .env if you want to use file-based config, 
+      # or you can set environment variables here directly.
+      # - ./.env:/app/.env
+    environment:
+      - PORT=3000
+      # - API_TOKEN=your_secure_token_here
+      # - CORS_ORIGIN=http://localhost:3000
