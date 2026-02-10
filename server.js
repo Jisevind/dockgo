@@ -6,6 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const cors = require('cors');
 const crypto = require('crypto'); // Built-in node module
+const packageJson = require('./package.json');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -169,6 +170,27 @@ const parseDockcheckOutput = (output) => {
     log('No update section found in output.');
     return [];
 };
+
+// API: Health Check
+app.get('/api/health', async (req, res) => {
+    try {
+        await docker.ping();
+        res.json({
+            status: 'ok',
+            version: packageJson.version,
+            docker: 'connected',
+            last_update_check: lastUpdateCheck ? new Date(lastUpdateCheck).toISOString() : null
+        });
+    } catch (error) {
+        res.status(503).json({
+            status: 'error',
+            version: packageJson.version,
+            docker: 'disconnected',
+            error: error.message,
+            last_update_check: lastUpdateCheck ? new Date(lastUpdateCheck).toISOString() : null
+        });
+    }
+});
 
 // API: Get Containers
 app.get('/api/containers', async (req, res) => {
