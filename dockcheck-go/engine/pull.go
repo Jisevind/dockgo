@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"dockgo/api"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -21,7 +22,7 @@ type PullEvent struct {
 	Id string `json:"id,omitempty"`
 }
 
-func (d *DiscoveryEngine) PullImage(ctx context.Context, imageName string) error {
+func (d *DiscoveryEngine) PullImage(ctx context.Context, imageName string, onProgress func(api.PullProgressEvent)) error {
 	reader, err := d.Client.ImagePull(ctx, imageName, image.PullOptions{})
 	if err != nil {
 		return err
@@ -42,15 +43,18 @@ func (d *DiscoveryEngine) PullImage(ctx context.Context, imageName string) error
 			return fmt.Errorf("pull error: %s", event.Error)
 		}
 
-		// For now, just print the event to stdout. In a real engine, we'd emit this to a channel.
-		// Simplifying output for visibility
-		if event.Status == "Downloading" || event.Status == "Extracting" {
-			if event.ProgressDetail.Total > 0 {
-				percent := float64(event.ProgressDetail.Current) / float64(event.ProgressDetail.Total) * 100
-				fmt.Printf("\r%s %s: %.1f%%", event.Status, event.Id, percent)
+		if onProgress != nil {
+			progEvt := api.PullProgressEvent{
+				Type:      "pull_progress",
+				Container: imageName,
+				Status:    event.Status,
 			}
-		} else {
-			fmt.Printf("\n%s\n", event.Status)
+
+			if event.ProgressDetail.Total > 0 {
+				progEvt.Percent = float64(event.ProgressDetail.Current) / float64(event.ProgressDetail.Total) * 100
+			}
+
+			onProgress(progEvt)
 		}
 	}
 	return nil

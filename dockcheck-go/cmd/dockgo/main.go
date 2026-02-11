@@ -199,7 +199,20 @@ func main() {
 				}
 
 				// Pull
-				err := discovery.PullImage(ctx, upd.Image)
+				err := discovery.PullImage(ctx, upd.Image, func(evt api.PullProgressEvent) {
+					if *streamOutput {
+						json.NewEncoder(os.Stdout).Encode(evt)
+					} else if !*jsonOutput {
+						// Text progress
+						if evt.Status == "Downloading" || evt.Status == "Extracting" {
+							if evt.Percent > 0 {
+								fmt.Printf("\r%s %s: %.1f%%", evt.Status, evt.Container, evt.Percent)
+							}
+						} else {
+							fmt.Printf("\n%s\n", evt.Status)
+						}
+					}
+				})
 				if err != nil {
 					fmt.Printf("Failed to pull %s: %v\n", upd.Name, err)
 					upd.Error = err.Error()
@@ -212,7 +225,7 @@ func main() {
 					fmt.Printf("Failed to recreate %s: %v\n", upd.Name, err)
 					upd.Error = err.Error()
 				} else {
-					if !*jsonOutput {
+					if !*jsonOutput && !*streamOutput {
 						fmt.Printf("Successfully updated %s\n", upd.Name)
 					}
 					upd.Status = "updated"

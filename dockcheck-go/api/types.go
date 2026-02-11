@@ -23,3 +23,10 @@ type ProgressEvent struct {
 	Status          string `json:"status"`    // result of check
 	UpdateAvailable bool   `json:"update_available"`
 }
+
+type PullProgressEvent struct {
+	Type      string  `json:"type"`              // "pull_progress"
+	Container string  `json:"container"`         // Container/Image name
+	Status    string  `json:"status"`            // "Downloading", "Extracting", etc.
+	Percent   float64 `json:"percent,omitempty"` // 0-100
+}
