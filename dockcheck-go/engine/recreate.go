@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types/container"
@@ -31,8 +32,51 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 
 	fmt.Printf("Recreating standalone container %s with image %s...\n", name, imageName)
 
+	// --- Config Sanitization ---
+
 	// Override the image in the config to ensure we use the new tag/digest
 	json.Config.Image = imageName
+
+	// Reset Hostname if it matches the short ID (meaning it was auto-generated)
+	// Docker IDs are hex 64 chars. Short ID is usually 12.
+	// json.ID is full ID.
+	if strings.HasPrefix(json.ID, json.Config.Hostname) || json.Config.Hostname == json.ID[:12] {
+		json.Config.Hostname = "" // Let Docker generate a new one
+	}
+
+	// Prepare NetworkingConfig
+	// We must not pass read-only fields back to Create.
+	// We essentially want coverage of user-defined endpoints settings.
+	networkingConfig := &network.NetworkingConfig{
+		EndpointsConfig: make(map[string]*network.EndpointSettings),
+	}
+
+	for netName, ep := range json.NetworkSettings.Networks {
+		// Create a clean EndpointSettings with only input fields
+		newEp := &network.EndpointSettings{
+			IPAMConfig:          ep.IPAMConfig,
+			Links:               ep.Links,
+			Aliases:             ep.Aliases,
+			NetworkID:           "", // Docker finds it by name, or we can pass it. Name is usually safer/sufficient.
+			EndpointID:          "", // Read-only
+			Gateway:             "", // Read-only
+			IPAddress:           "", // Reset IP to let Docker assign new one, UNLESS we want to enforce static. Valid choice: reset.
+			IPPrefixLen:         0,  // Read-only
+			IPv6Gateway:         "", // Read-only
+			GlobalIPv6Address:   "", // Reset
+			GlobalIPv6PrefixLen: 0,  // Read-only
+			MacAddress:          "", // Reset MAC to avoid conflict (unless manually set?)
+			DriverOpts:          ep.DriverOpts,
+		}
+
+		// Choice: Preserve IP if it looks like it was statically assigned?
+		// Hard to know. Safest for "recreation" is usually to release it and get a new one,
+		// UNLESS the container relies on static IP.
+		// For standalone containers, static IPs are rare vs Compose.
+		// Let's keep it null for maximum safety against conflicts.
+
+		networkingConfig.EndpointsConfig[netName] = newEp
+	}
 
 	// 2. Stop container
 	timeout := 10 // seconds
@@ -50,7 +94,7 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 
 	// 4. Create new container
 	// We need to copy Config, HostConfig, NetworkingConfig
-	newContainer, err := d.Client.ContainerCreate(ctx, json.Config, json.HostConfig, &network.NetworkingConfig{EndpointsConfig: json.NetworkSettings.Networks}, nil, name)
+	newContainer, err := d.Client.ContainerCreate(ctx, json.Config, json.HostConfig, networkingConfig, nil, name)
 	if err != nil {
 		// Rollback: Rename old back
 		_ = d.Client.ContainerRename(ctx, containerID, name)
