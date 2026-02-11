@@ -42,6 +42,9 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // Sort alphabetically by name
+        containers.sort((a, b) => a.name.localeCompare(b.name));
+
         containers.forEach(container => {
             const clone = template.content.cloneNode(true);
             const card = clone.querySelector('.card');
