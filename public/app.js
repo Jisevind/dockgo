@@ -146,8 +146,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Actually handleUpdate needs the container element to find sub-elements
                 const containerEl = clone.querySelector('.card') || clone.querySelector('.list-item');
 
-                clone.querySelector('.container-name').textContent = container.name;
-                clone.querySelector('.image-name').textContent = container.image;
+                const containerNameEl = clone.querySelector('.container-name');
+                containerNameEl.textContent = container.name;
+
+                // Parse image and tag
+                let imageDisplay = container.image;
+                let tag = '';
+
+                // Naive split, but works for most cases repo:tag
+                // If sha256, server already tried to resolve it.
+                if (container.image.includes(':')) {
+                    const parts = container.image.split(':');
+                    tag = parts.pop();
+                    imageDisplay = parts.join(':');
+                }
+
+                clone.querySelector('.image-name').textContent = imageDisplay;
+
+                const tagBadge = clone.querySelector('.tag-badge');
+                if (tag) {
+                    tagBadge.textContent = tag;
+                    tagBadge.classList.remove('hidden');
+                }
 
                 const statusBadge = clone.querySelector('.status-badge');
                 statusBadge.textContent = container.state;

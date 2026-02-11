@@ -190,11 +190,40 @@ h1 {
 }
 
 .image-name {
-    margin: 0 0 1rem 0;
+    margin: 0;
     font-size: 0.875rem;
     color: var(--text-secondary);
     font-family: monospace;
     word-break: break-all;
+}
+
+.image-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    /* For list view mainly */
+}
+
+/* Override list item image row */
+.list-item .image-row {
+    margin-bottom: 0;
+}
+
+.tag-badge {
+    font-size: 0.75rem;
+    padding: 2px 6px;
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-secondary);
+    border-radius: 4px;
+    font-family: monospace;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    white-space: nowrap;
+}
+
+.card .tag-badge {
+    display: inline-block;
+    margin-top: 0.5rem;
 }
 
 .status-badge {
