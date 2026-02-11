@@ -96,17 +96,22 @@ let lastDockcheckStatus = null;
 const CACHE_DURATION = 1000 * 60 * 15; // 15 minutes
 
 // Helper to run dockcheck
+// Helper to run dockcheck
 const runDockcheck = (args = []) => {
     return new Promise((resolve, reject) => {
-        // Assume dockcheck is in ./dockcheck/dockcheck.sh
-        // Use relative path execution from the dockcheck directory to avoid Windows path issues
-        const scriptDir = path.join(__dirname, 'dockcheck');
-        const scriptPath = 'dockcheck.sh';
+        // Find binary
+        let binPath = process.env.DOCKCHECK_BIN || './dockcheck';
+        if (process.platform === 'win32' && !binPath.endsWith('.exe')) {
+            binPath += '.exe';
+        }
 
-        log(`Running in ${scriptDir}: bash ${scriptPath} ${args.join(' ')}`);
+        // Resolve absolute path if needed, or rely on CWD
+        // If local dev, it's ./dockcheck.exe
 
-        const child = spawn('bash', [scriptPath, ...args], {
-            cwd: scriptDir
+        log(`Executing: ${binPath} ${args.join(' ')}`);
+
+        const child = spawn(binPath, args, {
+            env: { ...process.env } // Pass env vars
         });
 
         let stdout = '';
@@ -131,47 +136,38 @@ const runDockcheck = (args = []) => {
                 lastDockcheckStatus = 'error';
                 log(`Dockcheck exited with code ${code}`);
                 log(`Stderr: ${stderr}`);
-                log(`Stdout: ${stdout}`);
+                // log(`Stdout: ${stdout}`); // Verbose
                 const error = new Error(`Command failed with exit code ${code}`);
                 error.code = code;
                 error.stdout = stdout;
                 error.stderr = stderr;
                 return reject(error);
             }
-            log(`Dockcheck Output:\n${stdout}`);
             lastDockcheckStatus = 'success';
             resolve(stdout);
         });
     });
 };
 
-// Parse dockcheck output
+// Parse dockcheck output (JSON)
 const parseDockcheckOutput = (output) => {
-    log(`Parsing output length: ${output.length} chars`);
+    try {
+        const data = JSON.parse(output);
+        if (data.containers) {
+            // Return list of names with updates available
+            // Or return full objects? 
+            // To match previous logic (updateCache.includes(name)), we return array of names.
+            const updates = data.containers
+                .filter(c => c.update_available)
+                .map(c => c.name);
 
-    // Robust regex to find the updates section
-    // Captures content after "Containers with updates available:"
-    // Stops at "No updates" (installed/available) or EOF
-    const regex = /Containers with updates available:\s*([\s\S]*?)(?:No updates|Containers on|Containers with errors|$)/i;
-    const match = output.match(regex);
-
-    if (match && match[1]) {
-        const rawList = match[1].trim();
-        if (!rawList) {
-            log('Update section found but empty.');
-            return [];
+            log(`Parsed updates (JSON): ${JSON.stringify(updates)}`);
+            return updates;
         }
-
-        const updates = rawList
-            .split('\n')
-            .map(line => line.trim())
-            .filter(line => line && !line.includes('No updates')); // double check filter
-
-        log(`Parsed updates (Regex): ${JSON.stringify(updates)}`);
-        return updates;
+    } catch (e) {
+        log(`Failed to parse dockcheck JSON: ${e.message}`);
+        log(`Raw output start: ${output.substring(0, 100)}...`);
     }
-
-    log('No update section found in output.');
     return [];
 };
 
@@ -238,9 +234,9 @@ app.get('/api/containers', async (req, res) => {
 
         if (!updatesCache || (now - lastUpdateCheck > CACHE_DURATION) || forceRefresh) {
             try {
-                // Run -n (no update) -m (monochrome/machine readableish)
+                // Run -n (check) -json
                 log(`Refreshing update cache... (Force: ${forceRefresh})`);
-                const output = await runDockcheck(['-n', '-m']);
+                const output = await runDockcheck(['-n', '-json']);
                 updatesCache = parseDockcheckOutput(output);
                 lastUpdateCheck = now;
             } catch (err) {
@@ -297,10 +293,8 @@ app.post('/api/update/:name', async (req, res) => {
     log(`Updating container: ${name}`);
 
     try {
-        // Run update: -y (yes/auto) -m (mono) -f (force restart stack if needed? maybe optional) 
-        // dockcheck args: dockcheck.sh -y [names]
-        // We pass the name as argument
-        const output = await runDockcheck(['-y', '-m', name]);
+        // Run update: -y [name] -json
+        const output = await runDockcheck(['-y', name, '-json']);
 
         // Invalidate cache so next list refresh checks again (or just remove this one from cache)
         if (updatesCache) {

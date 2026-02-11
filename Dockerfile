@@ -1,14 +1,12 @@
-FROM node:18-alpine
+# Build Stage
+FROM golang:1.25-alpine AS builder
+WORKDIR /build
+COPY dockcheck-go .
+RUN go mod download
+RUN go build -o dockcheck ./cmd/dockcheck
 
-# Install dependencies required by dockcheck.sh
-RUN apk add --no-cache \
-    bash \
-    curl \
-    docker-cli \
-    docker-cli-compose \
-    jq \
-    sed \
-    grep
+# Final Stage
+FROM node:18-alpine
 
 WORKDIR /app
 
@@ -19,8 +17,12 @@ RUN npm install --production
 # Copy app source
 COPY . .
 
+# Copy binary from builder
+COPY --from=builder /build/dockcheck ./dockcheck
+
 # Environment defaults
 ENV NODE_ENV=production
+ENV DOCKCHECK_BIN=./dockcheck
 
 EXPOSE 3131
 
