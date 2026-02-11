@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
 
 func main() {
@@ -84,7 +85,7 @@ func main() {
 		json.NewEncoder(os.Stdout).Encode(startEvt)
 	}
 
-	processedCount := 0
+	var processedCount int32 = 0
 
 	for _, c := range allContainers {
 		// Clean name
@@ -155,13 +156,13 @@ func main() {
 
 			mu.Lock()
 			updates = append(updates, upd)
-			processedCount++
+			newCount := atomic.AddInt32(&processedCount, 1)
 
 			// Emit progress event
 			if *streamOutput {
 				evt := api.ProgressEvent{
 					Type:            "progress",
-					Current:         processedCount,
+					Current:         int(newCount),
 					Total:           totalToCheck,
 					Container:       name,
 					Status:          upd.Status,
