@@ -291,6 +291,14 @@ app.get('/api/stream/check', async (req, res) => {
         env: { ...process.env }
     });
 
+    // Cleanup on client disconnect
+    req.on('close', () => {
+        if (!child.killed) {
+            log('Client disconnected from stream, killing dockgo process');
+            child.kill();
+        }
+    });
+
     let buffer = '';
     const newUpdatesCache = []; // Accumulate updates for cache
 
