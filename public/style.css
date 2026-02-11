@@ -26,6 +26,20 @@ body {
     padding: 2rem;
 }
 
+.container-divider {
+    grid-column: 1 / -1;
+    border: 0;
+    border-top: 2px dashed rgba(255, 255, 255, 0.2);
+    margin: 1rem 0;
+    width: 100%;
+}
+
+@media (max-width: 600px) {
+    .container {
+        padding: 1rem;
+    }
+}
+
 header {
     display: flex;
     justify-content: space-between;

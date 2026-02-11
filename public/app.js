@@ -42,39 +42,58 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Sort alphabetically by name
-        containers.sort((a, b) => a.name.localeCompare(b.name));
+        // Split into two groups
+        const withUpdates = containers.filter(c => c.updateAvailable);
+        const withoutUpdates = containers.filter(c => !c.updateAvailable);
 
-        containers.forEach(container => {
-            const clone = template.content.cloneNode(true);
-            const card = clone.querySelector('.card');
+        // Sort each group alphabetically
+        withUpdates.sort((a, b) => a.name.localeCompare(b.name));
+        withoutUpdates.sort((a, b) => a.name.localeCompare(b.name));
 
-            clone.querySelector('.container-name').textContent = container.name;
-            clone.querySelector('.image-name').textContent = container.image;
+        const renderBatch = (batch) => {
+            batch.forEach(container => {
+                const clone = template.content.cloneNode(true);
+                const card = clone.querySelector('.card');
 
-            const statusBadge = clone.querySelector('.status-badge');
-            statusBadge.textContent = container.state;
+                clone.querySelector('.container-name').textContent = container.name;
+                clone.querySelector('.image-name').textContent = container.image;
 
-            // Status styling
-            if (container.state === 'running') {
-                statusBadge.classList.add('status-running');
-            } else if (container.state === 'exited' || container.state === 'dead') {
-                statusBadge.classList.add('status-exited');
-            } else {
-                statusBadge.classList.add('status-other');
-            }
+                const statusBadge = clone.querySelector('.status-badge');
+                statusBadge.textContent = container.state;
 
-            // Update section
-            if (container.updateAvailable) {
-                const updateSection = clone.querySelector('.update-section');
-                updateSection.classList.remove('hidden');
+                // Status styling
+                if (container.state === 'running') {
+                    statusBadge.classList.add('status-running');
+                } else if (container.state === 'exited' || container.state === 'dead') {
+                    statusBadge.classList.add('status-exited');
+                } else {
+                    statusBadge.classList.add('status-other');
+                }
 
-                const btn = updateSection.querySelector('.btn-update');
-                btn.onclick = () => handleUpdate(container.name, card);
-            }
+                // Update section
+                if (container.updateAvailable) {
+                    const updateSection = clone.querySelector('.update-section');
+                    updateSection.classList.remove('hidden');
 
-            listEl.appendChild(clone);
-        });
+                    const btn = updateSection.querySelector('.btn-update');
+                    btn.onclick = () => handleUpdate(container.name, card);
+                }
+
+                listEl.appendChild(clone);
+            });
+        };
+
+        // Render groups
+        renderBatch(withUpdates);
+
+        // Add divider if both groups exist
+        if (withUpdates.length > 0 && withoutUpdates.length > 0) {
+            const hr = document.createElement('hr');
+            hr.className = 'container-divider';
+            listEl.appendChild(hr);
+        }
+
+        renderBatch(withoutUpdates);
     };
 
     const handleUpdate = async (name, cardEl) => {
