@@ -210,20 +210,22 @@ h1 {
     margin-bottom: 0;
 }
 
-.tag-badge {
-    font-size: 0.75rem;
-    padding: 2px 6px;
-    background: rgba(255, 255, 255, 0.1);
-    color: var(--text-secondary);
-    border-radius: 4px;
-    font-family: monospace;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    white-space: nowrap;
+.badges {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
 }
 
-.card .tag-badge {
-    display: inline-block;
-    margin-top: 0.5rem;
+.tag-badge,
+.version-badge {
+    font-size: 0.75rem;
+    padding: 2px 6px;
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--accent);
+    border-radius: 4px;
+    font-family: monospace;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    white-space: nowrap;
 }
 
 .status-badge {

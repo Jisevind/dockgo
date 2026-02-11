@@ -11,6 +11,7 @@ type ContainerUpdate struct {
 	Status string            `json:"status"`
 	Error  string            `json:"error,omitempty"`
 	Labels map[string]string `json:"labels,omitempty"`
+	Tag    string            `json:"tag,omitempty"`
 }
 
 type CheckReport struct {

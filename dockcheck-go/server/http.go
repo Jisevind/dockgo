@@ -198,10 +198,7 @@ func (s *Server) handleContainers(w http.ResponseWriter, r *http.Request) {
 
 	var result []map[string]interface{}
 	for _, c := range containers {
-		name := c.Names[0]
-		if strings.HasPrefix(name, "/") {
-			name = name[1:]
-		}
+		name := strings.TrimPrefix(c.Names[0], "/")
 
 		image := c.Image
 		if strings.HasPrefix(image, "sha256:") {
@@ -218,10 +215,29 @@ func (s *Server) handleContainers(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		// Parse Image:Tag
+		var tagName string
+		if idx := strings.LastIndex(image, ":"); idx > -1 && !strings.Contains(image[idx:], "/") {
+			tagName = image[idx+1:]
+			// If it's a digest (e.g. some-image@sha256:...), the tag might be implicit or mapped.
+			// If it's "ubuntu:latest", tag is "latest".
+			// If it's "ubuntu:latest@sha256:...", tag is "latest".
+			// If it's "ubuntu@sha256:...", tag is empty/unknown.
+			if idxAt := strings.LastIndex(tagName, "@"); idxAt > -1 {
+				tagName = tagName[:idxAt]
+			}
+		} else if strings.Contains(image, "@") {
+			// Digest only, no tag
+			tagName = "(digest)"
+		} else {
+			tagName = "latest" // Assume latest if no tag? Or unknown? Docker defaults to latest.
+		}
+
 		result = append(result, map[string]interface{}{
 			"id":               c.ID,
 			"name":             name,
 			"image":            image,
+			"tag":              tagName,
 			"state":            c.State,
 			"status":           c.Status,
 			"update_available": updateAvail,

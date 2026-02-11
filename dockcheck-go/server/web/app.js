@@ -149,24 +149,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 const containerNameEl = clone.querySelector('.container-name');
                 containerNameEl.textContent = container.name;
 
-                // Parse image and tag
-                let imageDisplay = container.image;
-                let tag = '';
+                // Image and Tag
+                // Server now provides 'tag' field. 
+                // If tag is present, show it. 
+                // Image name should hopefully be clean too.
 
-                // Naive split, but works for most cases repo:tag
-                // If sha256, server already tried to resolve it.
-                if (container.image.includes(':')) {
-                    const parts = container.image.split(':');
-                    tag = parts.pop();
-                    imageDisplay = parts.join(':');
-                }
-
-                clone.querySelector('.image-name').textContent = imageDisplay;
+                clone.querySelector('.image-name').textContent = container.image;
 
                 const tagBadge = clone.querySelector('.tag-badge');
-                if (tag) {
-                    tagBadge.textContent = tag;
+                if (container.tag && container.tag !== 'latest' && container.tag !== '(digest)') {
+                    tagBadge.textContent = container.tag;
                     tagBadge.classList.remove('hidden');
+                } else if (container.tag === 'latest') {
+                    tagBadge.textContent = 'latest';
+                    tagBadge.classList.remove('hidden');
+                    // Optional: style 'latest' differently?
                 }
 
                 const statusBadge = clone.querySelector('.status-badge');
