@@ -1,4 +1,4 @@
-module dockcheck
+module dockgo
 
 go 1.25.7
 

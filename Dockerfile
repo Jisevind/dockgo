@@ -3,7 +3,7 @@ FROM golang:1.25-alpine AS builder
 WORKDIR /build
 COPY dockcheck-go .
 RUN go mod download
-RUN go build -o dockcheck ./cmd/dockcheck
+RUN go build -o dockgo ./cmd/dockgo
 
 # Final Stage
 FROM node:18-alpine
@@ -18,11 +18,11 @@ RUN npm install --production
 COPY . .
 
 # Copy binary from builder
-COPY --from=builder /build/dockcheck ./dockcheck
+COPY --from=builder /build/dockgo ./dockgo
 
 # Environment defaults
 ENV NODE_ENV=production
-ENV DOCKCHECK_BIN=./dockcheck
+ENV DOCKCHECK_BIN=./dockgo
 
 EXPOSE 3131
 

@@ -100,13 +100,13 @@ const CACHE_DURATION = 1000 * 60 * 15; // 15 minutes
 const runDockcheck = (args = []) => {
     return new Promise((resolve, reject) => {
         // Find binary
-        let binPath = process.env.DOCKCHECK_BIN || './dockcheck';
+        let binPath = process.env.DOCKCHECK_BIN || './dockgo';
         if (process.platform === 'win32' && !binPath.endsWith('.exe')) {
             binPath += '.exe';
         }
 
         // Resolve absolute path if needed, or rely on CWD
-        // If local dev, it's ./dockcheck.exe
+        // If local dev, it's ./dockgo.exe
 
         log(`Executing: ${binPath} ${args.join(' ')}`);
 
@@ -126,7 +126,7 @@ const runDockcheck = (args = []) => {
         });
 
         child.on('error', (error) => {
-            log(`Dockcheck spawn error: ${error.message}`);
+            log(`Dockgo spawn error: ${error.message}`);
             lastDockcheckStatus = 'error';
             reject(error);
         });
@@ -134,7 +134,7 @@ const runDockcheck = (args = []) => {
         child.on('close', (code) => {
             if (code !== 0) {
                 lastDockcheckStatus = 'error';
-                log(`Dockcheck exited with code ${code}`);
+                log(`Dockgo exited with code ${code}`);
                 log(`Stderr: ${stderr}`);
                 // log(`Stdout: ${stdout}`); // Verbose
                 const error = new Error(`Command failed with exit code ${code}`);
@@ -240,7 +240,7 @@ app.get('/api/containers', async (req, res) => {
                 updatesCache = parseDockcheckOutput(output);
                 lastUpdateCheck = now;
             } catch (err) {
-                log(`Failed to run dockcheck: ${err.message}`);
+                log(`Failed to run dockgo: ${err.message}`);
                 if (!updatesCache) updatesCache = [];
             }
         }

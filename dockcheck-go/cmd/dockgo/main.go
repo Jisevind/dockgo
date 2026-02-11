@@ -2,8 +2,8 @@ package main
 
 import (
 	"context"
-	"dockcheck/api"
-	"dockcheck/engine"
+	"dockgo/api"
+	"dockgo/engine"
 	"encoding/json"
 	"flag"
 	"fmt"
