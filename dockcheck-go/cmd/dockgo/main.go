@@ -4,6 +4,7 @@ import (
 	"context"
 	"dockgo/api"
 	"dockgo/engine"
+	"dockgo/server"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -15,6 +16,25 @@ import (
 )
 
 func main() {
+	// Subcommand: serve
+	if len(os.Args) > 1 && os.Args[1] == "serve" {
+		port := os.Getenv("PORT")
+		if port == "" {
+			port = "3131"
+		}
+
+		srv, err := server.NewServer(port)
+		if err != nil {
+			fatal("Failed to init server: %v", err)
+		}
+
+		// Start server (blocks)
+		if err := srv.Start(); err != nil {
+			fatal("Server error: %v", err)
+		}
+		return
+	}
+
 	checkOnly := flag.Bool("n", false, "Check for updates only (dry-run)")
 	updateAll := flag.Bool("a", false, "Update all containers with available updates")
 	updateName := flag.String("y", "", "Update specific container by name (e.g. 'update-me' or 'all')")
