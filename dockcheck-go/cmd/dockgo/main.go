@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 func main() {
@@ -100,13 +101,14 @@ func main() {
 		}
 
 		wg.Add(1)
-		go func(name, image, id, state string) {
+		go func(name, image, id, state string, labels map[string]string) {
 			defer wg.Done()
 
 			upd := api.ContainerUpdate{
 				ID:     id,
 				Name:   name,
 				Status: "checked",
+				Labels: labels,
 			}
 
 			// Get local details first to resolve true image name (in case List returned SHA)
@@ -180,7 +182,7 @@ func main() {
 				}
 			}
 			mu.Unlock()
-		}(cName, c.Image, c.ID, c.State)
+		}(cName, c.Image, c.ID, c.State, c.Labels)
 	}
 	wg.Wait()
 
@@ -201,7 +203,57 @@ func main() {
 					// Streaming JSON events would be better but for now modifying the report.
 				}
 
-				// Pull
+				// Check for Compose
+				var composeError error
+				composeHandled := false
+
+				if workingDir, ok := upd.Labels["com.docker.compose.project.working_dir"]; ok {
+					serviceName := upd.Labels["com.docker.compose.service"]
+					if serviceName != "" {
+						if !*jsonOutput && !*streamOutput {
+							fmt.Printf("ℹ️  Detected Compose project in '%s' (service: '%s')\n", workingDir, serviceName)
+						}
+
+						// Timeout for Compose operations
+						ctxCompose, cancel := context.WithTimeout(ctx, 10*time.Minute)
+
+						// Logger callback for streaming
+						logger := func(line string) {
+							if *streamOutput {
+								// Emit log as status update
+								json.NewEncoder(os.Stdout).Encode(api.ProgressEvent{
+									Type:      "progress",
+									Status:    line, // Reusing status field for log
+									Container: upd.Name,
+								})
+							} else if !*jsonOutput {
+								fmt.Println(line)
+							}
+						}
+
+						err := engine.ComposeUpdate(ctxCompose, workingDir, serviceName, logger)
+						cancel() // Clean up context
+
+						if err == nil {
+							composeHandled = true
+							upd.Status = "updated"
+							if !*jsonOutput && !*streamOutput {
+								fmt.Printf("✅ %s updated via Docker Compose\n", upd.Name)
+							}
+						} else {
+							composeError = err
+							if !*jsonOutput && !*streamOutput {
+								fmt.Printf("⚠️  Compose update failed: %v. Falling back to standalone recreation...\n", err)
+							}
+						}
+					}
+				}
+
+				if composeHandled {
+					continue
+				}
+
+				// Fallback or Standalone: Pull
 				err := discovery.PullImage(ctx, upd.Image, func(evt api.PullProgressEvent) {
 					if *streamOutput {
 						json.NewEncoder(os.Stdout).Encode(evt)
@@ -219,6 +271,9 @@ func main() {
 				if err != nil {
 					fmt.Printf("Failed to pull %s: %v\n", upd.Name, err)
 					upd.Error = err.Error()
+					if composeError != nil {
+						upd.Error += fmt.Sprintf(" (Compose error: %v)", composeError)
+					}
 					continue
 				}
 

@@ -14,6 +14,9 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install --production
 
+# Install Docker CLI and Compose for "docker compose" support
+RUN apk add --no-cache docker-cli docker-cli-compose
+
 # Copy app source
 COPY . .
 

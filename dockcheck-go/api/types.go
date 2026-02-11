@@ -7,8 +7,10 @@ type ContainerUpdate struct {
 	LocalDigest     string `json:"local_digest"`
 	RemoteDigest    string `json:"remote_digest"`
 	UpdateAvailable bool   `json:"update_available"`
-	Status          string `json:"status"` // "checked", "updating", "updated", "error"
-	Error           string `json:"error,omitempty"`
+	// "checked", "updating", "updated", "error"
+	Status string            `json:"status"`
+	Error  string            `json:"error,omitempty"`
+	Labels map[string]string `json:"labels,omitempty"`
 }
 
 type CheckReport struct {
