@@ -6,7 +6,7 @@ services:
     container_name: dockviewer
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3131:3131"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       # Mount .env if you want to use file-based config, 
@@ -14,4 +14,4 @@ services:
       # - ./.env:/app/.env
     environment:
       # - API_TOKEN=your_secure_token_here
-      # - CORS_ORIGIN=http://localhost:3000
+      # - CORS_ORIGIN=http://localhost:3131

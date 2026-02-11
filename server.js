@@ -9,7 +9,7 @@ const crypto = require('crypto'); // Built-in node module
 const packageJson = require('./package.json');
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 3131;
 const docker = new Docker(); // Defaults to socket or pipe
 const logFile = 'server.log'; // Define log file path
 
@@ -22,7 +22,7 @@ if (!API_TOKEN) {
     console.log('---------------------------------------------------');
 }
 
-const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:3000';
+const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:3131';
 app.use(cors({
     origin: CORS_ORIGIN
 }));
