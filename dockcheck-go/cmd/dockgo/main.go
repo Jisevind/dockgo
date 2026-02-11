@@ -139,7 +139,9 @@ func main() {
 					// operations: "index.docker.io/library/alpine@sha256:..."
 					found := false
 					for _, rd := range repoDigests {
-						if strings.Contains(rd, remoteDigest) {
+						// rd is typically "image@sha256:..."
+						parts := strings.Split(rd, "@")
+						if len(parts) == 2 && parts[1] == remoteDigest {
 							found = true
 							break
 						}
