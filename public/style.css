@@ -34,6 +34,102 @@ body {
     width: 100%;
 }
 
+/* View Toggle */
+.header-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.view-toggle {
+    display: flex;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    padding: 2px;
+}
+
+.btn-icon {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    padding: 4px 8px;
+    cursor: pointer;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-icon:hover {
+    color: var(--text-primary);
+}
+
+.btn-icon.active {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--primary);
+}
+
+/* List View Overrides */
+.list-view {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.list-item {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    display: grid;
+    grid-template-columns: 1fr 140px 1fr;
+    align-items: center;
+    gap: 1rem;
+}
+
+.list-col-name h3 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.list-col-name p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-family: monospace;
+}
+
+.list-col-status {
+    flex-shrink: 0;
+}
+
+.list-col-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    justify-content: flex-end;
+}
+
+/* List View Specific Overrides */
+.list-item .container-name {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    max-width: none;
+}
+
+.list-item .update-section {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+    gap: 1rem;
+}
+
+.list-col-status {
+    display: flex;
+    justify-content: center;
+}
+
 @media (max-width: 600px) {
     .container {
         padding: 1rem;

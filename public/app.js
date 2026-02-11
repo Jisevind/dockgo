@@ -1,8 +1,49 @@
 document.addEventListener('DOMContentLoaded', () => {
     const listEl = document.getElementById('container-list');
-    const template = document.getElementById('container-card-template');
+    const cardTemplate = document.getElementById('container-card-template');
+    const listTemplate = document.getElementById('container-list-template');
     const statusEl = document.getElementById('connection-status');
     const refreshBtn = document.getElementById('refresh-btn');
+    const viewGridBtn = document.getElementById('view-grid');
+    const viewListBtn = document.getElementById('view-list');
+
+    // View State
+    let currentView = localStorage.getItem('dockview_view') || 'grid';
+
+    const updateViewUI = () => {
+        if (currentView === 'list') {
+            listEl.classList.remove('grid-list');
+            listEl.classList.add('list-view');
+            viewListBtn.classList.add('active');
+            viewGridBtn.classList.remove('active');
+        } else {
+            listEl.classList.add('grid-list');
+            listEl.classList.remove('list-view');
+            viewGridBtn.classList.add('active');
+            viewListBtn.classList.remove('active');
+        }
+    };
+
+    // Initialize View UI
+    updateViewUI();
+
+    // View Toggle Listeners
+    viewGridBtn.addEventListener('click', () => {
+        if (currentView === 'grid') return;
+        currentView = 'grid';
+        localStorage.setItem('dockview_view', 'grid');
+        updateViewUI();
+        // Re-render immediately using cached data if possible, or just fetch
+        fetchContainers();
+    });
+
+    viewListBtn.addEventListener('click', () => {
+        if (currentView === 'list') return;
+        currentView = 'list';
+        localStorage.setItem('dockview_view', 'list');
+        updateViewUI();
+        fetchContainers();
+    });
 
     const fetchContainers = async (force = false) => {
         if (force) {
@@ -50,10 +91,15 @@ document.addEventListener('DOMContentLoaded', () => {
         withUpdates.sort((a, b) => a.name.localeCompare(b.name));
         withoutUpdates.sort((a, b) => a.name.localeCompare(b.name));
 
+        const template = currentView === 'list' ? listTemplate : cardTemplate;
+
         const renderBatch = (batch) => {
             batch.forEach(container => {
                 const clone = template.content.cloneNode(true);
-                const card = clone.querySelector('.card');
+                // In list view, the root is .list-item, in card view it's .card
+                // But we need the root element to attach event listeners if needed
+                // Actually handleUpdate needs the container element to find sub-elements
+                const containerEl = clone.querySelector('.card') || clone.querySelector('.list-item');
 
                 clone.querySelector('.container-name').textContent = container.name;
                 clone.querySelector('.image-name').textContent = container.image;
@@ -70,13 +116,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     statusBadge.classList.add('status-other');
                 }
 
-                // Update section
+                // Update section logic is slightly different structure-wise but class names are consistent
                 if (container.updateAvailable) {
                     const updateSection = clone.querySelector('.update-section');
-                    updateSection.classList.remove('hidden');
-
-                    const btn = updateSection.querySelector('.btn-update');
-                    btn.onclick = () => handleUpdate(container.name, card);
+                    if (updateSection) {
+                        updateSection.classList.remove('hidden');
+                        const btn = updateSection.querySelector('.btn-update');
+                        btn.onclick = () => handleUpdate(container.name, containerEl);
+                    }
                 }
 
                 listEl.appendChild(clone);
@@ -96,7 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderBatch(withoutUpdates);
     };
 
-    const handleUpdate = async (name, cardEl) => {
+    const handleUpdate = async (name, containerEl) => {
         if (!confirm(`Are you sure you want to update ${name}?`)) return;
 
         let token = localStorage.getItem('dockview_token');
@@ -107,8 +154,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         console.log(`[Update] Starting update for ${name}`);
-        const btn = cardEl.querySelector('.btn-update');
-        const msgEl = cardEl.querySelector('.update-message');
+        const btn = containerEl.querySelector('.btn-update');
+        const msgEl = containerEl.querySelector('.update-message');
 
         btn.textContent = 'Updating...';
         btn.disabled = true;

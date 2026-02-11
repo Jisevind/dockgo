@@ -17,6 +17,28 @@
         <header>
             <h1>Dockviewer</h1>
             <div class="header-controls">
+                <div class="view-toggle">
+                    <button id="view-grid" class="btn-icon active" title="Grid View">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <rect x="3" y="3" width="7" height="7"></rect>
+                            <rect x="14" y="3" width="7" height="7"></rect>
+                            <rect x="14" y="14" width="7" height="7"></rect>
+                            <rect x="3" y="14" width="7" height="7"></rect>
+                        </svg>
+                    </button>
+                    <button id="view-list" class="btn-icon" title="List View">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <line x1="8" y1="6" x2="21" y2="6"></line>
+                            <line x1="8" y1="12" x2="21" y2="12"></line>
+                            <line x1="8" y1="18" x2="21" y2="18"></line>
+                            <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                            <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                            <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
                 <span id="connection-status" class="status-indicator">Connecting...</span>
                 <button id="refresh-btn" class="btn secondary">Refresh Checks</button>
             </div>
@@ -39,6 +61,26 @@
             </div>
             <div class="card-body">
                 <p class="image-name"></p>
+                <div class="update-section hidden">
+                    <span class="update-badge">Update Available</span>
+                    <button class="btn-update">Update Now</button>
+                </div>
+                <div class="update-message hidden"></div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Template for container list item -->
+    <template id="container-list-template">
+        <div class="list-item">
+            <div class="list-col-name">
+                <h3 class="container-name"></h3>
+                <p class="image-name"></p>
+            </div>
+            <div class="list-col-status">
+                <span class="status-badge"></span>
+            </div>
+            <div class="list-col-actions">
                 <div class="update-section hidden">
                     <span class="update-badge">Update Available</span>
                     <button class="btn-update">Update Now</button>
