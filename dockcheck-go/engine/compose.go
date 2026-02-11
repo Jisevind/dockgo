@@ -87,6 +87,26 @@ func ComposeUpdate(ctx context.Context, workingDir string, serviceName string, l
 	return nil
 }
 
+// ComposePull handles 'docker compose pull' only
+func ComposePull(ctx context.Context, workingDir string, serviceName string, log Logger) error {
+	if log == nil {
+		log = func(s string) { fmt.Println(s) }
+	}
+
+	log(fmt.Sprintf("⬇️  Pulling images for service '%s' in '%s' (Safe Mode)...", serviceName, workingDir))
+
+	// We just run pull. We don't build because 'safe mode' implies we want to prep for update but not change running state.
+	// If it was a build, we'd theoretically 'build' but not 'up'.
+	// But usually people want to pull the new image.
+	err := streamCommand(ctx, workingDir, log, "docker", "compose", "pull", serviceName)
+	if err != nil {
+		return fmt.Errorf("compose pull failed: %w", err)
+	}
+
+	log("✅ Compose pull completed successfully.")
+	return nil
+}
+
 // streamCommand executes a command and streams stdout/stderr to the logger
 func streamCommand(ctx context.Context, dir string, log Logger, name string, args ...string) error {
 	cmd := exec.CommandContext(ctx, name, args...)

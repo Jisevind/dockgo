@@ -44,3 +44,12 @@ func (d *DiscoveryEngine) GetContainerImageDetails(ctx context.Context, containe
 
 	return cJSON.Config.Image, cJSON.Image, iJSON.RepoDigests, nil
 }
+
+// GetContainerState returns the state string of a container (e.g. "running", "exited")
+func (d *DiscoveryEngine) GetContainerState(ctx context.Context, containerID string) (string, error) {
+	cJSON, err := d.Client.ContainerInspect(ctx, containerID)
+	if err != nil {
+		return "", err
+	}
+	return cJSON.State.Status, nil
+}

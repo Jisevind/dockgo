@@ -36,11 +36,24 @@ func main() {
 	}
 
 	checkOnly := flag.Bool("n", false, "Check for updates only (dry-run)")
+	checkOnlyLong := flag.Bool("check-only", false, "Check for updates only (dry-run)")
 	updateAll := flag.Bool("a", false, "Update all containers with available updates")
 	updateName := flag.String("y", "", "Update specific container by name (e.g. 'update-me' or 'all')")
+	updateSafe := flag.Bool("update-safe", false, "Download updates but do NOT restart running containers")
+	updateForce := flag.Bool("update-force", false, "Force update and restart even if running")
 	jsonOutput := flag.Bool("json", false, "Output in JSON format")
 	streamOutput := flag.Bool("stream", false, "Output as a stream of JSON events")
 	flag.Parse()
+
+	// Consolidate checkOnly flags
+	if *checkOnlyLong {
+		*checkOnly = true
+	}
+
+	// Conflict check
+	if *updateSafe && *updateForce {
+		fatal("Cannot use both --update-safe and --update-force")
+	}
 
 	// Handle -y "name" logic
 	targetContainer := *updateName
@@ -207,6 +220,11 @@ func main() {
 	wg.Wait()
 
 	// Update Phase
+	// Logic:
+	// If checkOnly is true -> Skip
+	// If targetContainer is set (including "all") -> Proceed
+	//   BUT respect safe/force modes.
+
 	if !*checkOnly && targetContainer != "" {
 		for i := range updates {
 			upd := &updates[i] // Pointer to element
@@ -222,6 +240,47 @@ func main() {
 					// Update status in list for final JSON?
 					// Streaming JSON events would be better but for now modifying the report.
 				}
+
+				// Check Safe Mode
+				// If Safe Mode is ON and container is RUNNING, we only Pull, no Restart.
+				// However, we need to know if it's running. We have 'c.State' from the loop but it wasn't passed to 'updates' struct directly,
+				// wait, we passed (name, image, id, state, labels) to the goroutine, but 'api.ContainerUpdate' doesn't have State field.
+				// We need to re-inspect or store state.
+				// Simplest is to trust the 'upd' if we add State to it, or just re-inspect/use closure if we were in the loop.
+				// We are in a new loop here iterating 'updates'. We don't have the original 'c' struct easily unless we map it.
+				// Let's rely on 'discovery.GetContainerState' or similar if we had it, OR modify 'ContainerUpdate' to carry state.
+				// For now, let's assume we can't easily get state without inspecting.
+				// ... Wait, 'updates' is a list of 'api.ContainerUpdate'.
+				// Let's inspect to be sure of current state.
+
+				inspectState, err := discovery.GetContainerState(ctx, upd.ID)
+				isRunning := false
+				if err == nil && inspectState == "running" {
+					isRunning = true
+				}
+
+				if *updateSafe && isRunning {
+					if !*jsonOutput && !*streamOutput {
+						fmt.Printf("🛡️  Safe Mode: Skipping restart of running container '%s'. Pulling only.\n", upd.Name)
+					}
+					// We still want to pull!
+					// Fall through to Pull logic but SKIP Recreate/Up.
+				}
+
+				// Fallback or Standalone: Pull
+				// (Also used for Safe Mode or Compose if we want to ensure pull first)
+				// Actually, ComposeUpdate below handles pull internally usually.
+				// BUT for Safe Mode we might want to *manually* pull for compose too if we skip 'up'?
+
+				// Let's refactor slightly:
+				// 1. Check Compose
+				// 2. If Compose:
+				//    If Safe+Running -> Compose Pull Only
+				//    Else -> Compose Up (which builds/pulls)
+				// 3. If Standalone:
+				//    Pull
+				//    If Safe+Running -> Stop here
+				//    Else -> Recreate
 
 				// Check for Compose
 				var composeError error
@@ -251,19 +310,36 @@ func main() {
 							}
 						}
 
-						err := engine.ComposeUpdate(ctxCompose, workingDir, serviceName, logger)
+						var err error
+						if *updateSafe && isRunning {
+							// Compose Pull Only
+							err = engine.ComposePull(ctxCompose, workingDir, serviceName, logger)
+							if err == nil {
+								upd.Status = "pulled_safe"
+								if !*jsonOutput && !*streamOutput {
+									fmt.Printf("✅ %s image pulled (no restart)\n", upd.Name)
+								}
+							}
+						} else {
+							// Standard Update (Up -d)
+							err = engine.ComposeUpdate(ctxCompose, workingDir, serviceName, logger)
+							if err == nil {
+								upd.Status = "updated"
+								if !*jsonOutput && !*streamOutput {
+									fmt.Printf("✅ %s updated via Docker Compose\n", upd.Name)
+								}
+							}
+						}
+
 						cancel() // Clean up context
 
 						if err == nil {
 							composeHandled = true
-							upd.Status = "updated"
-							if !*jsonOutput && !*streamOutput {
-								fmt.Printf("✅ %s updated via Docker Compose\n", upd.Name)
-							}
 						} else {
 							composeError = err
 							if !*jsonOutput && !*streamOutput {
-								fmt.Printf("⚠️  Compose update failed: %v. Falling back to standalone recreation...\n", err)
+								// Only warn if we really failed a requested action
+								fmt.Printf("⚠️  Compose action failed: %v. Falling back to standalone logic...\n", err)
 							}
 						}
 					}
@@ -274,7 +350,8 @@ func main() {
 				}
 
 				// Fallback or Standalone: Pull
-				err := discovery.PullImage(ctx, upd.Image, func(evt api.PullProgressEvent) {
+				// Always pull first in all modes for standalone
+				err = discovery.PullImage(ctx, upd.Image, func(evt api.PullProgressEvent) {
 					if *streamOutput {
 						json.NewEncoder(os.Stdout).Encode(evt)
 					} else if !*jsonOutput {
@@ -294,6 +371,15 @@ func main() {
 					if composeError != nil {
 						upd.Error += fmt.Sprintf(" (Compose error: %v)", composeError)
 					}
+					continue
+				}
+
+				// Decide whether to Recreate
+				if *updateSafe && isRunning {
+					if !*jsonOutput && !*streamOutput {
+						fmt.Printf("✅ %s checked/pulled (safe mode active, no restart)\n", upd.Name)
+					}
+					upd.Status = "pulled_safe"
 					continue
 				}
 
