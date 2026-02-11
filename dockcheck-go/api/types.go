@@ -14,3 +14,12 @@ type ContainerUpdate struct {
 type CheckReport struct {
 	Containers []ContainerUpdate `json:"containers"`
 }
+
+type ProgressEvent struct {
+	Type            string `json:"type"`      // "start", "progress", "done", "error"
+	Current         int    `json:"current"`   // Current count
+	Total           int    `json:"total"`     // Total count
+	Container       string `json:"container"` // Container name being checked
+	Status          string `json:"status"`    // result of check
+	UpdateAvailable bool   `json:"update_available"`
+}

@@ -16,7 +16,8 @@ func main() {
 	checkOnly := flag.Bool("n", false, "Check for updates only (dry-run)")
 	updateAll := flag.Bool("a", false, "Update all containers with available updates")
 	updateName := flag.String("y", "", "Update specific container by name (e.g. 'update-me' or 'all')")
-	jsonOutput := flag.Bool("json", false, "Output in JSON format") // This name handles both formats but flag is boolean
+	jsonOutput := flag.Bool("json", false, "Output in JSON format")
+	streamOutput := flag.Bool("stream", false, "Output as a stream of JSON events")
 	flag.Parse()
 
 	// Handle -y "name" logic
@@ -53,13 +54,37 @@ func main() {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 
-	if !*jsonOutput {
+	// Pre-calculate total for progress bar
+	totalToCheck := 0
+	for _, c := range allContainers {
+		cName := c.Names[0]
+		if len(cName) > 0 && cName[0] == '/' {
+			cName = cName[1:]
+		}
+		if targetContainer != "" && targetContainer != "all" && cName != targetContainer {
+			continue
+		}
+		totalToCheck++
+	}
+
+	if !*jsonOutput && !*streamOutput {
 		if targetContainer != "" && targetContainer != "all" {
 			fmt.Printf("Checking container %s...\n", targetContainer)
 		} else {
-			fmt.Printf("Checking %d containers...\n", len(allContainers))
+			fmt.Printf("Checking %d containers...\n", totalToCheck)
 		}
 	}
+
+	if *streamOutput {
+		// Emit start event
+		startEvt := api.ProgressEvent{
+			Type:  "start",
+			Total: totalToCheck,
+		}
+		json.NewEncoder(os.Stdout).Encode(startEvt)
+	}
+
+	processedCount := 0
 
 	for _, c := range allContainers {
 		// Clean name
@@ -128,9 +153,21 @@ func main() {
 
 			mu.Lock()
 			updates = append(updates, upd)
+			processedCount++
 
-			// Print inside lock
-			if !*jsonOutput {
+			// Emit progress event
+			if *streamOutput {
+				evt := api.ProgressEvent{
+					Type:            "progress",
+					Current:         processedCount,
+					Total:           totalToCheck,
+					Container:       name,
+					Status:          upd.Status,
+					UpdateAvailable: upd.UpdateAvailable,
+				}
+				json.NewEncoder(os.Stdout).Encode(evt)
+			} else if !*jsonOutput {
+				// Print inside lock
 				if upd.Status == "error" {
 					fmt.Printf("❌ %s: %s\n", name, upd.Error)
 				} else if upd.UpdateAvailable {

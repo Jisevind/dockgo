@@ -48,13 +48,58 @@ document.addEventListener('DOMContentLoaded', () => {
     const fetchContainers = async (force = false) => {
         if (force) {
             refreshBtn.disabled = true;
-            refreshBtn.textContent = 'Checking...';
-            statusEl.textContent = 'Refreshing...';
+            statusEl.textContent = 'Connecting stream...';
+
+            const progressContainer = document.getElementById('progress-container');
+            const progressText = document.getElementById('progress-text');
+            const progressCount = document.getElementById('progress-count');
+            const progressBarFill = document.getElementById('progress-bar-fill');
+
+            progressContainer.classList.remove('hidden');
+            progressBarFill.style.width = '0%';
+            progressText.textContent = 'Starting check...';
+            progressCount.textContent = '-/-';
+
+            const evtSource = new EventSource('/api/stream/check');
+
+            evtSource.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+
+                    if (data.type === 'start') {
+                        progressCount.textContent = `0/${data.total}`;
+                    } else if (data.type === 'progress') {
+                        const percent = (data.current / data.total) * 100;
+                        progressBarFill.style.width = `${percent}%`;
+                        progressCount.textContent = `${data.current}/${data.total}`;
+                        progressText.textContent = `Checking ${data.container}...`;
+                    } else if (data.type === 'done') {
+                        evtSource.close();
+                        progressText.textContent = 'Check complete.';
+                        progressBarFill.style.width = '100%';
+                        setTimeout(() => {
+                            progressContainer.classList.add('hidden');
+                            fetchContainers(false); // Refresh list
+                        }, 500);
+                    }
+                } catch (e) {
+                    console.error('SSE Parse Error', e);
+                }
+            };
+
+            evtSource.onerror = (err) => {
+                console.error('EventSource failed:', err);
+                evtSource.close();
+                statusEl.textContent = 'Stream connection error';
+                statusEl.style.color = 'var(--danger)';
+                refreshBtn.disabled = false;
+                setTimeout(() => progressContainer.classList.add('hidden'), 2000);
+            };
+            return;
         }
 
         try {
-            const url = force ? '/api/containers?force=true' : '/api/containers';
-            const response = await fetch(url);
+            const response = await fetch('/api/containers');
             if (!response.ok) throw new Error('Failed to fetch');
             const containers = await response.json();
 
@@ -66,7 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
             statusEl.textContent = 'Error connecting';
             statusEl.style.color = 'var(--danger)';
         } finally {
-            if (force) {
+            if (!force) {
                 refreshBtn.disabled = false;
                 refreshBtn.textContent = 'Refresh Checks';
             }
@@ -203,8 +248,11 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // Initial load
-    fetchContainers();
+    fetchContainers().then(() => {
+        // Trigger background check stream immediately to show progress
+        fetchContainers(true);
+    });
 
-    // Poll every 30 seconds
-    setInterval(fetchContainers, 30000);
+    // Poll every 30 seconds (standard fetch, no force unless we want continuous streaming which might be too much)
+    setInterval(() => fetchContainers(false), 30000);
 });

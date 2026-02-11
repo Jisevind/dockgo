@@ -90,7 +90,7 @@ app.use((req, res, next) => {
 });
 
 // Cache for update status
-let updatesCache = null;
+let updatesCache = []; // Initialize as empty array instead of null
 let lastUpdateCheck = 0;
 let lastDockcheckStatus = null;
 const CACHE_DURATION = 1000 * 60 * 15; // 15 minutes
@@ -229,21 +229,11 @@ app.get('/api/containers', async (req, res) => {
         const containers = await docker.listContainers({ all: true });
 
         // Refresh cache if needed or empty, or if force=true
-        const now = Date.now();
-        const forceRefresh = req.query.force === 'true';
+        // REMOVED blocking check. Frontend will trigger stream if needed.
+        // const now = Date.now();
+        // const forceRefresh = req.query.force === 'true';
 
-        if (!updatesCache || (now - lastUpdateCheck > CACHE_DURATION) || forceRefresh) {
-            try {
-                // Run -n (check) -json
-                log(`Refreshing update cache... (Force: ${forceRefresh})`);
-                const output = await runDockcheck(['-n', '-json']);
-                updatesCache = parseDockcheckOutput(output);
-                lastUpdateCheck = now;
-            } catch (err) {
-                log(`Failed to run dockgo: ${err.message}`);
-                if (!updatesCache) updatesCache = [];
-            }
-        }
+        // if (!updatesCache || (now - lastUpdateCheck > CACHE_DURATION) || forceRefresh) { ... }
 
         // Map containers to result promises
         const resultPromises = containers.map(async c => {
@@ -279,6 +269,71 @@ app.get('/api/containers', async (req, res) => {
         log(`API Error: ${error.message}`);
         res.status(500).json({ error: error.message });
     }
+});
+
+// API: Stream Progress Check (SSE)
+app.get('/api/stream/check', async (req, res) => {
+    // SSE Headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    log('Starting detailed check stream...');
+
+    // Locate binary
+    let binPath = process.env.DOCKCHECK_BIN || './dockgo';
+    if (process.platform === 'win32' && !binPath.endsWith('.exe')) {
+        binPath += '.exe';
+    }
+
+    const child = spawn(binPath, ['-n', '-stream'], {
+        env: { ...process.env }
+    });
+
+    let buffer = '';
+    const newUpdatesCache = []; // Accumulate updates for cache
+
+    child.stdout.on('data', (chunk) => {
+        buffer += chunk.toString();
+        const lines = buffer.split('\n');
+        buffer = lines.pop(); // Keep incomplete line
+
+        for (const line of lines) {
+            if (line.trim()) {
+                try {
+                    // Send to client
+                    res.write(`data: ${line}\n\n`);
+
+                    // Parse for server-side cache update
+                    const evt = JSON.parse(line);
+                    if (evt.type === 'progress' && evt.update_available) {
+                        newUpdatesCache.push(evt.container);
+                    }
+                } catch (e) {
+                    // ignore parse error for stream
+                }
+            }
+        }
+    });
+
+    child.stderr.on('data', (data) => {
+        // Log stderr but maybe don't send to client unless it's critical
+        // log(`Stream stderr: ${data}`);
+    });
+
+    child.on('close', (code) => {
+        // Update global cache
+        if (code === 0) {
+            updatesCache = newUpdatesCache;
+            lastUpdateCheck = Date.now();
+            log(`Stream check completed. Cache updated with ${updatesCache.length} updates.`);
+        }
+
+        // Send done event
+        res.write(`data: {"type": "done", "code": ${code}}\n\n`);
+        res.end();
+    });
 });
 
 // API: Trigger Update
