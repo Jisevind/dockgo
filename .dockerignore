@@ -1,12 +1,25 @@
-node_modules
+# Git
 .git
 .gitignore
+
+# Go
+bin/
+*.exe
+*.test
+dockgo
+vendor/
+
+# IDEs
+.vscode/
+.idea/
+
+# Node (Legacy/Dev)
+node_modules/
+dist/
+scripts/
+*.log
+*.md
 .env
 .env.example
 docker-compose.yml
 Dockerfile
-README.md
-*.log
-*.old
-updates.cache
-*.exe

@@ -1,6 +1,4 @@
-node_modules
 updates.cache
-dist
 
 .contextignore
 *.log
