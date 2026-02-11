@@ -111,7 +111,8 @@ const runDockcheck = (args = []) => {
         log(`Executing: ${binPath} ${args.join(' ')}`);
 
         const child = spawn(binPath, args, {
-            env: { ...process.env } // Pass env vars
+            env: { ...process.env }, // Pass env vars
+            stdio: ['ignore', 'pipe', 'pipe'] // Prevent hanging on Windows/Docker CLI edge cases
         });
 
         let stdout = '';
@@ -203,7 +204,7 @@ app.get('/api/health', async (req, res) => {
                 ? new Date(lastUpdateCheck).toISOString()
                 : null,
             last_dockcheck_result: lastDockcheckStatus || 'unknown',
-            registry: updatesCache !== null ? 'reachable' : 'unknown'
+            registry: lastUpdateCheck ? 'reachable' : 'unknown'
         });
 
     } catch (error) {
@@ -288,7 +289,8 @@ app.get('/api/stream/check', async (req, res) => {
     }
 
     const child = spawn(binPath, ['-n', '-stream'], {
-        env: { ...process.env }
+        env: { ...process.env },
+        stdio: ['ignore', 'pipe', 'pipe']
     });
 
     // Cleanup on client disconnect
