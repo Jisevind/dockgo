@@ -22,15 +22,17 @@ var content embed.FS
 var Version = "0.3.2"
 
 type Server struct {
-	Port          string
-	APIToken      string
-	Discovery     *engine.DiscoveryEngine
-	updatesCache  []string
-	cacheUnix     int64
-	mu            sync.RWMutex
-	lastCheckTime time.Time
-	lastCheckStat string
-	startTime     time.Time
+	Port             string
+	APIToken         string
+	Discovery        *engine.DiscoveryEngine
+	updatesCache     []string
+	cacheUnix        int64
+	mu               sync.RWMutex
+	lastCheckTime    time.Time
+	lastCheckStat    string
+	startTime        time.Time
+	registryStatus   string
+	registryPingTime time.Time
 }
 
 func NewServer(port string) (*Server, error) {
@@ -178,11 +180,30 @@ func formatUptime(d time.Duration) string {
 
 func (s *Server) getRegistryStatus() string {
 	s.mu.RLock()
-	defer s.mu.RUnlock()
-	if !s.lastCheckTime.IsZero() {
-		return "reachable"
+	last := s.registryPingTime
+	status := s.registryStatus
+	s.mu.RUnlock()
+
+	if time.Since(last) < 5*time.Minute && status != "" {
+		return status
 	}
-	return "unknown"
+
+	// Ping (synchronous for now, cache makes it rare)
+	reg := engine.NewRegistryClient()
+	err := reg.Ping()
+
+	newStatus := "reachable"
+	if err != nil {
+		// We could log details if we had a logger, e.g. fmt.Printf("Registry ping error: %v\n", err)
+		newStatus = "unreachable"
+	}
+
+	s.mu.Lock()
+	s.registryPingTime = time.Now()
+	s.registryStatus = newStatus
+	s.mu.Unlock()
+
+	return newStatus
 }
 
 // /api/containers

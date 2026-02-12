@@ -40,3 +40,10 @@ func (r *RegistryClient) CheckUpdate(localDigest string, remoteDigest string) bo
 	// We expect "sha256:..." format for both
 	return !strings.EqualFold(localDigest, remoteDigest)
 }
+
+// Ping checks registry connectivity by attempting to fetch a known image digest
+func (r *RegistryClient) Ping() error {
+	// We use alpine:latest as a lightweight check
+	_, err := r.GetRemoteDigest("library/alpine:latest", nil)
+	return err
+}
