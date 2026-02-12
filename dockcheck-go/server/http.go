@@ -20,7 +20,7 @@ import (
 var content embed.FS
 
 // Define version (could be set via ldflags)
-var Version = "0.3.2"
+var Version = "1.0.0"
 
 type Server struct {
 	Port             string
