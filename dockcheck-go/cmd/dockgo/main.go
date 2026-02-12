@@ -13,6 +13,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 )
 
 func main() {
@@ -146,7 +148,7 @@ func main() {
 			}
 
 			// Get local details first to resolve true image name (in case List returned SHA)
-			resolvedName, _, repoDigests, err := discovery.GetContainerImageDetails(ctx, id)
+			resolvedName, _, repoDigests, osName, arch, err := discovery.GetContainerImageDetails(ctx, id)
 			if err != nil {
 				upd.Error = fmt.Sprintf("Inspect error: %v", err)
 				upd.Status = "error"
@@ -165,7 +167,11 @@ func main() {
 				}
 
 				// Now check registry with the resolved name
-				remoteDigest, err := registry.GetRemoteDigest(upd.Image)
+				var platform *v1.Platform
+				if osName != "" && arch != "" {
+					platform = &v1.Platform{OS: osName, Architecture: arch}
+				}
+				remoteDigest, err := registry.GetRemoteDigest(upd.Image, platform)
 				if err != nil {
 					upd.Error = fmt.Sprintf("Registry error: %v", err)
 					upd.Status = "error"

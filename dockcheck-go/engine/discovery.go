@@ -28,21 +28,21 @@ func (d *DiscoveryEngine) ListContainers(ctx context.Context) ([]types.Container
 	return containers, nil
 }
 
-// GetContainerImageDetails returns the image name, ID, and RepoDigests
-func (d *DiscoveryEngine) GetContainerImageDetails(ctx context.Context, containerID string) (string, string, []string, error) {
+// GetContainerImageDetails returns the image name, ID, RepoDigests, OS, and Arch
+func (d *DiscoveryEngine) GetContainerImageDetails(ctx context.Context, containerID string) (string, string, []string, string, string, error) {
 	cJSON, err := d.Client.ContainerInspect(ctx, containerID)
 	if err != nil {
-		return "", "", nil, err
+		return "", "", nil, "", "", err
 	}
 
 	// Image field in ContainerJSON is the ImageID
 	iJSON, _, err := d.Client.ImageInspectWithRaw(ctx, cJSON.Image)
 	if err != nil {
 		// If image inspect fails, we return what we have
-		return cJSON.Config.Image, cJSON.Image, nil, nil
+		return cJSON.Config.Image, cJSON.Image, nil, "", "", nil
 	}
 
-	return cJSON.Config.Image, cJSON.Image, iJSON.RepoDigests, nil
+	return cJSON.Config.Image, cJSON.Image, iJSON.RepoDigests, iJSON.Os, iJSON.Architecture, nil
 }
 
 // GetContainerState returns the state string of a container (e.g. "running", "exited")

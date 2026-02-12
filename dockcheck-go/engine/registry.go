@@ -3,7 +3,9 @@ package engine
 import (
 	"strings"
 
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/crane"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 )
 
 type RegistryClient struct{}
@@ -13,10 +15,17 @@ func NewRegistryClient() *RegistryClient {
 }
 
 // GetRemoteDigest fetches the digest of the remote image
-func (r *RegistryClient) GetRemoteDigest(image string) (string, error) {
+func (r *RegistryClient) GetRemoteDigest(image string, platform *v1.Platform) (string, error) {
+	options := []crane.Option{
+		crane.WithAuthFromKeychain(authn.DefaultKeychain),
+	}
+	if platform != nil {
+		options = append(options, crane.WithPlatform(platform))
+	}
+
 	// Simple normalize: if no tag, assume latest (crane handles this mostly, but good to be explicit if needed)
 	// If it's a short name like "alpine", crane expands to "index.docker.io/library/alpine"
-	digest, err := crane.Digest(image)
+	digest, err := crane.Digest(image, options...)
 	if err != nil {
 		return "", err
 	}

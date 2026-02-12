@@ -203,7 +203,7 @@ func (s *Server) handleContainers(w http.ResponseWriter, r *http.Request) {
 
 		image := c.Image
 		if strings.HasPrefix(image, "sha256:") {
-			if resolved, _, _, err := s.Discovery.GetContainerImageDetails(context.Background(), c.ID); err == nil && resolved != "" {
+			if resolved, _, _, _, _, err := s.Discovery.GetContainerImageDetails(context.Background(), c.ID); err == nil && resolved != "" {
 				image = resolved
 			}
 		}
