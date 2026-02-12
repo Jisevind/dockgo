@@ -229,6 +229,7 @@ func main() {
 	if !*checkOnly && targetContainer != "" {
 		for i := range updates {
 			upd := &updates[i] // Pointer to element
+
 			if upd.UpdateAvailable {
 				// Check if this container is targeted
 				if targetContainer != "all" && upd.Name != targetContainer {
@@ -287,62 +288,68 @@ func main() {
 				var composeError error
 				composeHandled := false
 
-				if workingDir, ok := upd.Labels["com.docker.compose.project.working_dir"]; ok {
-					serviceName := upd.Labels["com.docker.compose.service"]
-					if serviceName != "" {
-						if !*jsonOutput && !*streamOutput {
-							fmt.Printf("ℹ️  Detected Compose project in '%s' (service: '%s')\n", workingDir, serviceName)
+				project, hasProject := upd.Labels["com.docker.compose.project"]
+				workingDir, hasWorkingDir := upd.Labels["com.docker.compose.project.working_dir"]
+				serviceName, hasService := upd.Labels["com.docker.compose.service"]
+
+				if hasWorkingDir && hasService {
+					if !*jsonOutput && !*streamOutput {
+						fmt.Printf("ℹ️  Detected Compose project in '%s' (service: '%s')\n", workingDir, serviceName)
+					}
+
+					// Timeout for Compose operations
+					ctxCompose, cancel := context.WithTimeout(ctx, 10*time.Minute)
+
+					// Logger callback for streaming
+					logger := func(line string) {
+						if *streamOutput {
+							// Emit log as status update
+							json.NewEncoder(os.Stdout).Encode(api.ProgressEvent{
+								Type:      "progress",
+								Status:    line, // Reusing status field for log
+								Container: upd.Name,
+							})
+						} else if !*jsonOutput {
+							fmt.Println(line)
 						}
+					}
 
-						// Timeout for Compose operations
-						ctxCompose, cancel := context.WithTimeout(ctx, 10*time.Minute)
-
-						// Logger callback for streaming
-						logger := func(line string) {
-							if *streamOutput {
-								// Emit log as status update
-								json.NewEncoder(os.Stdout).Encode(api.ProgressEvent{
-									Type:      "progress",
-									Status:    line, // Reusing status field for log
-									Container: upd.Name,
-								})
-							} else if !*jsonOutput {
-								fmt.Println(line)
-							}
-						}
-
-						var err error
-						if *updateSafe && isRunning {
-							// Compose Pull Only
-							err = engine.ComposePull(ctxCompose, workingDir, serviceName, logger)
-							if err == nil {
-								upd.Status = "pulled_safe"
-								if !*jsonOutput && !*streamOutput {
-									fmt.Printf("✅ %s image pulled (no restart)\n", upd.Name)
-								}
-							}
-						} else {
-							// Standard Update (Up -d)
-							err = engine.ComposeUpdate(ctxCompose, workingDir, serviceName, logger)
-							if err == nil {
-								upd.Status = "updated"
-								if !*jsonOutput && !*streamOutput {
-									fmt.Printf("✅ %s updated via Docker Compose\n", upd.Name)
-								}
-							}
-						}
-
-						cancel() // Clean up context
-
+					var err error
+					if *updateSafe && isRunning {
+						// Compose Pull Only
+						err = engine.ComposePull(ctxCompose, workingDir, serviceName, logger)
 						if err == nil {
-							composeHandled = true
-						} else {
-							composeError = err
+							upd.Status = "pulled_safe"
 							if !*jsonOutput && !*streamOutput {
-								// Only warn if we really failed a requested action
-								fmt.Printf("⚠️  Compose action failed: %v. Falling back to standalone logic...\n", err)
+								fmt.Printf("✅ %s image pulled (no restart)\n", upd.Name)
 							}
 						}
+					} else {
+						// Standard Update (Up -d)
+						err = engine.ComposeUpdate(ctxCompose, workingDir, serviceName, logger)
+						if err == nil {
+							upd.Status = "updated"
+							if !*jsonOutput && !*streamOutput {
+								fmt.Printf("✅ %s updated via Docker Compose\n", upd.Name)
+							}
+						}
+					}
+
+					cancel() // Clean up context
+
+					if err == nil {
+						composeHandled = true
+					} else {
+						composeError = err
+						if !*jsonOutput && !*streamOutput {
+							// Only warn if we really failed a requested action
+							fmt.Printf("⚠️  Compose action failed: %v. Falling back to standalone logic...\n", err)
+						}
+					}
+				} else if hasProject {
+
+					if !*jsonOutput && !*streamOutput {
+						fmt.Printf("⚠️  Container %s appears to be a Compose service (project: %s) but matches no working directory. Falling back to standalone update.\n", upd.Name, project)
 					}
 				}
 
