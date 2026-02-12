@@ -3,7 +3,7 @@ FROM golang:1.25-alpine AS builder
 WORKDIR /build
 
 # Copy source
-COPY dockcheck-go .
+COPY dockgo .
 
 # Build
 RUN go mod download
