@@ -7,3 +7,4 @@ updates.cache
 *.md
 .env
 *.exe
+dockgo
