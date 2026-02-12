@@ -72,7 +72,7 @@ func (s *Server) Start() error {
 	}
 	mux.Handle("/", http.FileServer(http.FS(webFS)))
 
-	fmt.Printf("🚀 Dockviewer listening at http://localhost:%s\n", s.Port)
+	fmt.Printf("🚀 DockGo listening at http://localhost:%s\n", s.Port)
 	return http.ListenAndServe(":"+s.Port, mux)
 }
 

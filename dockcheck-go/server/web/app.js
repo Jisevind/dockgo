@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const viewListBtn = document.getElementById('view-list');
 
     // View State
-    let currentView = localStorage.getItem('dockview_view') || 'grid';
+    let currentView = localStorage.getItem('dockgo_view') || 'grid';
 
     const updateViewUI = () => {
         if (currentView === 'list') {
@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
     viewGridBtn.addEventListener('click', () => {
         if (currentView === 'grid') return;
         currentView = 'grid';
-        localStorage.setItem('dockview_view', 'grid');
+        localStorage.setItem('dockgo_view', 'grid');
         updateViewUI();
         // Re-render immediately using cached data if possible, or just fetch
         fetchContainers();
@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
     viewListBtn.addEventListener('click', () => {
         if (currentView === 'list') return;
         currentView = 'list';
-        localStorage.setItem('dockview_view', 'list');
+        localStorage.setItem('dockgo_view', 'list');
         updateViewUI();
         fetchContainers();
     });
@@ -208,11 +208,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const handleUpdate = async (name, containerEl) => {
         if (!confirm(`Are you sure you want to update ${name}?`)) return;
 
-        let token = localStorage.getItem('dockview_token');
+        let token = localStorage.getItem('dockgo_token');
         if (!token) {
             token = prompt('Please enter the API Token to authorize this update:');
             if (!token) return; // User cancelled
-            localStorage.setItem('dockview_token', token);
+            localStorage.setItem('dockgo_token', token);
         }
 
         console.log(`[Update] Starting update for ${name}`);
@@ -237,7 +237,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (response.status === 401) {
                 console.error('[Update] Unauthorized');
                 msgEl.textContent = 'Error: Unauthorized. Wrong API Token.';
-                localStorage.removeItem('dockview_token'); // Clear invalid token
+                localStorage.removeItem('dockgo_token'); // Clear invalid token
                 btn.textContent = 'Retry (Auth Failed)';
                 btn.disabled = false;
                 return;
