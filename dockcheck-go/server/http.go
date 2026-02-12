@@ -41,7 +41,7 @@ func NewServer(port string) (*Server, error) {
 
 	token := os.Getenv("API_TOKEN")
 	if token == "" {
-		fmt.Println("⚠️  WARNING: API_TOKEN not set. Update endpoint is insecure or disabled.")
+		fmt.Println("⚠️  WARNING: API_TOKEN not set. Update endpoint /api/update/ is DISABLED.")
 	}
 
 	return &Server{
@@ -93,7 +93,8 @@ func (s *Server) enableCors(next http.HandlerFunc) http.HandlerFunc {
 func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if s.APIToken == "" {
-			// Allow if no token set?
+			http.Error(w, "Update endpoint disabled (API_TOKEN not set)", http.StatusForbidden)
+			return
 		} else {
 			auth := r.Header.Get("Authorization")
 			if auth == "" || !strings.HasPrefix(auth, "Bearer ") {
