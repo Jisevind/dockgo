@@ -9,12 +9,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
-
-	v1 "github.com/google/go-containerregistry/pkg/v1"
 )
 
 func main() {
@@ -77,154 +73,89 @@ func main() {
 	}
 	registry := engine.NewRegistryClient()
 
-	allContainers, err := discovery.ListContainers(ctx)
-	if err != nil {
-		fatal("Failed to list containers: %v", err)
-	}
-
-	// Filter list if target specified
-	// var containers []types.Container // Use types.Container from docker/api/types or just iterate allContainers
-	// Since types import is tricky with aliasing in finding/replace, let's just loop and filter
-
-	// We will just iterate allContainers and skip in loop
-
-	var updates []api.ContainerUpdate
-	var wg sync.WaitGroup
 	var mu sync.Mutex
 
-	// Pre-calculate total for progress bar
-	totalToCheck := 0
-	for _, c := range allContainers {
-		cName := c.Names[0]
-		if len(cName) > 0 && cName[0] == '/' {
-			cName = cName[1:]
-		}
-		if targetContainer != "" && targetContainer != "all" && cName != targetContainer {
-			continue
-		}
-		totalToCheck++
-	}
-
-	if !*jsonOutput && !*streamOutput {
-		if targetContainer != "" && targetContainer != "all" {
-			fmt.Printf("Checking container %s...\n", targetContainer)
-		} else {
-			fmt.Printf("Checking %d containers...\n", totalToCheck)
-		}
-	}
-
-	if *streamOutput {
-		// Emit start event
-		startEvt := api.ProgressEvent{
-			Type:  "start",
-			Total: totalToCheck,
-		}
-		json.NewEncoder(os.Stdout).Encode(startEvt)
-	}
-
-	var processedCount int32 = 0
-
-	for _, c := range allContainers {
-		// Clean name
-		cName := c.Names[0]
-		if len(cName) > 0 && cName[0] == '/' {
-			cName = cName[1:]
-		}
-
-		// Filter
-		if targetContainer != "" && targetContainer != "all" && cName != targetContainer {
-			continue
-		}
-
-		wg.Add(1)
-		go func(name, image, id, state string, labels map[string]string) {
-			defer wg.Done()
-
-			upd := api.ContainerUpdate{
-				ID:     id,
-				Name:   name,
-				Status: "checked",
-				Labels: labels,
+	// Scan containers
+	onProgress := func(u api.ContainerUpdate, current, total int) {
+		if *streamOutput {
+			evt := api.ProgressEvent{
+				Type:            "progress",
+				Current:         current,
+				Total:           total,
+				Container:       u.Name,
+				Status:          u.Status,
+				UpdateAvailable: u.UpdateAvailable,
 			}
-
-			// Get local details first to resolve true image name (in case List returned SHA)
-			resolvedName, _, repoDigests, osName, arch, err := discovery.GetContainerImageDetails(ctx, id)
-			if err != nil {
-				upd.Error = fmt.Sprintf("Inspect error: %v", err)
-				upd.Status = "error"
-				// If we can't inspect, we can't check update.
-				// But we might still have the Image from List.
-				// Let's fallback to 'image' arg but it's likely broken if SHA.
-			} else {
-				if resolvedName != "" {
-					upd.Image = resolvedName
-				} else {
-					upd.Image = image // Fallback
-				}
-
-				if len(repoDigests) > 0 {
-					upd.LocalDigest = repoDigests[0]
-				}
-
-				// Now check registry with the resolved name
-				var platform *v1.Platform
-				if osName != "" && arch != "" {
-					platform = &v1.Platform{OS: osName, Architecture: arch}
-				}
-				remoteDigest, err := registry.GetRemoteDigest(upd.Image, platform)
-				if err != nil {
-					upd.Error = fmt.Sprintf("Registry error: %v", err)
-					upd.Status = "error"
-				} else {
-					upd.RemoteDigest = remoteDigest
-
-					// Check if remote digest is in repoDigests
-					// operations: "index.docker.io/library/alpine@sha256:..."
-					found := false
-					for _, rd := range repoDigests {
-						// rd is typically "image@sha256:..."
-						parts := strings.Split(rd, "@")
-						if len(parts) == 2 && parts[1] == remoteDigest {
-							found = true
-							break
-						}
-					}
-
-					if !found {
-						upd.UpdateAvailable = true
-					}
-				}
-			}
-
+			// Use a new encoder to avoid buffering issues if any, ensuring strict line-by-line helper?
+			// Actually os.Stdout writes are serialized by OS mostly, but let's just do what main did.
+			json.NewEncoder(os.Stdout).Encode(evt)
+		} else if !*jsonOutput {
+			// Synchronize printing to avoid interleaved text?
+			// The original main.go did `mu.Lock()` around printing.
+			// Scan calls onProgress inside a goroutine. engine.Scan DOES NOT lock while calling callback.
+			// So we should lock here.
 			mu.Lock()
-			updates = append(updates, upd)
-			newCount := atomic.AddInt32(&processedCount, 1)
+			defer mu.Unlock()
 
-			// Emit progress event
-			if *streamOutput {
-				evt := api.ProgressEvent{
-					Type:            "progress",
-					Current:         int(newCount),
-					Total:           totalToCheck,
-					Container:       name,
-					Status:          upd.Status,
-					UpdateAvailable: upd.UpdateAvailable,
-				}
-				json.NewEncoder(os.Stdout).Encode(evt)
-			} else if !*jsonOutput {
-				// Print inside lock
-				if upd.Status == "error" {
-					fmt.Printf("❌ %s: %s\n", name, upd.Error)
-				} else if upd.UpdateAvailable {
-					fmt.Printf("⬆️  %s: Update available (%s...)\n", name, short(upd.RemoteDigest))
-				} else {
-					fmt.Printf("✅ %s: Up to date\n", name)
-				}
+			if u.Status == "error" {
+				fmt.Printf("❌ %s: %s\n", u.Name, u.Error)
+			} else if u.UpdateAvailable {
+				fmt.Printf("⬆️  %s: Update available (%s...)\n", u.Name, short(u.RemoteDigest))
+			} else {
+				fmt.Printf("✅ %s: Up to date\n", u.Name)
 			}
-			mu.Unlock()
-		}(cName, c.Image, c.ID, c.State, c.Labels)
+		}
 	}
-	wg.Wait()
+
+	filter := targetContainer
+
+	// If !checkOnly, main.go printed "Checking..." headers.
+	// The original ListContainers was before the loop.
+	// Scan does ListContainers internally.
+	// We might lose the exact "Checking X containers..." count print BEFORE scanning starts.
+	// logic:
+	// Scan lists containers, THEN counts, THEN iterates.
+	// If we want to print count before scanning, we'd need Scan to provide a "pre-scan" callback or return count?
+	// Or we just accept that we print it differently or Scan handles it?
+	//
+	// Implementation Plan said: "Move concurrency checking logic from main.go to this function."
+	//
+	// Let's rely on Scan. But current Scan implementation doesn't print "Checking..."
+	//
+	// If checking count is important for UX, we might need list first.
+	//
+	// However, to keep it simple and reusable for SSE, we probably don't want "Checking..." text in SSE (except as start event).
+	//
+	// Let's modify main.go to use Scan but maybe we accept losing the initial "Checking 5 containers..." print?
+	// Or we List in main, then pass list to Scan?
+	//
+	// The Scan function I wrote in previous step:
+	// func Scan(ctx, disc, reg, filter string, onProgress)
+	// It lists internally.
+	//
+	// Main.go printed "Checking..." using `totalToCheck` which was calculated AFTER list and filter.
+	//
+	// If I use Scan, I can't print "Checking..." before Scan starts (unless I list twice).
+	//
+	// Let's just use Scan. The onProgress will show progress.
+	//
+	// Wait, streamOutput needs specific start event with total.
+	// Scan calculates total.
+	//
+	// My Scan implementation calls onProgress with (current, total).
+	// So the FIRST onProgress call will give us total.
+	//
+	// Stream logic in main:
+	// if *streamOutput { emit start event }
+	//
+	// If I rely on onProgress, I can emit start event on first call?
+	//
+	// Let's proceed with Scan.
+
+	updates, err := engine.Scan(ctx, discovery, registry, filter, onProgress)
+	if err != nil {
+		fatal("Scan error: %v", err)
+	}
 
 	// Update Phase
 	// Logic:

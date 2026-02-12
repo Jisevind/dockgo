@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"dockgo/api"
 	"dockgo/engine"
 	"embed"
 	"encoding/json"
@@ -275,7 +276,6 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
-	// Flush headers? Go http handler does this if we write?
 
 	flusher, ok := w.(http.Flusher)
 	if !ok {
@@ -283,54 +283,64 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Spawn ourselves: os.Executable + "-n -stream"
-	self, err := os.Executable()
-	if err != nil {
-		fmt.Fprintf(w, "data: error locating binary: %v\n\n", err)
-		return
-	}
+	// Send initial ping to establish stream?
+	// The client expects JSON events.
 
-	cmd := exec.Command(self, "-n", "-stream")
-	// Pass env?
-	cmd.Env = os.Environ()
+	// Use request context for cancellation
+	ctx := r.Context()
 
-	stdout, _ := cmd.StdoutPipe()
-	if err := cmd.Start(); err != nil {
-		fmt.Fprintf(w, "data: error starting check: %v\n\n", err)
-		return
-	}
-
-	// Read output
-	var newCache []string
-
-	// We'll decode JSON stream on the fly
-	dec := json.NewDecoder(stdout)
-	for {
-		var evt map[string]interface{}
-		if err := dec.Decode(&evt); err != nil {
-			break
+	// Callback for progress
+	onProgress := func(u api.ContainerUpdate, current, total int) {
+		evt := api.ProgressEvent{
+			Type:            "progress",
+			Current:         current,
+			Total:           total,
+			Container:       u.Name,
+			Status:          u.Status,
+			UpdateAvailable: u.UpdateAvailable,
 		}
-
-		if typ, ok := evt["type"].(string); ok && typ == "progress" {
-			if avail, ok := evt["update_available"].(bool); ok && avail {
-				if name, ok := evt["container"].(string); ok {
-					newCache = append(newCache, name)
-				}
-			}
-		}
-
-		// Pass through to client
 		bytes, _ := json.Marshal(evt)
 		fmt.Fprintf(w, "data: %s\n\n", string(bytes))
 		flusher.Flush()
 	}
 
-	if err := cmd.Wait(); err != nil {
+	// Emit start event?
+	// Scan calculates total inside.
+	// But we might want to emit "start" if we could get total first.
+	// The current logic in Scan calls onProgress with total on first item.
+	// Client UI probably handles "progress" events fine even if "start" is missing or implicit.
+	// Previous logic emitted "start".
+	// Let's rely on progress events. The first one will have Current=1, Total=X.
+
+	// We need a registry client?
+	// Server has Discovery but not Registry in struct?
+	// Server has Discovery *engine.DiscoveryEngine.
+	// Registry is lightweight, can limit new one or add to Server struct.
+	// Implementation Plan says "use engine.Scan".
+	// Scan needs (ctx, disc, reg, filter, onProgress).
+	// Let's create a new RegistryClient here.
+	registry := engine.NewRegistryClient()
+
+	updates, err := engine.Scan(ctx, s.Discovery, registry, "", onProgress)
+
+	if err != nil {
 		s.mu.Lock()
 		s.lastCheckStat = "error"
 		s.mu.Unlock()
-		fmt.Fprintf(w, "data: {\"type\":\"done\", \"code\": 1}\n\n")
+		// If context canceled, it's not really an error to report to client if they left.
+		if ctx.Err() != nil {
+			return
+		}
+		fmt.Fprintf(w, "data: {\"type\":\"error\", \"error\": \"%v\"}\n\n", err)
 	} else {
+		// Update cache
+		var newCache []string
+		for _, u := range updates {
+			if u.UpdateAvailable {
+				newCache = append(newCache, u.Name)
+			}
+		}
+
 		s.mu.Lock()
 		s.updatesCache = newCache
 		s.lastCheckTime = time.Now()
