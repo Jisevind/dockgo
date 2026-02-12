@@ -41,6 +41,7 @@ func main() {
 	updateName := flag.String("y", "", "Update specific container by name (e.g. 'update-me' or 'all')")
 	updateSafe := flag.Bool("update-safe", false, "Download updates but do NOT restart running containers")
 	updateForce := flag.Bool("update-force", false, "Force update and restart even if running")
+	preserveNetwork := flag.Bool("preserve-network", false, "Preserve network settings (IP, MAC) during recreation")
 	jsonOutput := flag.Bool("json", false, "Output in JSON format")
 	streamOutput := flag.Bool("stream", false, "Output as a stream of JSON events")
 	flag.Parse()
@@ -384,7 +385,7 @@ func main() {
 				}
 
 				// Recreate
-				err = discovery.RecreateContainer(ctx, upd.ID, upd.Image)
+				err = discovery.RecreateContainer(ctx, upd.ID, upd.Image, *preserveNetwork)
 				if err != nil {
 					fmt.Printf("Failed to recreate %s: %v\n", upd.Name, err)
 					upd.Error = err.Error()

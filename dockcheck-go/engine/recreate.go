@@ -11,7 +11,7 @@ import (
 )
 
 // RecreateContainer handles the stop, rename, create, start flow
-func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID string, imageName string) error {
+func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID string, imageName string, preserveNetwork bool) error {
 	// 1. Inspect the container to get config
 	json, err := d.Client.ContainerInspect(ctx, containerID)
 	if err != nil {
@@ -69,11 +69,28 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 			DriverOpts:          ep.DriverOpts,
 		}
 
-		// Choice: Preserve IP if it looks like it was statically assigned?
-		// Hard to know. Safest for "recreation" is usually to release it and get a new one,
-		// UNLESS the container relies on static IP.
-		// For standalone containers, static IPs are rare vs Compose.
-		// Let's keep it null for maximum safety against conflicts.
+		if preserveNetwork {
+			// Explicitly preserve MAC and IP
+			if ep.MacAddress != "" {
+				newEp.MacAddress = ep.MacAddress
+			}
+			if ep.IPAddress != "" {
+				newEp.IPAddress = ep.IPAddress
+			}
+			if ep.GlobalIPv6Address != "" {
+				newEp.GlobalIPv6Address = ep.GlobalIPv6Address
+			}
+
+			// Ensure IPAMConfig enforces the static IP if we have one
+			if newEp.IPAddress != "" {
+				if newEp.IPAMConfig == nil {
+					newEp.IPAMConfig = &network.EndpointIPAMConfig{}
+				}
+				if newEp.IPAMConfig.IPv4Address == "" {
+					newEp.IPAMConfig.IPv4Address = newEp.IPAddress
+				}
+			}
+		}
 
 		networkingConfig.EndpointsConfig[netName] = newEp
 	}
