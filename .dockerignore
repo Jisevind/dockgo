@@ -6,7 +6,7 @@
 bin/
 *.exe
 *.test
-dockgo
+
 vendor/
 
 # IDEs
