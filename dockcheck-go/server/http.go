@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-//go:embed web/*
+//go:embed web
 var content embed.FS
 
 // Define version (could be set via ldflags)
