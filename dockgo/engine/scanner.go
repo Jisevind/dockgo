@@ -88,7 +88,7 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 			}
 
 			// Get local details first to resolve true image name (in case List returned SHA)
-			resolvedName, _, repoDigests, osName, arch, err := discovery.GetContainerImageDetails(ctx, id)
+			resolvedName, _, repoDigests, _, _, err := discovery.GetContainerImageDetails(ctx, id)
 
 			// Check context again
 			if ctx.Err() != nil {
@@ -111,9 +111,13 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 
 				// Now check registry with the resolved name
 				var platform *v1.Platform
-				if osName != "" && arch != "" {
-					platform = &v1.Platform{OS: osName, Architecture: arch}
-				}
+				// if osName != "" && arch != "" {
+				// 	platform = &v1.Platform{OS: osName, Architecture: arch}
+				// }
+				// FIX: We deliberately ignore platform specific digest fetching because
+				// local RepoDigests usually contains the Manifest List (Index) digest,
+				// whereas fetching with platform returns the specific Manifest digest.
+				// By passing nil, we get the default (Index) digest which matches local.
 
 				// Check context before remote call
 				if ctx.Err() != nil {
