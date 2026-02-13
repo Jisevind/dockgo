@@ -612,8 +612,8 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// spawn: -y name -stream
-	cmd := exec.Command(self, "-y", name, "-stream")
+	// spawn: update -y name -stream
+	cmd := exec.Command(self, "update", "-y", name, "-stream")
 	cmd.Env = os.Environ()
 
 	// Merge stderr into stdout to capture all output
