@@ -216,11 +216,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const handleUpdate = async (name, containerEl) => {
         if (!confirm(`Are you sure you want to update ${name}?`)) return;
 
-        let token = localStorage.getItem('dockgo_token');
+        let token = sessionStorage.getItem('dockgo_token');
         if (!token) {
             token = prompt('Please enter the API Token to authorize this update:');
             if (!token) return; // User cancelled
-            localStorage.setItem('dockgo_token', token);
+            sessionStorage.setItem('dockgo_token', token);
         }
 
         activeUpdates++;
@@ -249,7 +249,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (response.status === 401) {
                 msgEl.textContent = 'Error: Unauthorized. Wrong API Token.';
-                localStorage.removeItem('dockgo_token');
+                sessionStorage.removeItem('dockgo_token');
                 // Restore button
                 if (updateSection) updateSection.classList.remove('hidden');
                 btn.textContent = 'Retry (Auth Failed)';
