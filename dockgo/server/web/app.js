@@ -205,6 +205,9 @@ document.addEventListener('DOMContentLoaded', () => {
         renderBatch(withoutUpdates);
     };
 
+    // Track active updates to prevent auto-refresh from nuking the DOM
+    let activeUpdates = 0;
+
     const handleUpdate = async (name, containerEl) => {
         if (!confirm(`Are you sure you want to update ${name}?`)) return;
 
@@ -215,12 +218,19 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem('dockgo_token', token);
         }
 
+        activeUpdates++;
         console.log(`[Update] Starting update for ${name}`);
         const btn = containerEl.querySelector('.btn-update');
         const msgEl = containerEl.querySelector('.update-message');
+        const updateSection = containerEl.querySelector('.update-section');
 
-        btn.textContent = 'Updating...';
-        btn.disabled = true;
+        // Hide the update button/label area, show the message area
+        if (updateSection) {
+            updateSection.classList.add('hidden');
+        } else {
+            console.warn('[Update] Warning: .update-section not found in containerEl', containerEl);
+        }
+
         msgEl.textContent = 'Starting connection...';
         msgEl.classList.remove('hidden');
 
@@ -235,8 +245,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (response.status === 401) {
                 msgEl.textContent = 'Error: Unauthorized. Wrong API Token.';
                 localStorage.removeItem('dockgo_token');
+                // Restore button
+                if (updateSection) updateSection.classList.remove('hidden');
                 btn.textContent = 'Retry (Auth Failed)';
                 btn.disabled = false;
+                activeUpdates--;
                 return;
             }
 
@@ -266,18 +279,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (data.type === 'start') {
                                 msgEl.textContent = data.message || 'Starting...';
                             } else if (data.type === 'progress') {
-                                // Show status (e.g. "Downloading...", "Pulling fs layer")
-                                // If percent is available (from PullProgressEvent), show it?
                                 let text = data.status;
                                 if (data.percent) {
                                     text += ` (${data.percent.toFixed(1)}%)`;
                                 }
                                 msgEl.textContent = text;
                             } else if (data.type === 'pull_progress') {
-                                // Main.go might wrap PullProgressEvent or emit it directly?
-                                // http.go just forwards what dockgo emits.
-                                // If dockgo emits PullProgressEvent, type is 'pull_progress' or 'progress'?
-                                // Let's handle both.
                                 let text = data.status;
                                 if (data.percent) {
                                     text += ` (${data.percent.toFixed(1)}%)`;
@@ -286,6 +293,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             } else if (data.type === 'error') {
                                 msgEl.textContent = `Error: ${data.error}`;
                                 msgEl.style.color = 'var(--danger)';
+                                // Restore button for retry
+                                if (updateSection) updateSection.classList.remove('hidden');
                                 btn.textContent = 'Retry Update';
                                 btn.disabled = false;
                             } else if (data.type === 'done') {
@@ -295,6 +304,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     setTimeout(() => fetchContainers(), 1500);
                                 } else {
                                     msgEl.textContent = `Failed: ${data.error || 'Unknown error'}`;
+                                    if (updateSection) updateSection.classList.remove('hidden');
                                     btn.disabled = false;
                                 }
                             }
@@ -308,8 +318,11 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             console.error('[Update] Network error:', error);
             msgEl.textContent = `Network Error: ${error.message}`;
+            if (updateSection) updateSection.classList.remove('hidden');
             btn.textContent = 'Retry Update';
             btn.disabled = false;
+        } finally {
+            activeUpdates--;
         }
     };
 
@@ -319,6 +332,10 @@ document.addEventListener('DOMContentLoaded', () => {
         fetchContainers(true);
     });
 
-    // Poll every 30 seconds (standard fetch, no force unless we want continuous streaming which might be too much)
-    setInterval(() => fetchContainers(false), 30000);
+    // Poll every 30 seconds
+    setInterval(() => {
+        if (activeUpdates === 0) {
+            fetchContainers(false);
+        }
+    }, 30000);
 });
