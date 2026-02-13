@@ -196,13 +196,20 @@ func (s *Server) getRegistryStatus() string {
 	s.mu.RLock()
 	last := s.registryPingTime
 	status := s.registryStatus
+	lastCheck := s.lastCheckTime
+	lastStat := s.lastCheckStat
 	s.mu.RUnlock()
+
+	// Use recent successful scan as proof of connectivity
+	if lastStat == "success" && time.Since(lastCheck) < 15*time.Minute {
+		return "reachable" // inferred
+	}
 
 	if time.Since(last) < 5*time.Minute && status != "" {
 		return status
 	}
 
-	// Ping (synchronous for now, cache makes it rare)
+	// Ping (synchronous fallback)
 	reg := engine.NewRegistryClient()
 	err := reg.Ping()
 
