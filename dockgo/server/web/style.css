@@ -41,7 +41,7 @@ body {
     gap: 1rem;
 }
 
-.view-toggle {
+.control-group {
     display: flex;
     background: rgba(255, 255, 255, 0.1);
     border-radius: 6px;
@@ -52,12 +52,32 @@ body {
     background: none;
     border: none;
     color: var(--text-secondary);
-    padding: 4px 8px;
+    padding: 6px 10px;
     cursor: pointer;
     border-radius: 4px;
     display: flex;
     align-items: center;
     justify-content: center;
+}
+
+.btn-icon:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.spinning svg {
+    animation: spin 1s linear infinite;
+    color: var(--accent);
 }
 
 .btn-icon:hover {
@@ -410,4 +430,85 @@ h1 {
     background: var(--accent);
     height: 100%;
     transition: width 0.2s ease;
+}
+
+/* Modal */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(2px);
+}
+
+.modal {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.modal-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 1.25rem;
+    color: var(--text-primary);
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.form-group {
+    margin-bottom: 1.25rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.form-group input {
+    width: 100%;
+    padding: 0.5rem;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-size: 1rem;
+    box-sizing: border-box;
+    /* Ensure padding doesn't overflow */
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.full-width {
+    width: 100%;
+}
+
+.error-message {
+    color: var(--danger);
+    font-size: 0.875rem;
+    margin-bottom: 1rem;
+    padding: 0.5rem;
+    background: rgba(239, 68, 68, 0.1);
+    border-radius: 4px;
 }

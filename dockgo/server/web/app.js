@@ -45,9 +45,99 @@ document.addEventListener('DOMContentLoaded', () => {
         fetchContainers();
     });
 
+    // Auth State
+    let isLoggedIn = false;
+    let authEnabled = false;
+
+    // Elements
+    const loginModal = document.getElementById('login-modal');
+    const loginForm = document.getElementById('login-form');
+    const loginError = document.getElementById('login-error');
+    const loginUsernameInput = document.getElementById('username');
+    const loginPasswordInput = document.getElementById('password');
+    const logoutBtn = document.getElementById('logout-btn');
+
+    // Auth Functions
+    const checkAuthStatus = async () => {
+        try {
+            const response = await fetch('/api/me');
+            if (response.ok) {
+                const data = await response.json();
+                isLoggedIn = data.logged_in;
+                authEnabled = data.user_auth_enabled;
+
+                if (isLoggedIn) {
+                    logoutBtn.classList.remove('hidden');
+                } else {
+                    logoutBtn.classList.add('hidden');
+                }
+            }
+        } catch (e) {
+            console.error('Auth check failed', e);
+        }
+    };
+
+    logoutBtn.addEventListener('click', async () => {
+        if (!confirm('Are you sure you want to logout?')) return;
+        try {
+            await fetch('/api/logout', { method: 'POST' });
+            window.location.reload();
+        } catch (e) {
+            console.error('Logout failed', e);
+            window.location.reload(); // Reload anyway
+        }
+    });
+
+    const showLoginModal = () => {
+        loginModal.classList.remove('hidden');
+        loginUsernameInput.focus();
+    };
+
+    const hideLoginModal = () => {
+        loginModal.classList.add('hidden');
+        loginError.classList.add('hidden');
+        loginForm.reset();
+    };
+
+    loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const username = loginUsernameInput.value;
+        const password = loginPasswordInput.value;
+
+        try {
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+
+            if (response.ok) {
+                isLoggedIn = true;
+                hideLoginModal();
+                fetchContainers(true); // Refresh data
+            } else {
+                loginError.textContent = 'Invalid credentials';
+                loginError.classList.remove('hidden');
+            }
+        } catch (e) {
+            loginError.textContent = 'Login failed: ' + e.message;
+            loginError.classList.remove('hidden');
+        }
+    });
+
+    // Close modal on outside click
+    loginModal.addEventListener('click', (e) => {
+        if (e.target === loginModal) {
+            // Optional: prevent closing if auth is STRICTLY required?
+            // For now allow closing (view might vary).
+            hideLoginModal();
+        }
+    });
+
     const fetchContainers = async (force = false) => {
         if (force) {
             refreshBtn.disabled = true;
+            refreshBtn.classList.add('spinning');
             statusEl.textContent = 'Connecting stream...';
 
             const progressContainer = document.getElementById('progress-container');
@@ -60,7 +150,13 @@ document.addEventListener('DOMContentLoaded', () => {
             progressText.textContent = 'Starting check...';
             progressCount.textContent = '-/-';
 
-            const evtSource = new EventSource('/api/stream/check');
+            // Construct URL with token if needed (for legacy auth SSE)
+            let streamUrl = '/api/stream/check';
+            const token = sessionStorage.getItem('dockgo_token');
+            if (token && !isLoggedIn) {
+                streamUrl += `?token=${encodeURIComponent(token)}`;
+            }
+            const evtSource = new EventSource(streamUrl);
 
             evtSource.onmessage = (event) => {
                 try {
@@ -93,18 +189,45 @@ document.addEventListener('DOMContentLoaded', () => {
                     statusEl.textContent = 'Stream connection failed.';
                     statusEl.style.color = 'var(--danger)';
                     refreshBtn.disabled = false;
-                    // Do not hide progress immediately so user sees where it stopped
+                    refreshBtn.classList.remove('spinning');
                 } else {
                     statusEl.textContent = 'Reconnecting...';
                     statusEl.style.color = 'var(--warning)';
-                    // Browser will auto-reconnect, triggering a new check
                 }
             };
             return;
         }
 
+        const headers = {};
+        const token = sessionStorage.getItem('dockgo_token');
+        if (token && !isLoggedIn) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
         try {
-            const response = await fetch('/api/containers');
+            const response = await fetch('/api/containers', { headers });
+
+            if (response.status === 401) {
+                // Unauthorized
+                if (authEnabled && !isLoggedIn && force === false) {
+                    // Initial load or background poll failed
+                    // If initial load (listEl has loading or empty), show login
+                    if (listEl.querySelector('.loading')) {
+                        showLoginModal();
+                    }
+                    statusEl.textContent = 'Auth Required';
+                    statusEl.style.color = 'var(--warning)';
+                    return;
+                } else if (!authEnabled) {
+                    // Legacy mode, token missing or invalid
+                    // Prompt? Or just show error?
+                    // Let's show error in status
+                    statusEl.textContent = 'Auth Required (Token)';
+                    statusEl.style.color = 'var(--danger)';
+                    return;
+                }
+            }
+
             if (!response.ok) throw new Error('Failed to fetch');
             const containers = await response.json();
 
@@ -118,7 +241,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } finally {
             if (!force) {
                 refreshBtn.disabled = false;
-                refreshBtn.textContent = 'Refresh Checks';
+                refreshBtn.classList.remove('spinning');
             }
         }
     };
@@ -146,18 +269,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const renderBatch = (batch) => {
             batch.forEach(container => {
                 const clone = template.content.cloneNode(true);
-                // In list view, the root is .list-item, in card view it's .card
-                // But we need the root element to attach event listeners if needed
-                // Actually handleUpdate needs the container element to find sub-elements
                 const containerEl = clone.querySelector('.card') || clone.querySelector('.list-item');
 
                 const containerNameEl = clone.querySelector('.container-name');
                 containerNameEl.textContent = container.name;
-
-                // Image and Tag
-                // Server now provides 'tag' field. 
-                // If tag is present, show it. 
-                // Image name should hopefully be clean too.
 
                 clone.querySelector('.image-name').textContent = container.image;
 
@@ -168,13 +283,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (container.tag === 'latest') {
                     tagBadge.textContent = 'latest';
                     tagBadge.classList.remove('hidden');
-                    // Optional: style 'latest' differently?
                 }
 
                 const statusBadge = clone.querySelector('.status-badge');
                 statusBadge.textContent = container.state;
 
-                // Status styling
                 if (container.state === 'running') {
                     statusBadge.classList.add('status-running');
                 } else if (container.state === 'exited' || container.state === 'dead') {
@@ -183,7 +296,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     statusBadge.classList.add('status-other');
                 }
 
-                // Update section logic is slightly different structure-wise but class names are consistent
                 if (container.update_available) {
                     const updateSection = clone.querySelector('.update-section');
                     if (updateSection) {
@@ -197,10 +309,8 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         };
 
-        // Render groups
         renderBatch(withUpdates);
 
-        // Add divider if both groups exist
         if (withUpdates.length > 0 && withoutUpdates.length > 0) {
             const hr = document.createElement('hr');
             hr.className = 'container-divider';
@@ -216,11 +326,27 @@ document.addEventListener('DOMContentLoaded', () => {
     const handleUpdate = async (name, containerEl) => {
         if (!confirm(`Are you sure you want to update ${name}?`)) return;
 
-        let token = sessionStorage.getItem('dockgo_token');
-        if (!token) {
-            token = prompt('Please enter the API Token to authorize this update:');
-            if (!token) return; // User cancelled
-            sessionStorage.setItem('dockgo_token', token);
+        let token = null;
+
+        // AUTH LOGIC
+        if (isLoggedIn) {
+            // We have a session cookie, so we don't need a token.
+            // Pass empty or null, backend checks cookie.
+            token = "";
+        } else {
+            // Not logged in (or auth not enabled), check legacy token
+            token = sessionStorage.getItem('dockgo_token');
+            if (!token) {
+                // If Auth is enabled, maybe suggest Login instead of prompt?
+                if (authEnabled) {
+                    showLoginModal();
+                    return;
+                }
+                // Legacy prompt
+                token = prompt('Please enter the API Token to authorize this update:');
+                if (!token) return;
+                sessionStorage.setItem('dockgo_token', token);
+            }
         }
 
         activeUpdates++;
@@ -229,30 +355,37 @@ document.addEventListener('DOMContentLoaded', () => {
         const msgEl = containerEl.querySelector('.update-message');
         const updateSection = containerEl.querySelector('.update-section');
 
-        // Hide the update button/label area, show the message area
         if (updateSection) {
             updateSection.classList.add('hidden');
-        } else {
-            console.warn('[Update] Warning: .update-section not found in containerEl', containerEl);
         }
 
         msgEl.textContent = 'Starting connection...';
         msgEl.classList.remove('hidden');
 
         try {
+            const headers = {};
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
             const response = await fetch(`/api/update/${name}`, {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
+                headers: headers
             });
 
             if (response.status === 401) {
-                msgEl.textContent = 'Error: Unauthorized. Wrong API Token.';
-                sessionStorage.removeItem('dockgo_token');
-                // Restore button
+                msgEl.textContent = 'Error: Unauthorized.';
+
+                if (authEnabled && !isLoggedIn) {
+                    msgEl.textContent += ' Please login.';
+                    showLoginModal();
+                } else {
+                    msgEl.textContent += ' Wrong API Token.';
+                    sessionStorage.removeItem('dockgo_token');
+                }
+
                 if (updateSection) updateSection.classList.remove('hidden');
-                btn.textContent = 'Retry (Auth Failed)';
+                btn.textContent = 'Retry';
                 btn.disabled = false;
                 activeUpdates--;
                 return;
@@ -262,7 +395,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(`HTTP ${response.status}`);
             }
 
-            // Stream Reader
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = '';
@@ -273,7 +405,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 buffer += decoder.decode(value, { stream: true });
                 const parts = buffer.split('\n\n');
-                buffer = parts.pop(); // Keep incomplete part
+                buffer = parts.pop();
 
                 for (const part of parts) {
                     if (part.startsWith('data: ')) {
@@ -298,7 +430,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             } else if (data.type === 'error') {
                                 msgEl.textContent = `Error: ${data.error}`;
                                 msgEl.style.color = 'var(--danger)';
-                                // Restore button for retry
                                 if (updateSection) updateSection.classList.remove('hidden');
                                 btn.textContent = 'Retry Update';
                                 btn.disabled = false;
@@ -332,9 +463,10 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // Initial load
-    fetchContainers().then(() => {
-        // Trigger background check stream immediately to show progress
-        fetchContainers(true);
+    checkAuthStatus().then(() => {
+        fetchContainers().then(() => {
+            fetchContainers(true);
+        });
     });
 
     // Poll every 30 seconds

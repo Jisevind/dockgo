@@ -3,15 +3,19 @@ package server
 import (
 	"bufio"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
 	"dockgo/api"
 	"dockgo/engine"
 	"embed"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/fs"
 	"net/http"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -25,7 +29,10 @@ var Version = "1.0.0"
 
 type Server struct {
 	Port             string
-	APIToken         string
+	APIToken         string // Legacy Token
+	AuthUsername     string // Optional: User Login
+	AuthPassword     string
+	AuthSecret       string // For signing sessions
 	Discovery        *engine.DiscoveryEngine
 	updatesCache     map[string]bool // key: Container ID
 	cacheUnix        int64
@@ -44,13 +51,24 @@ func NewServer(port string) (*Server, error) {
 	}
 
 	token := os.Getenv("API_TOKEN")
-	if token == "" {
-		fmt.Println("⚠️  WARNING: API_TOKEN not set. Update endpoint /api/update/ is DISABLED.")
+	authUser := os.Getenv("AUTH_USERNAME")
+	authPass := os.Getenv("AUTH_PASSWORD")
+	authSecret := os.Getenv("AUTH_SECRET")
+	if authSecret == "" {
+		// Generate random secret if not provided (restarts invalidate sessions, which is fine)
+		authSecret = fmt.Sprintf("%d-%d", time.Now().UnixNano(), os.Getpid())
+	}
+
+	if token == "" && authUser == "" {
+		fmt.Println("⚠️  WARNING: No API_TOKEN or AUTH_USERNAME set. Updates disabled.")
 	}
 
 	return &Server{
 		Port:         port,
 		APIToken:     token,
+		AuthUsername: authUser,
+		AuthPassword: authPass,
+		AuthSecret:   authSecret,
 		Discovery:    disc,
 		updatesCache: make(map[string]bool),
 		startTime:    time.Now(),
@@ -63,9 +81,14 @@ func (s *Server) Start() error {
 
 	// API Routes
 	mux.HandleFunc("/api/health", s.handleHealth)
-	mux.HandleFunc("/api/containers", s.enableCors(s.handleContainers))
-	mux.HandleFunc("/api/stream/check", s.enableCors(s.handleStreamCheck))
+	mux.HandleFunc("/api/containers", s.enableCors(s.requireAuth(s.handleContainers)))
+	mux.HandleFunc("/api/stream/check", s.enableCors(s.requireAuth(s.handleStreamCheck)))
 	mux.HandleFunc("/api/update/", s.enableCors(s.requireAuth(s.handleUpdate)))
+
+	// Auth Routes
+	mux.HandleFunc("/api/login", s.enableCors(s.handleLogin))
+	mux.HandleFunc("/api/logout", s.enableCors(s.handleLogout))
+	mux.HandleFunc("/api/me", s.enableCors(s.handleMe))
 
 	// DEBUG ROUTE
 	mux.HandleFunc("/api/debug/cache", func(w http.ResponseWriter, r *http.Request) {
@@ -108,23 +131,160 @@ func (s *Server) enableCors(next http.HandlerFunc) http.HandlerFunc {
 // Middleware: Auth
 func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if s.APIToken == "" {
-			http.Error(w, "Update endpoint disabled (API_TOKEN not set)", http.StatusForbidden)
-			return
+		// 1. Check Legacy Token (Header OR Query Param for SSE)
+		auth := r.Header.Get("Authorization")
+		token := ""
+		if auth != "" && strings.HasPrefix(auth, "Bearer ") {
+			token = strings.TrimPrefix(auth, "Bearer ")
 		} else {
-			auth := r.Header.Get("Authorization")
-			if auth == "" || !strings.HasPrefix(auth, "Bearer ") {
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
-				return
-			}
-			token := strings.TrimPrefix(auth, "Bearer ")
-			if token != s.APIToken {
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			token = r.URL.Query().Get("token")
+		}
+
+		if s.APIToken != "" && token != "" {
+			if token == s.APIToken {
+				next(w, r)
 				return
 			}
 		}
-		next(w, r)
+
+		// 2. Check Session Cookie (User Login)
+		if s.AuthUsername != "" {
+			cookie, err := r.Cookie("dockgo_session")
+			if err == nil && s.validateSessionToken(cookie.Value) {
+				next(w, r)
+				return
+			}
+		}
+
+		// 3. Fallback: Fail
+		// If neither configured, fail.
+		if s.APIToken == "" && s.AuthUsername == "" {
+			http.Error(w, "Updates disabled (No Auth Configured)", http.StatusForbidden)
+			return
+		}
+
+		w.Header().Set("WWW-Authenticate", `Bearer realm="dockgo"`)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 	}
+}
+
+// Auth Helpers
+func (s *Server) generateSessionToken() string {
+	// Format: user|expiration|signature
+	exp := time.Now().Add(24 * time.Hour).Unix()
+	data := fmt.Sprintf("%s|%d", s.AuthUsername, exp)
+	sig := s.sign(data)
+	return base64.URLEncoding.EncodeToString([]byte(fmt.Sprintf("%s|%s", data, sig)))
+}
+
+func (s *Server) validateSessionToken(token string) bool {
+	decodedBytes, err := base64.URLEncoding.DecodeString(token)
+	if err != nil {
+		return false
+	}
+	decoded := string(decodedBytes)
+	parts := strings.Split(decoded, "|")
+	if len(parts) != 3 {
+		return false
+	}
+	user := parts[0]
+	expStr := parts[1]
+	sig := parts[2]
+
+	if user != s.AuthUsername {
+		return false
+	}
+
+	exp, err := strconv.ParseInt(expStr, 10, 64)
+	if err != nil || time.Now().Unix() > exp {
+		return false
+	}
+
+	expectedSig := s.sign(fmt.Sprintf("%s|%s", user, expStr))
+	return hmac.Equal([]byte(sig), []byte(expectedSig))
+}
+
+func (s *Server) sign(data string) string {
+	h := hmac.New(sha256.New, []byte(s.AuthSecret))
+	h.Write([]byte(data))
+	return base64.URLEncoding.EncodeToString(h.Sum(nil))
+}
+
+// Auth Handlers
+func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
+	if s.AuthUsername == "" {
+		http.Error(w, "User authentication not configured", http.StatusNotImplemented)
+		return
+	}
+
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var creds struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&creds); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	if creds.Username != s.AuthUsername || creds.Password != s.AuthPassword {
+		// Delay to prevent timing attacks? (Not critical for this scope but good practice)
+		time.Sleep(200 * time.Millisecond)
+		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+		return
+	}
+
+	// Success
+	token := s.generateSessionToken()
+	http.SetCookie(w, &http.Cookie{
+		Name:     "dockgo_session",
+		Value:    token,
+		Path:     "/",
+		Expires:  time.Now().Add(24 * time.Hour),
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+	})
+
+	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+}
+
+func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "dockgo_session",
+		Value:    "",
+		Path:     "/",
+		Expires:  time.Unix(0, 0),
+		HttpOnly: true,
+		MaxAge:   -1,
+	})
+	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+}
+
+func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
+	loggedIn := false
+	method := "none"
+
+	// Check Cookie
+	if s.AuthUsername != "" {
+		cookie, err := r.Cookie("dockgo_session")
+		if err == nil && s.validateSessionToken(cookie.Value) {
+			loggedIn = true
+			method = "cookie"
+		}
+	}
+
+	// Check Header (optional, if we want to reflect it back, but usually for UI init we care if cookie works)
+	// UI can know if it has a token. Backend tells if it recognizes a session.
+
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"logged_in":         loggedIn,
+		"auth_method":       method,
+		"user_auth_enabled": s.AuthUsername != "",
+	})
 }
 
 // /api/health
