@@ -88,12 +88,17 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             evtSource.onerror = (err) => {
-                console.error('EventSource failed:', err);
-                evtSource.close();
-                statusEl.textContent = 'Stream connection error';
-                statusEl.style.color = 'var(--danger)';
-                refreshBtn.disabled = false;
-                setTimeout(() => progressContainer.classList.add('hidden'), 2000);
+                console.warn('EventSource error:', err);
+                if (evtSource.readyState === EventSource.CLOSED) {
+                    statusEl.textContent = 'Stream connection failed.';
+                    statusEl.style.color = 'var(--danger)';
+                    refreshBtn.disabled = false;
+                    // Do not hide progress immediately so user sees where it stopped
+                } else {
+                    statusEl.textContent = 'Reconnecting...';
+                    statusEl.style.color = 'var(--warning)';
+                    // Browser will auto-reconnect, triggering a new check
+                }
             };
             return;
         }
