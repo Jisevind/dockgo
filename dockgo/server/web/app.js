@@ -221,41 +221,90 @@ document.addEventListener('DOMContentLoaded', () => {
 
         btn.textContent = 'Updating...';
         btn.disabled = true;
-        msgEl.textContent = 'Starting update process...';
+        msgEl.textContent = 'Starting connection...';
         msgEl.classList.remove('hidden');
 
         try {
-            console.log(`[Update] Sending POST request to /api/update/${name}`);
             const response = await fetch(`/api/update/${name}`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
             });
-            console.log(`[Update] Response status: ${response.status}`);
 
             if (response.status === 401) {
-                console.error('[Update] Unauthorized');
                 msgEl.textContent = 'Error: Unauthorized. Wrong API Token.';
-                localStorage.removeItem('dockgo_token'); // Clear invalid token
+                localStorage.removeItem('dockgo_token');
                 btn.textContent = 'Retry (Auth Failed)';
                 btn.disabled = false;
                 return;
             }
 
-            const result = await response.json();
-            console.log('[Update] Result:', result);
-
-            if (result.success) {
-                msgEl.textContent = 'Update successful! Refreshing...';
-                console.log('[Update] Update marked as successful. Refreshing container list in 2s...');
-                setTimeout(() => fetchContainers(), 2000);
-            } else {
-                console.error('[Update] Update failed:', result.error);
-                msgEl.textContent = `Error: ${result.error || 'Unknown error'}`;
-                btn.textContent = 'Retry Update';
-                btn.disabled = false;
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
             }
+
+            // Stream Reader
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const parts = buffer.split('\n\n');
+                buffer = parts.pop(); // Keep incomplete part
+
+                for (const part of parts) {
+                    if (part.startsWith('data: ')) {
+                        try {
+                            const jsonStr = part.substring(6);
+                            const data = JSON.parse(jsonStr);
+
+                            if (data.type === 'start') {
+                                msgEl.textContent = data.message || 'Starting...';
+                            } else if (data.type === 'progress') {
+                                // Show status (e.g. "Downloading...", "Pulling fs layer")
+                                // If percent is available (from PullProgressEvent), show it?
+                                let text = data.status;
+                                if (data.percent) {
+                                    text += ` (${data.percent.toFixed(1)}%)`;
+                                }
+                                msgEl.textContent = text;
+                            } else if (data.type === 'pull_progress') {
+                                // Main.go might wrap PullProgressEvent or emit it directly?
+                                // http.go just forwards what dockgo emits.
+                                // If dockgo emits PullProgressEvent, type is 'pull_progress' or 'progress'?
+                                // Let's handle both.
+                                let text = data.status;
+                                if (data.percent) {
+                                    text += ` (${data.percent.toFixed(1)}%)`;
+                                }
+                                msgEl.textContent = text;
+                            } else if (data.type === 'error') {
+                                msgEl.textContent = `Error: ${data.error}`;
+                                msgEl.style.color = 'var(--danger)';
+                                btn.textContent = 'Retry Update';
+                                btn.disabled = false;
+                            } else if (data.type === 'done') {
+                                if (data.success) {
+                                    msgEl.textContent = 'Update successful! Refreshing...';
+                                    msgEl.style.color = 'var(--success)';
+                                    setTimeout(() => fetchContainers(), 1500);
+                                } else {
+                                    msgEl.textContent = `Failed: ${data.error || 'Unknown error'}`;
+                                    btn.disabled = false;
+                                }
+                            }
+                        } catch (e) {
+                            console.error('SSE Parse Error', e);
+                        }
+                    }
+                }
+            }
+
         } catch (error) {
             console.error('[Update] Network error:', error);
             msgEl.textContent = `Network Error: ${error.message}`;

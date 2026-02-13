@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bufio"
 	"context"
 	"dockgo/api"
 	"dockgo/engine"
@@ -420,48 +421,89 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Sanitize name a bit?
+	// Sanitize name a bit
 	if strings.ContainsAny(name, ";&|") {
 		http.Error(w, "Invalid name", http.StatusBadRequest)
 		return
 	}
 
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("X-Accel-Buffering", "no")
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+
+	// Send start event
+	fmt.Fprintf(w, "data: {\"type\":\"start\", \"message\": \"Starting update for %s...\"}\n\n", name)
+	flusher.Flush()
+
 	self, err := os.Executable()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		fmt.Fprintf(w, "data: {\"type\":\"error\", \"error\": \"Failed to find executable: %v\"}\n\n", err)
 		return
 	}
 
-	// spawn: -y name -json
-	cmd := exec.Command(self, "-y", name, "-json")
+	// spawn: -y name -stream
+	cmd := exec.Command(self, "-y", name, "-stream")
 	cmd.Env = os.Environ()
-	output, err := cmd.CombinedOutput()
 
-	w.Header().Set("Content-Type", "application/json")
+	// Merge stderr into stdout to capture all output
+	cmd.Stderr = cmd.Stdout
+	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"error":   "Update failed",
-			"details": string(output),
-		})
+		fmt.Fprintf(w, "data: {\"type\":\"error\", \"error\": \"Failed to pipe stdout: %v\"}\n\n", err)
 		return
 	}
 
-	// Success
-	// Invalidate cache for this container
-	s.mu.Lock()
-	var newC []string
-	for _, c := range s.updatesCache {
-		if c != name {
-			newC = append(newC, c)
-		}
+	if err := cmd.Start(); err != nil {
+		fmt.Fprintf(w, "data: {\"type\":\"error\", \"error\": \"Failed to start update command: %v\"}\n\n", err)
+		return
 	}
-	s.updatesCache = newC
-	s.mu.Unlock()
 
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"success": true,
-		"message": "Update completed",
-		"output":  string(output),
-	})
+	scanner := bufio.NewScanner(stdout)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line == "" {
+			continue
+		}
+
+		// Check if line is valid JSON
+		if json.Valid([]byte(line)) {
+			fmt.Fprintf(w, "data: %s\n\n", line)
+		} else {
+			// Wrap raw text in JSON
+			// Use simple string escaping or a struct
+			rawEvt := api.ProgressEvent{
+				Type:   "progress",
+				Status: line,
+			}
+			if bytes, err := json.Marshal(rawEvt); err == nil {
+				fmt.Fprintf(w, "data: %s\n\n", string(bytes))
+			}
+		}
+		flusher.Flush()
+	}
+
+	if err := cmd.Wait(); err != nil {
+		fmt.Fprintf(w, "data: {\"type\":\"error\", \"error\": \"Update process failed: %v\"}\n\n", err)
+	} else {
+		// Success
+		// Invalidate cache for this container
+		s.mu.Lock()
+		var newC []string
+		for _, c := range s.updatesCache {
+			if c != name {
+				newC = append(newC, c)
+			}
+		}
+		s.updatesCache = newC
+		s.mu.Unlock()
+
+		fmt.Fprintf(w, "data: {\"type\":\"done\", \"success\": true, \"message\": \"Update completed successfully\"}\n\n")
+	}
+	flusher.Flush()
 }
