@@ -5,6 +5,9 @@ WORKDIR /build
 # Copy source
 COPY dockgo .
 
+# DEBUG: Check what was copied
+RUN ls -lR /build
+
 # Build
 RUN go mod download
 RUN go build -o dockgo ./cmd/dockgo

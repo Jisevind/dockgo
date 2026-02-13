@@ -72,7 +72,7 @@ func (s *Server) Start() error {
 	}
 	mux.Handle("/", http.FileServer(http.FS(webFS)))
 
-	fmt.Printf("🚀 DockGo listening at http://localhost:%s\n", s.Port)
+	fmt.Printf("🚀 DockGo (PATCHED) listening at http://localhost:%s\n", s.Port)
 	return http.ListenAndServe(":"+s.Port, mux)
 }
 
@@ -273,24 +273,75 @@ func (s *Server) handleContainers(w http.ResponseWriter, r *http.Request) {
 
 // /api/stream/check
 func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("👉 Stream Request Started")
+	// 1. Set headers
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no") // Disable Nginx buffering
 
+	// 2. Check flusher
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
 		return
 	}
 
-	// Send initial ping to establish stream?
-	// The client expects JSON events.
+	// 3. Panic recovery
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("🔥 PANIC in handleStreamCheck: %v\n", r)
+		}
+		fmt.Println("🛑 Stream Request Ended")
+	}()
+
+	// 4. Send initial "start" event
+	fmt.Fprintf(w, "data: {\"type\":\"start\"}\n\n")
+	flusher.Flush()
 
 	// Use request context for cancellation
-	ctx := r.Context()
+	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel()
 
-	// Callback for progress
+	// 5. Heartbeat logic
+	doneChan := make(chan struct{})
+	var heartbeatWg sync.WaitGroup
+	heartbeatWg.Add(1)
+
+	defer heartbeatWg.Wait()
+	defer close(doneChan)
+
+	var writeMu sync.Mutex
+
+	go func() {
+		defer heartbeatWg.Done()
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-doneChan:
+				return
+			case <-ticker.C:
+				writeMu.Lock()
+				if _, err := fmt.Fprintf(w, ": ping\n\n"); err != nil {
+					writeMu.Unlock()
+					cancel()
+					return
+				}
+				flusher.Flush()
+				writeMu.Unlock()
+			}
+		}
+	}()
+
+	// 6. Callback for progress
 	onProgress := func(u api.ContainerUpdate, current, total int) {
+		if ctx.Err() != nil {
+			return
+		}
+
 		evt := api.ProgressEvent{
 			Type:            "progress",
 			Current:         current,
@@ -300,55 +351,53 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 			UpdateAvailable: u.UpdateAvailable,
 		}
 		bytes, _ := json.Marshal(evt)
-		fmt.Fprintf(w, "data: %s\n\n", string(bytes))
+
+		writeMu.Lock()
+		defer writeMu.Unlock()
+
+		if _, err := fmt.Fprintf(w, "data: %s\n\n", string(bytes)); err != nil {
+			fmt.Printf("❌ Write Error for %s: %v\n", u.Name, err)
+			cancel()
+			return
+		}
 		flusher.Flush()
 	}
 
-	// Emit start event?
-	// Scan calculates total inside.
-	// But we might want to emit "start" if we could get total first.
-	// The current logic in Scan calls onProgress with total on first item.
-	// Client UI probably handles "progress" events fine even if "start" is missing or implicit.
-	// Previous logic emitted "start".
-	// Let's rely on progress events. The first one will have Current=1, Total=X.
-
-	// We need a registry client?
-	// Server has Discovery but not Registry in struct?
-	// Server has Discovery *engine.DiscoveryEngine.
-	// Registry is lightweight, can limit new one or add to Server struct.
-	// Implementation Plan says "use engine.Scan".
-	// Scan needs (ctx, disc, reg, filter, onProgress).
-	// Let's create a new RegistryClient here.
+	// 7. Run Scan
 	registry := engine.NewRegistryClient()
-
 	updates, err := engine.Scan(ctx, s.Discovery, registry, "", onProgress)
+	fmt.Printf("✅ Scan Done. Err: %v\n", err)
 
-	if err != nil {
-		s.mu.Lock()
-		s.lastCheckStat = "error"
-		s.mu.Unlock()
-		// If context canceled, it's not really an error to report to client if they left.
-		if ctx.Err() != nil {
-			return
-		}
-		fmt.Fprintf(w, "data: {\"type\":\"error\", \"error\": \"%v\"}\n\n", err)
-	} else {
-		// Update cache
-		var newCache []string
-		for _, u := range updates {
-			if u.UpdateAvailable {
-				newCache = append(newCache, u.Name)
+	// 8. Handle result
+	if ctx.Err() == nil {
+		writeMu.Lock()
+		defer writeMu.Unlock()
+
+		if err != nil {
+			s.mu.Lock()
+			s.lastCheckStat = "error"
+			s.mu.Unlock()
+
+			fmt.Fprintf(w, "data: {\"type\":\"error\", \"error\": \"%v\"}\n\n", err)
+		} else {
+			// Update cache
+			var newCache []string
+			for _, u := range updates {
+				if u.UpdateAvailable {
+					newCache = append(newCache, u.Name)
+				}
 			}
-		}
 
-		s.mu.Lock()
-		s.updatesCache = newCache
-		s.lastCheckTime = time.Now()
-		s.lastCheckStat = "success"
-		s.mu.Unlock()
-		fmt.Fprintf(w, "data: {\"type\":\"done\", \"code\": 0}\n\n")
+			s.mu.Lock()
+			s.updatesCache = newCache
+			s.lastCheckTime = time.Now()
+			s.lastCheckStat = "success"
+			s.mu.Unlock()
+
+			fmt.Fprintf(w, "data: {\"type\":\"done\", \"code\": 0}\n\n")
+		}
+		flusher.Flush()
 	}
-	flusher.Flush()
 }
 
 // /api/update/:name

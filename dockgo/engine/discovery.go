@@ -39,10 +39,17 @@ func (d *DiscoveryEngine) GetContainerImageDetails(ctx context.Context, containe
 	iJSON, _, err := d.Client.ImageInspectWithRaw(ctx, cJSON.Image)
 	if err != nil {
 		// If image inspect fails, we return what we have
-		return cJSON.Config.Image, cJSON.Image, nil, "", "", nil
+		if cJSON.Config != nil {
+			return cJSON.Config.Image, cJSON.Image, nil, "", "", nil
+		}
+		return "", cJSON.Image, nil, "", "", nil
 	}
 
-	return cJSON.Config.Image, cJSON.Image, iJSON.RepoDigests, iJSON.Os, iJSON.Architecture, nil
+	configImage := ""
+	if cJSON.Config != nil {
+		configImage = cJSON.Config.Image
+	}
+	return configImage, cJSON.Image, iJSON.RepoDigests, iJSON.Os, iJSON.Architecture, nil
 }
 
 // GetContainerState returns the state string of a container (e.g. "running", "exited")
