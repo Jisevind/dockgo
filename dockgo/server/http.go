@@ -27,7 +27,7 @@ type Server struct {
 	Port             string
 	APIToken         string
 	Discovery        *engine.DiscoveryEngine
-	updatesCache     []string
+	updatesCache     map[string]bool // key: Container ID
 	cacheUnix        int64
 	mu               sync.RWMutex
 	lastCheckTime    time.Time
@@ -49,10 +49,11 @@ func NewServer(port string) (*Server, error) {
 	}
 
 	return &Server{
-		Port:      port,
-		APIToken:  token,
-		Discovery: disc,
-		startTime: time.Now(),
+		Port:         port,
+		APIToken:     token,
+		Discovery:    disc,
+		updatesCache: make(map[string]bool),
+		startTime:    time.Now(),
 	}, nil
 }
 
@@ -245,11 +246,8 @@ func (s *Server) handleContainers(w http.ResponseWriter, r *http.Request) {
 		}
 
 		updateAvail := false
-		for _, u := range cache {
-			if u == name {
-				updateAvail = true
-				break
-			}
+		if cache[c.ID] {
+			updateAvail = true
 		}
 
 		// Parse Image:Tag
@@ -394,10 +392,10 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "data: {\"type\":\"error\", \"error\": \"%v\"}\n\n", err)
 		} else {
 			// Update cache
-			var newCache []string
+			newCache := make(map[string]bool)
 			for _, u := range updates {
 				if u.UpdateAvailable {
-					newCache = append(newCache, u.Name)
+					newCache[u.ID] = true
 				}
 			}
 
@@ -493,14 +491,10 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// Success
 		// Invalidate cache for this container
+		// Clear cache completely to avoid stale state
+		// (IDs change on update/recreate, and name lookup is complex here)
 		s.mu.Lock()
-		var newC []string
-		for _, c := range s.updatesCache {
-			if c != name {
-				newC = append(newC, c)
-			}
-		}
-		s.updatesCache = newC
+		s.updatesCache = make(map[string]bool)
 		s.mu.Unlock()
 
 		fmt.Fprintf(w, "data: {\"type\":\"done\", \"success\": true, \"message\": \"Update completed successfully\"}\n\n")
