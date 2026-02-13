@@ -7,4 +7,5 @@ updates.cache
 *.md
 .env
 *.exe
+docker-compose.yml
 dockgo/dockgo

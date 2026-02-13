@@ -1,9 +1,8 @@
-version: '3.8'
-
+---
 services:
-  dockviewer:
+  dockgo:
     build: .
-    container_name: dockviewer
+    container_name: dockgo
     restart: unless-stopped
     ports:
       - "3131:3131"
@@ -13,5 +12,10 @@ services:
       # or you can set environment variables here directly.
       - ./.env:/app/.env
     environment:
+      - CORS_ORIGIN=http://localhost:3131
+      # Option 1: Legacy Token
       # - API_TOKEN=your_secure_token_here
-      # - CORS_ORIGIN=http://localhost:3131
+      # Option 2: User Login (Recommended)
+      # - AUTH_USERNAME=admin
+      # - AUTH_PASSWORD=supersecurepassword
+      # - AUTH_SECRET=random_string_for_signing_cookies
