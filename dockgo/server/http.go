@@ -65,6 +65,17 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/stream/check", s.enableCors(s.handleStreamCheck))
 	mux.HandleFunc("/api/update/", s.enableCors(s.requireAuth(s.handleUpdate)))
 
+	// DEBUG ROUTE
+	mux.HandleFunc("/api/debug/cache", func(w http.ResponseWriter, r *http.Request) {
+		s.mu.RLock()
+		defer s.mu.RUnlock()
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"cache":      s.updatesCache,
+			"last_check": s.lastCheckTime,
+			"stat":       s.lastCheckStat,
+		})
+	})
+
 	// Static Files (Frontend)
 	webFS, err := fs.Sub(content, "web")
 	if err != nil {
@@ -72,7 +83,7 @@ func (s *Server) Start() error {
 	}
 	mux.Handle("/", http.FileServer(http.FS(webFS)))
 
-	fmt.Printf("🚀 DockGo (PATCHED) listening at http://localhost:%s\n", s.Port)
+	fmt.Printf("🚀 DockGo listening at http://localhost:%s\n", s.Port)
 	return http.ListenAndServe(":"+s.Port, mux)
 }
 
@@ -209,6 +220,8 @@ func (s *Server) getRegistryStatus() string {
 
 // /api/containers
 func (s *Server) handleContainers(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-cache")
+
 	containers, err := s.Discovery.ListContainers(context.Background())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -366,7 +379,6 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 	// 7. Run Scan
 	registry := engine.NewRegistryClient()
 	updates, err := engine.Scan(ctx, s.Discovery, registry, "", onProgress)
-	fmt.Printf("✅ Scan Done. Err: %v\n", err)
 
 	// 8. Handle result
 	if ctx.Err() == nil {

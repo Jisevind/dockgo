@@ -129,8 +129,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Split into two groups
-        const withUpdates = containers.filter(c => c.updateAvailable);
-        const withoutUpdates = containers.filter(c => !c.updateAvailable);
+        const withUpdates = containers.filter(c => c.update_available);
+        const withoutUpdates = containers.filter(c => !c.update_available);
 
         // Sort each group alphabetically
         withUpdates.sort((a, b) => a.name.localeCompare(b.name));
@@ -179,7 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 // Update section logic is slightly different structure-wise but class names are consistent
-                if (container.updateAvailable) {
+                if (container.update_available) {
                     const updateSection = clone.querySelector('.update-section');
                     if (updateSection) {
                         updateSection.classList.remove('hidden');
