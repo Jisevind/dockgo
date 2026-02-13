@@ -136,72 +136,13 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 	verifyCtx, cancelVerify := context.WithTimeout(ctx, 60*time.Second)
 	defer cancelVerify()
 
-	healthy := false
 	checkTicker := time.NewTicker(time.Second)
 	defer checkTicker.Stop()
-
-Loop:
-	for {
-		select {
-		case <-verifyCtx.Done():
-			// Timeout
-			break Loop
-		case <-checkTicker.C:
-			inspect, err := d.Client.ContainerInspect(ctx, newContainer.ID)
-			if err != nil {
-				continue
-			}
-
-			// If container stopped running, it failed
-			if inspect.State.Status == "exited" || inspect.State.Status == "dead" {
-				fmt.Printf("Container failed immediately (status: %s)\n", inspect.State.Status)
-				break Loop
-			}
-
-			// Check Healthcheck
-			if inspect.State.Health != nil {
-				status := inspect.State.Health.Status
-				if status == "healthy" {
-					healthy = true
-					break Loop
-				} else if status == "unhealthy" {
-					fmt.Printf("Container reports unhealthy state.\n")
-					break Loop
-				}
-				// "starting" -> continue waiting
-			} else {
-				// No healthcheck: if it ran for 3+ seconds, assume good?
-				// Simple heuristic: If we are here and it's running, and we've waited a bit...
-				// But we are looping.
-				// Let's rely on specific "running" check after a short delay for non-healthcheck containers.
-				// Or since we are in a loop, we can just say: if no healthcheck, and running, success.
-				// But we want to catch "start loops".
-				// Let's set a shorter success threshold for no-healthcheck, e.g., 2 seconds.
-				if time.Since(time.Now()) > 2*time.Second { // Logic flaw: time.Since(start)
-					// We need to track start time.
-					// Actually, 'ContainerStart' returned successfully.
-					// If we are 2 seconds in and still running, assume success.
-					// We can use verifyCtx deadline to determine "long enough"? No.
-					// Just break immediately?
-					// Let's wait 3 seconds for non-healthcheck (crash loop detection).
-
-					// Since we don't track loop start explicitly here, let's just use a counter or separate logic?
-					// Easier: inside this loop checking "running", if we see "running" 3 times (3 seconds), good.
-					// OR: just define:
-					// if no healthcheck { time.Sleep(3 * time.Second); check running; }
-					// But we are in a loop to handle *both* cases.
-				}
-
-				// New Logic: Check if running. If no healthcheck, we wait for X seconds then approve.
-				// Since we are inside the loop, we can't easily wait X seconds without blocking the loop or state.
-				// Let's exit the loop for non-healthcheck after a fixed delay.
-			}
-		}
-	}
 
 	// Refined Logic outside loop is tricky. Let's rewrite the verification block.
 	// ...
 
+	// Actual Implementation:
 	// Actual Implementation:
 	verificationSuccess := false
 
