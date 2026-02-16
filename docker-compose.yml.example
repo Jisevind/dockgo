@@ -12,6 +12,7 @@ services:
       # or you can set environment variables here directly.
       - ./.env:/app/.env
     environment:
+      - LOG_LEVEL=info # debug, info, warn, error
       - CORS_ORIGIN=http://localhost:3131
       # Option 1: Legacy Token
       # - API_TOKEN=your_secure_token_here

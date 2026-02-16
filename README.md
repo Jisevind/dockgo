@@ -72,7 +72,7 @@ docker run -d \
 
 **Environment Variables:**
 - `PORT`: Server port (default: `3131`).
-- `PORT`: Server port (default: `3131`).
+- `LOG_LEVEL`: Log verbosity (`debug`, `info`, `warn`, `error`). Default: `info`.
 - `API_TOKEN`: Secret token for API updates (Legacy/Token mode).
 - `AUTH_USERNAME`: Username for login (User mode).
 - `AUTH_PASSWORD`: Password for login (User mode).
