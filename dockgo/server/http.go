@@ -29,7 +29,7 @@ import (
 var content embed.FS
 
 // Define version (could be set via ldflags)
-var Version = "0.1.3"
+var Version = "1.0.0"
 
 type Server struct {
 	Port             string
@@ -202,7 +202,8 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 		// Removed: else { token = r.URL.Query().Get("token") }
 
 		if s.APIToken != "" && token != "" {
-			if token == s.APIToken {
+			// Use Constant-Time Comparison to prevent timing attacks
+			if hmac.Equal([]byte(token), []byte(s.APIToken)) {
 				// fmt.Println("DEBUG: Auth Success (Token)")
 				next(w, r)
 				return
