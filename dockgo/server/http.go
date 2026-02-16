@@ -153,19 +153,22 @@ func (s *Server) Start() error {
 // Middleware: CORS
 func (s *Server) enableCors(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Harden CORS: If auth is enabled, check Origin (basic protection)
-		origin := r.Header.Get("Origin")
-		if origin != "" && s.CorsOrigin != "" {
-			// Strict check: Only allow if explicitly configured and matches
-			if origin == s.CorsOrigin {
-				w.Header().Set("Access-Control-Allow-Origin", s.CorsOrigin)
-				w.Header().Set("Access-Control-Allow-Credentials", "true")
-			}
+		// 1. If CORS is not enabled/configured, do nothing (Strict Default)
+		if s.CorsOrigin == "" {
+			next(w, r)
+			return
 		}
 
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		// 2. If Origin matches allowed origin, set headers
+		origin := r.Header.Get("Origin")
+		if origin == s.CorsOrigin {
+			w.Header().Set("Access-Control-Allow-Origin", s.CorsOrigin)
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		}
 
+		// 3. Handle Preflight OPTIONS
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
 			return
