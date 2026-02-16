@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"dockgo/api"
+	"dockgo/logger"
 	"fmt"
 	"strings"
 	"sync"
@@ -62,7 +63,7 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 			defer wg.Done()
 			defer func() {
 				if r := recover(); r != nil {
-					fmt.Printf("🔥 PANIC in scanner goroutine for %s: %v\n", name, r)
+					logger.Error("🔥 PANIC in scanner goroutine for %s: %v", name, r)
 				}
 			}()
 
@@ -89,7 +90,7 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 
 			// Get local details first to resolve true image name (in case List returned SHA)
 			resolvedName, _, repoDigests, _, _, err := discovery.GetContainerImageDetails(ctx, id)
-			fmt.Printf("DEBUG: [Scan] %s: Image=%s, Resolved=%s, RepoDigests=%d\n", name, image, resolvedName, len(repoDigests))
+			logger.Debug("[Scan] %s: Image=%s, Resolved=%s, RepoDigests=%d", name, image, resolvedName, len(repoDigests))
 
 			// Check context again
 			if ctx.Err() != nil {
@@ -99,7 +100,7 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 			if err != nil {
 				upd.Error = fmt.Sprintf("Inspect error: %v", err)
 				upd.Status = "error"
-				fmt.Printf("DEBUG: [Scan] %s: Inspect error: %v\n", name, err)
+				logger.Debug("[Scan] %s: Inspect error: %v", name, err)
 			} else {
 				if resolvedName != "" {
 					upd.Image = resolvedName
@@ -122,7 +123,7 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 				// Fix for localhost registries when running in container
 				imageToCheck := upd.Image
 				if strings.HasPrefix(imageToCheck, "localhost:") || strings.HasPrefix(imageToCheck, "127.0.0.1:") {
-					fmt.Printf("DEBUG: Rewriting %s to use host.docker.internal\n", imageToCheck)
+					logger.Debug("Rewriting %s to use host.docker.internal", imageToCheck)
 					imageToCheck = strings.Replace(imageToCheck, "localhost:", "host.docker.internal:", 1)
 					imageToCheck = strings.Replace(imageToCheck, "127.0.0.1:", "host.docker.internal:", 1)
 				}
@@ -135,10 +136,10 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 					}
 					upd.Error = fmt.Sprintf("Registry error: %v", err)
 					upd.Status = "error"
-					fmt.Printf("DEBUG: [Scan] %s: Registry error: %v\n", name, err)
+					logger.Debug("[Scan] %s: Registry error: %v", name, err)
 				} else {
 					upd.RemoteDigest = remoteDigest
-					fmt.Printf("DEBUG: [Scan] %s: RemoteDigest=%s\n", name, remoteDigest)
+					logger.Debug("[Scan] %s: RemoteDigest=%s", name, remoteDigest)
 
 					// Check if remote digest is in repoDigests
 					found := false
@@ -152,9 +153,9 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 
 					if !found {
 						upd.UpdateAvailable = true
-						fmt.Printf("DEBUG: [Scan] %s: UpdateAvailable=TRUE (Local!=Remote)\n", name)
+						logger.Debug("[Scan] %s: UpdateAvailable=TRUE (Local!=Remote)", name)
 					} else {
-						fmt.Printf("DEBUG: [Scan] %s: Up to date.\n", name)
+						logger.Debug("[Scan] %s: Up to date.", name)
 					}
 				}
 			}

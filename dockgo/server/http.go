@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"dockgo/api"
 	"dockgo/engine"
+	"dockgo/logger"
 	"embed"
 	"encoding/base64"
 	"encoding/json"
@@ -87,10 +88,10 @@ func NewServer(port string) (*Server, error) {
 	}
 
 	if token == "" && authUser == "" {
-		fmt.Println("⚠️  WARNING: No API_TOKEN or AUTH_USERNAME set. Updates disabled.")
+		logger.Warn("WARNING: No API_TOKEN or AUTH_USERNAME set. Updates disabled.")
 	}
 
-	fmt.Println("DEBUG: Server Initializing... [Timestamp: " + time.Now().Format(time.RFC3339) + "]")
+	logger.Info("Server Initializing...")
 
 	return &Server{
 		Port:             port,
@@ -143,7 +144,9 @@ func (s *Server) Start() error {
 	}
 	mux.Handle("/", http.FileServer(http.FS(webFS)))
 
-	fmt.Printf("🚀 DockGo listening at http://localhost:%s\n", s.Port)
+	mux.Handle("/", http.FileServer(http.FS(webFS)))
+
+	logger.Info("🚀 DockGo listening at http://localhost:%s", s.Port)
 	return http.ListenAndServe(":"+s.Port, mux)
 }
 
@@ -175,7 +178,7 @@ func (s *Server) enableCors(next http.HandlerFunc) http.HandlerFunc {
 // Middleware: Auth
 func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// fmt.Printf("DEBUG: Auth Check for %s\n", r.URL.Path) // Reduced logging
+		// logger.Debug("Auth Check for %s", r.URL.Path) // Reduced logging
 
 		// 1. Check Session Cookie (User Login) - PRIORITIZE
 		if s.AuthUsername != "" {
@@ -206,12 +209,12 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 		// 3. Fallback: Fail
 		// If neither configured, fail.
 		if s.APIToken == "" && s.AuthUsername == "" {
-			fmt.Println("DEBUG: Auth Failed (No Config)")
+			logger.Debug("Auth Failed (No Config)")
 			http.Error(w, "Updates disabled (No Auth Configured)", http.StatusForbidden)
 			return
 		}
 
-		fmt.Println("DEBUG: Auth Failed (Unauthorized)")
+		logger.Warn("Auth Failed (Unauthorized)")
 		w.Header().Set("WWW-Authenticate", `Bearer realm="dockgo"`)
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 	}
@@ -327,7 +330,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	// Verify Password Hash
 	if err := bcrypt.CompareHashAndPassword(s.AuthPasswordHash, []byte(creds.Password)); err != nil {
-		fmt.Println("DEBUG: Login Failed (redacted)")
+		logger.Debug("Login Failed (redacted)")
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
@@ -550,7 +553,7 @@ func (s *Server) handleContainers(w http.ResponseWriter, r *http.Request) {
 
 // /api/stream/check
 func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("👉 Stream Request Started")
+	logger.Debug("👉 Stream Request Started")
 	// 1. Set headers
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -566,9 +569,9 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 	// 3. Panic recovery
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Printf("🔥 PANIC in handleStreamCheck: %v\n", r)
+			logger.Error("🔥 PANIC in handleStreamCheck: %v", r)
 		}
-		fmt.Println("🛑 Stream Request Ended")
+		logger.Debug("🛑 Stream Request Ended")
 	}()
 
 	// 4. Send initial "start" event
@@ -633,7 +636,7 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 		defer writeMu.Unlock()
 
 		if _, err := fmt.Fprintf(w, "data: %s\n\n", string(bytes)); err != nil {
-			fmt.Printf("❌ Write Error for %s: %v\n", u.Name, err)
+			logger.Error("❌ Write Error for %s: %v", u.Name, err)
 			cancel()
 			return
 		}
@@ -641,9 +644,9 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 7. Run Scan
-	fmt.Println("DEBUG: Starting Engine Scan...")
+	logger.Debug("Starting Engine Scan...")
 	updates, err := engine.Scan(ctx, s.Discovery, s.Registry, "", onProgress)
-	fmt.Printf("DEBUG: Scan returned %d updates, err=%v\n", len(updates), err)
+	logger.Debug("Scan returned %d updates, err=%v", len(updates), err)
 
 	// 8. Handle result
 	if ctx.Err() == nil {
@@ -662,10 +665,10 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 			for _, u := range updates {
 				if u.UpdateAvailable {
 					newCache[u.ID] = true
-					fmt.Printf("DEBUG: Found update for %s (ID: %s)\n", u.Name, u.ID)
+					logger.Debug("Found update for %s (ID: %s)", u.Name, u.ID)
 				}
 			}
-			fmt.Printf("DEBUG: New cache size: %d\n", len(newCache))
+			logger.Debug("New cache size: %d", len(newCache))
 
 			s.mu.Lock()
 			s.updatesCache = newCache
@@ -692,7 +695,7 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 			logFile.WriteString(time.Now().Format(time.RFC3339) + " " + msg + "\n")
 		}
 		// Also print to stdout just in case
-		fmt.Print("STDOUT_DEBUG: " + msg + "\n")
+		logger.Debug("%s", msg)
 	}
 
 	name := strings.TrimPrefix(r.URL.Path, "/api/update/")

@@ -4,6 +4,7 @@ import (
 	"context"
 	"dockgo/api"
 	"dockgo/engine"
+	"dockgo/logger"
 	"dockgo/server"
 	"encoding/json"
 	"flag"
@@ -14,6 +15,12 @@ import (
 )
 
 func main() {
+	// 0. Setup Logger
+	logLevel := os.Getenv("LOG_LEVEL")
+	if logLevel != "" {
+		logger.SetLevel(logLevel)
+	}
+
 	if len(os.Args) < 2 {
 		help()
 		os.Exit(1)
