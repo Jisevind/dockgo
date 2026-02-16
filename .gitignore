@@ -2,9 +2,9 @@ documentation
 updates.cache
 
 .contextignore
+CODEBASE.md
 *.log
 *.old
-*.md
 .env
 *.exe
 docker-compose.yml
