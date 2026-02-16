@@ -188,6 +188,30 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 	}
 EndVerify:
 
+	// 7. Stability Wait (Post-Verification)
+	if verificationSuccess {
+		fmt.Printf("✅ Initial verification passed. Monitoring for 10s stability...\n")
+		select {
+		case <-ctx.Done():
+			verificationSuccess = false
+		case <-time.After(10 * time.Second):
+			// Check one last time
+			finalInspect, err := d.Client.ContainerInspect(ctx, newContainer.ID)
+			if err != nil {
+				fmt.Printf("❌ Failed to inspect container after stability wait: %v\n", err)
+				verificationSuccess = false
+			} else if !finalInspect.State.Running {
+				fmt.Printf("❌ Container crashed during stability wait (Exit Code: %d).\n", finalInspect.State.ExitCode)
+				verificationSuccess = false
+			} else if finalInspect.State.Health != nil && finalInspect.State.Health.Status == "unhealthy" {
+				fmt.Printf("❌ Container became unhealthy during stability wait.\n")
+				verificationSuccess = false
+			} else {
+				fmt.Printf("✅ Container is stable.\n")
+			}
+		}
+	}
+
 	if !verificationSuccess {
 		// Rollback logic
 		fmt.Printf(" Verification failed. Rolling back...\n")
