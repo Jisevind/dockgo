@@ -140,10 +140,6 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 	checkTicker := time.NewTicker(time.Second)
 	defer checkTicker.Stop()
 
-	// Refined Logic outside loop is tricky. Let's rewrite the verification block.
-	// ...
-
-	// Actual Implementation:
 	// Actual Implementation:
 	verificationSuccess := false
 
@@ -157,7 +153,7 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 			verificationSuccess = true
 		} else {
 			if err == nil {
-				fmt.Printf("Container stopped running within 3 seconds.\n")
+				logger.Warn("Container stopped running within 3 seconds.")
 			}
 		}
 	} else if err == nil {
