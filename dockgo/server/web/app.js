@@ -332,7 +332,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const handleUpdate = async (name, containerEl) => {
         console.log(`[App] handleUpdate called for ${name}`);
-        // alert(`Debug: Update clicked for ${name}`); // Visual confirmation - REMOVED
         if (!confirm(`Are you sure you want to update ${name}?`)) {
             console.log('[App] Update cancelled by user');
             return;
