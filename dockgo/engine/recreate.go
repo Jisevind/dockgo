@@ -187,11 +187,11 @@ EndVerify:
 
 	// 7. Stability Wait (Post-Verification)
 	if verificationSuccess {
-		logger.Info("✅ Initial verification passed. Monitoring for 10s stability...")
+		logger.Info("✅ Initial verification passed. Monitoring for 20s stability...")
 		select {
 		case <-ctx.Done():
 			verificationSuccess = false
-		case <-time.After(10 * time.Second):
+		case <-time.After(20 * time.Second):
 			// Check one last time
 			finalInspect, err := d.Client.ContainerInspect(ctx, newContainer.ID)
 			if err != nil {
