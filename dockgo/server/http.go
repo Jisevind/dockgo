@@ -323,7 +323,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	// Verify Password Hash
 	if err := bcrypt.CompareHashAndPassword(s.AuthPasswordHash, []byte(creds.Password)); err != nil {
-		fmt.Printf("DEBUG: Login Failed for user %s: %v\n", creds.Username, err)
+		fmt.Println("DEBUG: Login Failed (redacted)")
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
