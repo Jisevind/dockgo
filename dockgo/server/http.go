@@ -38,6 +38,7 @@ type Server struct {
 	AuthPasswordHash []byte // Bcrypt hash
 	AuthSecret       string // For signing sessions
 	Discovery        *engine.DiscoveryEngine
+	Registry         *engine.RegistryClient
 	updatesCache     map[string]bool // key: Container ID
 	cacheUnix        int64
 	mu               sync.RWMutex
@@ -60,6 +61,8 @@ func NewServer(port string) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	registry := engine.NewRegistryClient()
 
 	corsOrigin := os.Getenv("CORS_ORIGIN")
 	token := os.Getenv("API_TOKEN")
@@ -97,6 +100,7 @@ func NewServer(port string) (*Server, error) {
 		AuthPasswordHash: passHash,
 		AuthSecret:       authSecret,
 		Discovery:        disc,
+		Registry:         registry,
 		updatesCache:     make(map[string]bool),
 		startTime:        time.Now(),
 		loginAttempts:    make(map[string]*RateLimiter),
@@ -465,8 +469,7 @@ func (s *Server) getRegistryStatus() string {
 	}
 
 	// Ping (synchronous fallback)
-	reg := engine.NewRegistryClient()
-	err := reg.Ping()
+	err := s.Registry.Ping()
 
 	newStatus := "reachable"
 	if err != nil {
@@ -639,8 +642,7 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 
 	// 7. Run Scan
 	fmt.Println("DEBUG: Starting Engine Scan...")
-	registry := engine.NewRegistryClient()
-	updates, err := engine.Scan(ctx, s.Discovery, registry, "", onProgress)
+	updates, err := engine.Scan(ctx, s.Discovery, s.Registry, "", onProgress)
 	fmt.Printf("DEBUG: Scan returned %d updates, err=%v\n", len(updates), err)
 
 	// 8. Handle result
