@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -19,6 +20,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 //go:embed web
@@ -29,9 +32,10 @@ var Version = "1.0.0"
 
 type Server struct {
 	Port             string
+	CorsOrigin       string // Allowed Origin for CORS
 	APIToken         string // Legacy Token
 	AuthUsername     string // Optional: User Login
-	AuthPassword     string
+	AuthPasswordHash []byte // Bcrypt hash
 	AuthSecret       string // For signing sessions
 	Discovery        *engine.DiscoveryEngine
 	updatesCache     map[string]bool // key: Container ID
@@ -42,6 +46,13 @@ type Server struct {
 	startTime        time.Time
 	registryStatus   string
 	registryPingTime time.Time
+	loginAttempts    map[string]*RateLimiter
+	loginMu          sync.Mutex
+}
+
+type RateLimiter struct {
+	count    int
+	lastSeen time.Time
 }
 
 func NewServer(port string) (*Server, error) {
@@ -50,33 +61,50 @@ func NewServer(port string) (*Server, error) {
 		return nil, err
 	}
 
+	corsOrigin := os.Getenv("CORS_ORIGIN")
 	token := os.Getenv("API_TOKEN")
 	authUser := os.Getenv("AUTH_USERNAME")
 	authPass := os.Getenv("AUTH_PASSWORD")
 	authSecret := os.Getenv("AUTH_SECRET")
+
 	if authSecret == "" {
 		// Generate random secret if not provided (restarts invalidate sessions, which is fine)
 		authSecret = fmt.Sprintf("%d-%d", time.Now().UnixNano(), os.Getpid())
+	}
+
+	var passHash []byte
+	if authUser != "" && authPass != "" {
+		var err error
+		passHash, err = bcrypt.GenerateFromPassword([]byte(authPass), bcrypt.DefaultCost)
+		if err != nil {
+			return nil, fmt.Errorf("failed to hash password: %v", err)
+		}
+		// Clear plain text password from memory (best effort)
+		authPass = ""
 	}
 
 	if token == "" && authUser == "" {
 		fmt.Println("⚠️  WARNING: No API_TOKEN or AUTH_USERNAME set. Updates disabled.")
 	}
 
+	fmt.Println("DEBUG: Server Initializing... [Timestamp: " + time.Now().Format(time.RFC3339) + "]")
+
 	return &Server{
-		Port:         port,
-		APIToken:     token,
-		AuthUsername: authUser,
-		AuthPassword: authPass,
-		AuthSecret:   authSecret,
-		Discovery:    disc,
-		updatesCache: make(map[string]bool),
-		startTime:    time.Now(),
+		Port:             port,
+		CorsOrigin:       corsOrigin,
+		APIToken:         token,
+		AuthUsername:     authUser,
+		AuthPasswordHash: passHash,
+		AuthSecret:       authSecret,
+		Discovery:        disc,
+		updatesCache:     make(map[string]bool),
+		startTime:        time.Now(),
+		loginAttempts:    make(map[string]*RateLimiter),
 	}, nil
 }
 
 func (s *Server) Start() error {
-	// Setup routes
+	// ... (rest is same)
 	mux := http.NewServeMux()
 
 	// API Routes
@@ -85,11 +113,14 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/stream/check", s.enableCors(s.requireAuth(s.handleStreamCheck)))
 	mux.HandleFunc("/api/update/", s.enableCors(s.requireAuth(s.handleUpdate)))
 
+	// ...
 	// Auth Routes
 	mux.HandleFunc("/api/login", s.enableCors(s.handleLogin))
+	// ...
 	mux.HandleFunc("/api/logout", s.enableCors(s.handleLogout))
 	mux.HandleFunc("/api/me", s.enableCors(s.handleMe))
 
+	// ...
 	// DEBUG ROUTE
 	mux.HandleFunc("/api/debug/cache", func(w http.ResponseWriter, r *http.Request) {
 		s.mu.RLock()
@@ -100,8 +131,8 @@ func (s *Server) Start() error {
 			"stat":       s.lastCheckStat,
 		})
 	})
-
-	// Static Files (Frontend)
+	// ...
+	// Static Files
 	webFS, err := fs.Sub(content, "web")
 	if err != nil {
 		return err
@@ -115,7 +146,26 @@ func (s *Server) Start() error {
 // Middleware: CORS
 func (s *Server) enableCors(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		// Harden CORS: If auth is enabled, check Origin (basic protection)
+		origin := r.Header.Get("Origin")
+		if origin != "" {
+			// Strict check if configured
+			if s.CorsOrigin != "" {
+				if origin == s.CorsOrigin {
+					w.Header().Set("Access-Control-Allow-Origin", s.CorsOrigin)
+					w.Header().Set("Access-Control-Allow-Credentials", "true")
+				} else {
+					// Invalid origin, do not set headers, let browser block
+					// Optional: Log warning
+				}
+			} else {
+				// Fallback behavior if CORS_ORIGIN not set (dev mode or user didn't config)
+				// We reflect origin to allow basic functionality but this is "loose" mode
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Set("Access-Control-Allow-Credentials", "true")
+			}
+		}
+
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
@@ -131,26 +181,29 @@ func (s *Server) enableCors(next http.HandlerFunc) http.HandlerFunc {
 // Middleware: Auth
 func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// 1. Check Legacy Token (Header OR Query Param for SSE)
-		auth := r.Header.Get("Authorization")
-		token := ""
-		if auth != "" && strings.HasPrefix(auth, "Bearer ") {
-			token = strings.TrimPrefix(auth, "Bearer ")
-		} else {
-			token = r.URL.Query().Get("token")
-		}
+		// fmt.Printf("DEBUG: Auth Check for %s\n", r.URL.Path) // Reduced logging
 
-		if s.APIToken != "" && token != "" {
-			if token == s.APIToken {
+		// 1. Check Session Cookie (User Login) - PRIORITIZE
+		if s.AuthUsername != "" {
+			cookie, err := r.Cookie("dockgo_session")
+			if err == nil && s.validateSessionToken(cookie.Value) {
+				// fmt.Println("DEBUG: Auth Success (Cookie)")
 				next(w, r)
 				return
 			}
 		}
 
-		// 2. Check Session Cookie (User Login)
-		if s.AuthUsername != "" {
-			cookie, err := r.Cookie("dockgo_session")
-			if err == nil && s.validateSessionToken(cookie.Value) {
+		// 2. Check Legacy Token (Header Only - Removed Query Param Support)
+		auth := r.Header.Get("Authorization")
+		token := ""
+		if auth != "" && strings.HasPrefix(auth, "Bearer ") {
+			token = strings.TrimPrefix(auth, "Bearer ")
+		}
+		// Removed: else { token = r.URL.Query().Get("token") }
+
+		if s.APIToken != "" && token != "" {
+			if token == s.APIToken {
+				// fmt.Println("DEBUG: Auth Success (Token)")
 				next(w, r)
 				return
 			}
@@ -159,10 +212,12 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 		// 3. Fallback: Fail
 		// If neither configured, fail.
 		if s.APIToken == "" && s.AuthUsername == "" {
+			fmt.Println("DEBUG: Auth Failed (No Config)")
 			http.Error(w, "Updates disabled (No Auth Configured)", http.StatusForbidden)
 			return
 		}
 
+		fmt.Println("DEBUG: Auth Failed (Unauthorized)")
 		w.Header().Set("WWW-Authenticate", `Bearer realm="dockgo"`)
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 	}
@@ -210,10 +265,47 @@ func (s *Server) sign(data string) string {
 	return base64.URLEncoding.EncodeToString(h.Sum(nil))
 }
 
+// Rate Limiting
+func (s *Server) checkRateLimit(remoteAddr string) bool {
+	// Robust IP parsing
+	ip, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		// Fallback if no port or other format issue
+		ip = remoteAddr
+	}
+
+	s.loginMu.Lock()
+	defer s.loginMu.Unlock()
+
+	limiter, exists := s.loginAttempts[ip]
+	if !exists {
+		limiter = &RateLimiter{}
+		s.loginAttempts[ip] = limiter
+	}
+
+	// Reset if more than 1 minute passed
+	if time.Since(limiter.lastSeen) > time.Minute {
+		limiter.count = 0
+		limiter.lastSeen = time.Now()
+	}
+
+	limiter.count++
+	limiter.lastSeen = time.Now()
+
+	// Max 5 attempts per minute
+	return limiter.count <= 5
+}
+
 // Auth Handlers
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if s.AuthUsername == "" {
 		http.Error(w, "User authentication not configured", http.StatusNotImplemented)
+		return
+	}
+
+	if !s.checkRateLimit(r.RemoteAddr) {
+		// 429 Too Many Requests
+		http.Error(w, "Too many login attempts", http.StatusTooManyRequests)
 		return
 	}
 
@@ -231,21 +323,34 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if creds.Username != s.AuthUsername || creds.Password != s.AuthPassword {
-		// Delay to prevent timing attacks? (Not critical for this scope but good practice)
-		time.Sleep(200 * time.Millisecond)
+	// Slow down response slightly to prevent timing attacks
+	defer time.Sleep(200 * time.Millisecond)
+
+	if creds.Username != s.AuthUsername {
+		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+		return
+	}
+
+	// Verify Password Hash
+	if err := bcrypt.CompareHashAndPassword(s.AuthPasswordHash, []byte(creds.Password)); err != nil {
+		fmt.Printf("DEBUG: Login Failed for user %s: %v\n", creds.Username, err)
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
 
 	// Success
 	token := s.generateSessionToken()
+
+	// Determine if Secure flag should be set
+	isSecure := r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"
+
 	http.SetCookie(w, &http.Cookie{
 		Name:     "dockgo_session",
 		Value:    token,
 		Path:     "/",
 		Expires:  time.Now().Add(24 * time.Hour),
 		HttpOnly: true,
+		Secure:   isSecure, // Strict secure flag
 		SameSite: http.SameSiteStrictMode,
 	})
 
@@ -543,8 +648,10 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 7. Run Scan
+	fmt.Println("DEBUG: Starting Engine Scan...")
 	registry := engine.NewRegistryClient()
 	updates, err := engine.Scan(ctx, s.Discovery, registry, "", onProgress)
+	fmt.Printf("DEBUG: Scan returned %d updates, err=%v\n", len(updates), err)
 
 	// 8. Handle result
 	if ctx.Err() == nil {
@@ -563,8 +670,10 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 			for _, u := range updates {
 				if u.UpdateAvailable {
 					newCache[u.ID] = true
+					fmt.Printf("DEBUG: Found update for %s (ID: %s)\n", u.Name, u.ID)
 				}
 			}
+			fmt.Printf("DEBUG: New cache size: %d\n", len(newCache))
 
 			s.mu.Lock()
 			s.updatesCache = newCache
@@ -580,7 +689,23 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 
 // /api/update/:name
 func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
+	// Debug Logger
+	logFile, _ := os.OpenFile("/tmp/dockgo.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if logFile != nil {
+		defer logFile.Close()
+	}
+	debugLog := func(format string, args ...interface{}) {
+		msg := fmt.Sprintf(format, args...)
+		if logFile != nil {
+			logFile.WriteString(time.Now().Format(time.RFC3339) + " " + msg + "\n")
+		}
+		// Also print to stdout just in case
+		fmt.Print("STDOUT_DEBUG: " + msg + "\n")
+	}
+
 	name := strings.TrimPrefix(r.URL.Path, "/api/update/")
+	debugLog("Received update request for: %s", name)
+
 	if name == "" {
 		http.Error(w, "Container name required", http.StatusBadRequest)
 		return
@@ -612,6 +737,22 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Find Container ID before update (to clear cache later)
+	var targetID string
+	containers, _ := s.Discovery.ListContainers(context.Background())
+	for _, c := range containers {
+		for _, n := range c.Names {
+			if strings.TrimPrefix(n, "/") == name {
+				targetID = c.ID
+				break
+			}
+		}
+		if targetID != "" {
+			break
+		}
+	}
+	debugLog("Resolved container %s to ID: %s", name, targetID)
+
 	// spawn: update -y name -stream
 	cmd := exec.Command(self, "update", "-y", name, "-stream")
 	cmd.Env = os.Environ()
@@ -620,11 +761,13 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	cmd.Stderr = cmd.Stdout
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
+		debugLog("Failed to pipe stdout: %v", err)
 		fmt.Fprintf(w, "data: {\"type\":\"error\", \"error\": \"Failed to pipe stdout: %v\"}\n\n", err)
 		return
 	}
 
 	if err := cmd.Start(); err != nil {
+		debugLog("Failed to start update command: %v", err)
 		fmt.Fprintf(w, "data: {\"type\":\"error\", \"error\": \"Failed to start update command: %v\"}\n\n", err)
 		return
 	}
@@ -654,15 +797,21 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := cmd.Wait(); err != nil {
+		debugLog("Update process failed for %s: %v", name, err)
 		fmt.Fprintf(w, "data: {\"type\":\"error\", \"error\": \"Update process failed: %v\"}\n\n", err)
 	} else {
 		// Success
-		// Invalidate cache for this container
-		// Clear cache completely to avoid stale state
-		// (IDs change on update/recreate, and name lookup is complex here)
-		s.mu.Lock()
-		s.updatesCache = make(map[string]bool)
-		s.mu.Unlock()
+		// Invalidate cache ONLY for this container
+		if targetID != "" {
+			s.mu.Lock()
+			lenBefore := len(s.updatesCache)
+			delete(s.updatesCache, targetID)
+			lenAfter := len(s.updatesCache)
+			s.mu.Unlock()
+			debugLog("Clearing cache for %s (ID: %s). Len Before: %d, Len After: %d", name, targetID, lenBefore, lenAfter)
+		} else {
+			debugLog("Could not find ID for %s, cache not cleared.", name)
+		}
 
 		fmt.Fprintf(w, "data: {\"type\":\"done\", \"success\": true, \"message\": \"Update completed successfully\"}\n\n")
 	}

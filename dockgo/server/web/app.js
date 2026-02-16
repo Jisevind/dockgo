@@ -1,3 +1,5 @@
+console.log("DOCKGO APP STARTED v2");
+
 document.addEventListener('DOMContentLoaded', () => {
     const listEl = document.getElementById('container-list');
     const cardTemplate = document.getElementById('container-card-template');
@@ -301,7 +303,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (updateSection) {
                         updateSection.classList.remove('hidden');
                         const btn = updateSection.querySelector('.btn-update');
-                        btn.onclick = () => handleUpdate(container.name, containerEl);
+                        console.log(`[Render] Attaching click listener to ${container.name}`);
+                        btn.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            console.log(`[Click] Update button clicked for ${container.name}`);
+                            handleUpdate(container.name, containerEl);
+                        });
                     }
                 }
 
@@ -324,11 +331,17 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeUpdates = 0;
 
     const handleUpdate = async (name, containerEl) => {
-        if (!confirm(`Are you sure you want to update ${name}?`)) return;
+        console.log(`[App] handleUpdate called for ${name}`);
+        // alert(`Debug: Update clicked for ${name}`); // Visual confirmation - REMOVED
+        if (!confirm(`Are you sure you want to update ${name}?`)) {
+            console.log('[App] Update cancelled by user');
+            return;
+        }
 
         let token = null;
 
         // AUTH LOGIC
+        console.log(`[App] Auth State - isLoggedIn: ${isLoggedIn}, authEnabled: ${authEnabled}`);
         if (isLoggedIn) {
             // We have a session cookie, so we don't need a token.
             // Pass empty or null, backend checks cookie.
@@ -368,6 +381,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers['Authorization'] = `Bearer ${token}`;
             }
 
+            console.log(`[App] Fetching /api/update/${name}`);
             const response = await fetch(`/api/update/${name}`, {
                 method: 'POST',
                 headers: headers

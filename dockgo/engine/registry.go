@@ -23,6 +23,11 @@ func (r *RegistryClient) GetRemoteDigest(image string, platform *v1.Platform) (s
 		options = append(options, crane.WithPlatform(platform))
 	}
 
+	// Check for local/insecure registry
+	if strings.Contains(image, "localhost:") || strings.Contains(image, "127.0.0.1:") || strings.Contains(image, "host.docker.internal:") {
+		options = append(options, crane.Insecure)
+	}
+
 	// Simple normalize: if no tag, assume latest (crane handles this mostly, but good to be explicit if needed)
 	// If it's a short name like "alpine", crane expands to "index.docker.io/library/alpine"
 	digest, err := crane.Digest(image, options...)

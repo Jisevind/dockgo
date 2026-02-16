@@ -89,6 +89,7 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 
 			// Get local details first to resolve true image name (in case List returned SHA)
 			resolvedName, _, repoDigests, _, _, err := discovery.GetContainerImageDetails(ctx, id)
+			fmt.Printf("DEBUG: [Scan] %s: Image=%s, Resolved=%s, RepoDigests=%d\n", name, image, resolvedName, len(repoDigests))
 
 			// Check context again
 			if ctx.Err() != nil {
@@ -98,6 +99,7 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 			if err != nil {
 				upd.Error = fmt.Sprintf("Inspect error: %v", err)
 				upd.Status = "error"
+				fmt.Printf("DEBUG: [Scan] %s: Inspect error: %v\n", name, err)
 			} else {
 				if resolvedName != "" {
 					upd.Image = resolvedName
@@ -111,20 +113,21 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 
 				// Now check registry with the resolved name
 				var platform *v1.Platform
-				// if osName != "" && arch != "" {
-				// 	platform = &v1.Platform{OS: osName, Architecture: arch}
-				// }
-				// FIX: We deliberately ignore platform specific digest fetching because
-				// local RepoDigests usually contains the Manifest List (Index) digest,
-				// whereas fetching with platform returns the specific Manifest digest.
-				// By passing nil, we get the default (Index) digest which matches local.
 
 				// Check context before remote call
 				if ctx.Err() != nil {
 					return
 				}
 
-				remoteDigest, err := registry.GetRemoteDigest(upd.Image, platform)
+				// Fix for localhost registries when running in container
+				imageToCheck := upd.Image
+				if strings.HasPrefix(imageToCheck, "localhost:") || strings.HasPrefix(imageToCheck, "127.0.0.1:") {
+					fmt.Printf("DEBUG: Rewriting %s to use host.docker.internal\n", imageToCheck)
+					imageToCheck = strings.Replace(imageToCheck, "localhost:", "host.docker.internal:", 1)
+					imageToCheck = strings.Replace(imageToCheck, "127.0.0.1:", "host.docker.internal:", 1)
+				}
+
+				remoteDigest, err := registry.GetRemoteDigest(imageToCheck, platform)
 				if err != nil {
 					// Check if error is due to context cancellation
 					if ctx.Err() != nil {
@@ -132,8 +135,10 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 					}
 					upd.Error = fmt.Sprintf("Registry error: %v", err)
 					upd.Status = "error"
+					fmt.Printf("DEBUG: [Scan] %s: Registry error: %v\n", name, err)
 				} else {
 					upd.RemoteDigest = remoteDigest
+					fmt.Printf("DEBUG: [Scan] %s: RemoteDigest=%s\n", name, remoteDigest)
 
 					// Check if remote digest is in repoDigests
 					found := false
@@ -147,6 +152,9 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 
 					if !found {
 						upd.UpdateAvailable = true
+						fmt.Printf("DEBUG: [Scan] %s: UpdateAvailable=TRUE (Local!=Remote)\n", name)
+					} else {
+						fmt.Printf("DEBUG: [Scan] %s: Up to date.\n", name)
 					}
 				}
 			}
