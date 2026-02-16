@@ -144,8 +144,6 @@ func (s *Server) Start() error {
 	}
 	mux.Handle("/", http.FileServer(http.FS(webFS)))
 
-	mux.Handle("/", http.FileServer(http.FS(webFS)))
-
 	logger.Info("🚀 DockGo listening at http://localhost:%s", s.Port)
 	return http.ListenAndServe(":"+s.Port, mux)
 }
