@@ -148,20 +148,10 @@ func (s *Server) enableCors(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Harden CORS: If auth is enabled, check Origin (basic protection)
 		origin := r.Header.Get("Origin")
-		if origin != "" {
-			// Strict check if configured
-			if s.CorsOrigin != "" {
-				if origin == s.CorsOrigin {
-					w.Header().Set("Access-Control-Allow-Origin", s.CorsOrigin)
-					w.Header().Set("Access-Control-Allow-Credentials", "true")
-				} else {
-					// Invalid origin, do not set headers, let browser block
-					// Optional: Log warning
-				}
-			} else {
-				// Fallback behavior if CORS_ORIGIN not set (dev mode or user didn't config)
-				// We reflect origin to allow basic functionality but this is "loose" mode
-				w.Header().Set("Access-Control-Allow-Origin", origin)
+		if origin != "" && s.CorsOrigin != "" {
+			// Strict check: Only allow if explicitly configured and matches
+			if origin == s.CorsOrigin {
+				w.Header().Set("Access-Control-Allow-Origin", s.CorsOrigin)
 				w.Header().Set("Access-Control-Allow-Credentials", "true")
 			}
 		}
