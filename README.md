@@ -1,130 +1,147 @@
-# DockGo
+# DockGo 🐳
 
-A lightweight Go application to check for Docker container updates, providing a web dashboard and a CLI.
+> **The lightweight, secure Docker update agent.**
 
-## Features
-- **Dashboard**: Web interface to view container status and available updates.
-- **Smart Checks**: Handles local vs remote digests, supports private registries, and is platform-aware (multi-arch).
-- **Safe Updates**: `--update-safe` mode to pull updates without restarting running containers.
-- **Network Preservation**: `--preserve-network` to keep static IPs and MAC addresses during recreation.
-- **Compose Support**: Detects Compose services and attempts to update them via `docker compose`.
-- **SSE Updates**: Real-time progress streaming for the dashboard.
+![Dashboard Preview](screenshot.png)
 
-## ⚠️ Security Notice
+## What is DockGo?
 
-> **Access to the Docker Socket (`/var/run/docker.sock`) is effectively root access to the host.**
+DockGo is a simple, single-binary application that monitors your Docker containers for updates. It provides:
+1.  A **Web Dashboard** to see container status and available updates at a glance.
+2.  A **CLI** for scripting and manual checks.
+3.  **Smart Updates** that handle standard containers, private registries, and Docker Compose services.
 
-DockGo requires this access to inspect and update containers. While the container runs as a non-root user (`dockgo`) to minimize attack surface, the socket access itself grants broad privileges.
-- **Do not expose DockGo to the public internet** without a secure reverse proxy and authentication (which is enabled by default).
-- **Review your network security**: Ensure only trusted networks can access the DockGo interface.
+## Why DockGo?
 
-## Build
+Most Docker update tools (like Watchtower or Ouroboros) are great, but can be:
+*   **Heavy**: Running complex logical loops or requiring root.
+*   **Insecure**: Often demanding full root access to the socket without dropping privileges or providing authentication.
+*   **Opaque**: Updating things silently without a clear UI to see *what* is happening.
 
-### Prerequisites
-- Go 1.21+
+**DockGo is different:**
+*   **Secure by Default**: Runs as a non-root user (`dockgo`).
+*   **Transparent**: You decide when to update (via UI or CLI), or automate it with scripts.
+*   **Lightweight**: Written in Go, it uses minimal resources (~10MB memory).
 
-### Steps
-1. Navigate to the project directory:
-   ```bash
-   cd dockgo
-   ```
-2. Build the binary:
-   go build -o dockgo ./cmd/dockgo
-   ```
+---
 
-### Windows Build
-1. Navigate to the `dockgo` directory:
-   ```powershell
-   cd dockgo
-   ```
-2. Build the binary:
-   ```powershell
-   go build -o dockgo.exe ./cmd/dockgo
-   ```
+## 🚀 Quick Start
 
-## Deployment
-
-### Docker Build
-To build the Docker image manually from the root directory:
-```bash
-docker build -t dockgo . --no-cache
-```
-
-### Docker Compose
-A `docker-compose.yml` is provided in the root directory.
-
-```bash
-docker compose up -d --force-recreate
-```
-
-### Docker Run
-
-The easiest way to run DockGo is as a Docker container.
+The fastest way to run DockGo is via Docker:
 
 ```bash
 docker run -d \
   --name dockgo \
   -p 3131:3131 \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  -e API_TOKEN=mysecrettoken \
-  dockgo
+  -e LOG_LEVEL=info \
+  dockgo/dockgo
 ```
 
-**Environment Variables:**
-- `PORT`: Server port (default: `3131`).
-- `LOG_LEVEL`: Log verbosity (`debug`, `info`, `warn`, `error`). Default: `info`.
-- `API_TOKEN`: Secret token for API updates (Legacy/Token mode).
-- `AUTH_USERNAME`: Username for login (User mode).
-- `AUTH_PASSWORD`: Password for login (User mode).
-- `AUTH_SECRET`: Secret key for signing session cookies (User mode).
+Visit **http://localhost:3131** to see your dashboard!
 
-## Authentication
+---
 
-DockGo supports two authentication modes which can be used separately or together.
+## 🛡️ Security Model
 
-### 1. Token Mode (Legacy)
-- **Config**: Set `API_TOKEN`.
-- **Behavior**: The UI is read-only. When you click "Update", the browser prompts you to enter the token. The token is stored in `sessionStorage`.
-- **Best for**: Simple setups where you just want to protect the update action with a shared secret.
+DockGo takes security seriously.
 
-### 2. User Login Mode (Recommended)
-- **Config**: Set `AUTH_USERNAME` and `AUTH_PASSWORD`.
-- **Behavior**: The UI is read-only. When you click "Update":
-    - If you are **logged in**, the update proceeds automatically.
-    - If you are **not logged in**, you are prompted to log in via a modal.
-- **Session**: Login creates a secure, HttpOnly session cookie valid for 24 hours.
+1.  **Non-Root Execution**: Inside the container, the process runs as the `dockgo` user (UID 1000), not root.
+2.  **Socket Permissions**: The entrypoint script creates a `docker` group matching the host's socket GID, allowing the `dockgo` user to talk to the engine without being root.
+3.  **Authentication**:
+    *   **User Login (Recommended)**: Set `AUTH_USERNAME` and `AUTH_PASSWORD` to enable a secure login flow with HttpOnly cookies.
+    *   **Legacy Token**: Set `API_TOKEN` for simple script integrations.
+    *   **CORS**: Disabled by default. Only enabled if you specifically set `CORS_ORIGIN`.
+4.  **Log Redaction**: Sensitive errors and login failures are redacted in logs.
 
-### 3. Hybrid Mode
-- **Config**: Set `API_TOKEN` AND `AUTH_USERNAME`/`PASSWORD`.
-- **Behavior**: You can log in as a user to perform updates without constant prompts. Scripts or other tools can still use the `API_TOKEN` (via `Authorization: Bearer <token>` header) to trigger updates programmatically.
+> **⚠️ Security Warning**: Mounting `/var/run/docker.sock` gives a container control over your Docker daemon. While DockGo minimizes risk by running non-root, you should never expose this application directly to the internet without a secure reverse proxy (like Nginx or Traefik) and authentication.
 
-## Usage (CLI)
+---
 
-You can also run the binary directly to check or update containers.
+## ✨ Features
+
+*   **🖥️ Web Dashboard**: Real-time status, "Update" buttons, and progress tracking.
+*   **🕵️ Smart Discovery**:
+    *   Checks standard Docker Hub images.
+    *   Supports **Private Registries** (using your host's credentials).
+    *   Detects **Docker Compose** projects and updates them using `docker compose pull/up`.
+*   **🔄 Safe Mode**: Use `--update-safe` (or Safe Mode in UI if implemented) to pull images without restarting running containers.
+*   **🌐 Network Preservation**: Keeps static IPs and MAC addresses when recreating containers.
+*   **⚡ Registry Caching**: Caches registry digests for 10 minutes to prevent rate-limiting.
+*   **📝 Log Level Control**: adjustable verbosity via `LOG_LEVEL`.
+
+---
+
+## ⚙️ Configuration
+
+Configure DockGo using environment variables:
+
+| Variable | Description | Default |
+| :--- | :--- | :--- |
+| `PORT` | Web server port | `3131` |
+| `LOG_LEVEL` | Log verbosity (`debug`, `info`, `warn`, `error`) | `info` |
+| `AUTH_USERNAME` | Username for web login | *(empty)* |
+| `AUTH_PASSWORD` | Password for web login | *(empty)* |
+| `AUTH_SECRET` | Secret for signing session cookies | *(random)* |
+| `API_TOKEN` | Legacy token for API updates | *(empty)* |
+| `CORS_ORIGIN` | Allowed Origin for CORS (e.g. `https://mydomain.com`) | *(disabled)* |
+
+**Example `docker-compose.yml`:**
+
+```yaml
+services:
+  dockgo:
+    image: dockgo/dockgo
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "3131:3131"
+    environment:
+      - LOG_LEVEL=info
+      - AUTH_USERNAME=admin
+      - AUTH_PASSWORD=secret
+```
+
+---
+
+## 💻 CLI Usage
+
+You can use the `dockgo` binary directly for scripting or manual checks.
 
 ```bash
-# Check all containers and print status
-./dockgo
+# Check all containers
+dockgo check
+
+# Check with JSON output (great for scripts)
+dockgo check -json
 
 # Update a specific container
-./dockgo -y my-container
+dockgo update -y my-container
 
-# Safe update (pull only, do not restart if running)
-./dockgo --update-safe -y my-container
+# Update ALL containers
+dockgo update -a
 
-# Force update (restart even if running)
-./dockgo --update-force -y my-container
+# Safe Mode: Pull only, don't restart running containers
+dockgo update -safe -a
 
-# Preserve network settings (static IP/MAC)
-./dockgo --preserve-network -y my-container
+# Force Mode: Restart even if running
+dockgo update -force -y my-container
 ```
 
 ### Flags
-- `-n`: Check only (dry-run).
-- `-y <name>`: Target specific container.
-- `-a`: Update all available.
-- `--update-safe`: Pull image but don't restart running containers.
-- `--update-force`: Force update and restart.
-- `--preserve-network`: Preserve IP/MAC address during recreation.
-- `-json`: Output results as JSON.
-- `-stream`: Output as SSE-compatible JSON stream.
+
+*   `-y <name>`: Target specific container.
+*   `-a`: Target all containers with updates.
+*   `-json`: Output standard JSON.
+*   `-stream`: Output SSE-compatible line-delimited JSON.
+*   `-preserve-network`: Preserve network settings (IP/MAC) during recreation.
+
+---
+
+### Building from Source
+
+```bash
+git clone https://github.com/yourusername/dockgo.git
+cd dockgo
+go build -o dockgo ./cmd/dockgo
+```
