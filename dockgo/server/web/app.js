@@ -191,12 +191,12 @@ document.addEventListener('DOMContentLoaded', () => {
             evtSource.onerror = (err) => {
                 console.warn('EventSource error:', err);
                 if (evtSource.readyState === EventSource.CLOSED) {
-                    statusEl.textContent = 'Stream connection failed.';
+                    statusEl.textContent = 'Connection lost. Click refresh to retry.';
                     statusEl.style.color = 'var(--danger)';
                     refreshBtn.disabled = false;
                     refreshBtn.classList.remove('spinning');
                 } else {
-                    statusEl.textContent = 'Reconnecting...';
+                    statusEl.textContent = 'Network blip... reconnecting...';
                     statusEl.style.color = 'var(--warning)';
                 }
             };
