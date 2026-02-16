@@ -342,7 +342,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	token := s.generateSessionToken()
 
 	// Determine if Secure flag should be set
-	isSecure := r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"
+	isSecure := r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     "dockgo_session",
