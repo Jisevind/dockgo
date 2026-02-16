@@ -35,4 +35,9 @@ ENV DOCKCHECK_BIN=./dockgo
 EXPOSE 3131
 
 ENTRYPOINT ["./entrypoint.sh"]
+
+# Healthcheck
+HEALTHCHECK --interval=30s --timeout=3s \
+    CMD wget -q --spider http://localhost:3131/api/health || exit 1
+
 CMD ["./dockgo", "serve"]
