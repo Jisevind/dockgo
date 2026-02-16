@@ -386,6 +386,7 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 		"logged_in":         loggedIn,
 		"auth_method":       method,
 		"user_auth_enabled": s.AuthUsername != "",
+		"api_token_enabled": s.APIToken != "", // New field
 	})
 }
 

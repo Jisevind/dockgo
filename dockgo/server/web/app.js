@@ -73,6 +73,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     logoutBtn.classList.add('hidden');
                 }
+
+                // Global flag for legacy token
+                window.apiTokenEnabled = data.api_token_enabled;
             }
         } catch (e) {
             console.error('Auth check failed', e);
@@ -354,10 +357,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     showLoginModal();
                     return;
                 }
-                // Legacy prompt
-                token = prompt('Please enter the API Token to authorize this update:');
-                if (!token) return;
-                sessionStorage.setItem('dockgo_token', token);
+
+                // Only prompt if Legacy Token is actually enabled on backend
+                if (window.apiTokenEnabled) {
+                    token = prompt('Please enter the API Token to authorize this update:');
+                    if (!token) return;
+                    sessionStorage.setItem('dockgo_token', token);
+                } else {
+                    // Neither User Auth nor API Token is enabled (or we don't know yet)
+                    // If backend has NO auth config, it should just work.
+                    // If it has config but we failed to detect it, we might fail.
+                    // But if apiTokenEnabled is false, prompting is useless.
+                    console.log("Legacy token disabled, skipping prompt.");
+                }
             }
         }
 
