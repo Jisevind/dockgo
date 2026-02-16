@@ -475,8 +475,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const fetchHealth = async () => {
+        try {
+            const response = await fetch('/api/health');
+            if (response.ok) {
+                const data = await response.json();
+                if (data.version) {
+                    const el = document.getElementById('app-version');
+                    if (el) el.textContent = 'v' + data.version;
+                }
+            }
+        } catch (e) {
+            console.error('Failed to fetch health/version', e);
+        }
+    };
+
     // Initial load
-    checkAuthStatus().then(() => {
+    Promise.all([checkAuthStatus(), fetchHealth()]).then(() => {
         fetchContainers().then(() => {
             fetchContainers(true);
         });
