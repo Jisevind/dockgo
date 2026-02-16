@@ -1,12 +1,12 @@
 # DockGo 🐳
 
-> **The lightweight, secure Docker update agent.**
+> **A lightweight, secure Docker update agent — single binary, no fuss.**
 
-![Dashboard Preview](screenshot.png)
+![DockGo dashboard showing container updates](screenshot.png)
 
 ## What is DockGo?
 
-DockGo is a simple, single-binary application that monitors your Docker containers for updates. It provides:
+DockGo is a simple, single-binary application that monitors your Docker containers for updates. It focuses on visibility and control rather than automatic unattended updates and it provides:
 1.  A **Web Dashboard** to see container status and available updates at a glance.
 2.  A **CLI** for scripting and manual checks.
 3.  **Smart Updates** that handle standard containers, private registries, and Docker Compose services.
@@ -19,13 +19,13 @@ Most Docker update tools (like Watchtower or Ouroboros) are great, but can be:
 *   **Opaque**: Updating things silently without a clear UI to see *what* is happening.
 
 **DockGo is different:**
-*   **Secure by Default**: Runs as a non-root user (`dockgo`).
+*   **Security-focused by default**: Runs as a non-root user (`dockgo`).
 *   **Transparent**: You decide when to update (via UI or CLI), or automate it with scripts.
-*   **Lightweight**: Written in Go, it uses minimal resources (~10MB memory).
+*   **Lightweight**: Written in Go, typically very low memory footprint (~10–30MB).
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 The fastest way to run DockGo is via Docker:
 
@@ -42,7 +42,7 @@ Visit **http://localhost:3131** to see your dashboard!
 
 ---
 
-## 🛡️ Security Model
+## Security Model
 
 DockGo takes security seriously.
 
@@ -54,25 +54,25 @@ DockGo takes security seriously.
     *   **CORS**: Disabled by default. Only enabled if you specifically set `CORS_ORIGIN`.
 4.  **Log Redaction**: Sensitive errors and login failures are redacted in logs.
 
-> **⚠️ Security Warning**: Mounting `/var/run/docker.sock` gives a container control over your Docker daemon. While DockGo minimizes risk by running non-root, you should never expose this application directly to the internet without a secure reverse proxy (like Nginx or Traefik) and authentication.
+> **⚠️ Security Warning**: Mounting /var/run/docker.sock effectively grants root-level control of Docker. While DockGo minimizes risk by running non-root, DockGo is intended for trusted networks or behind a reverse proxy (like Nginx or Traefik) and authentication.
 
 ---
 
-## ✨ Features
+## Features
 
-*   **🖥️ Web Dashboard**: Real-time status, "Update" buttons, and progress tracking.
-*   **🕵️ Smart Discovery**:
+*   **Web Dashboard**: Real-time status, "Update" buttons, and progress tracking.
+*   **Smart Discovery**:
     *   Checks standard Docker Hub images.
     *   Supports **Private Registries** (using your host's credentials).
-    *   Detects **Docker Compose** projects and updates them using `docker compose pull/up`.
-*   **🔄 Safe Mode**: Use `--update-safe` (or Safe Mode in UI if implemented) to pull images without restarting running containers.
-*   **🌐 Network Preservation**: Keeps static IPs and MAC addresses when recreating containers.
-*   **⚡ Registry Caching**: Caches registry digests for 10 minutes to prevent rate-limiting.
-*   **📝 Log Level Control**: adjustable verbosity via `LOG_LEVEL`.
+    *   Works for most standard **Docker Compose** setups.
+*   **Safe Mode**: Use `--safe` (or Safe Mode in UI if implemented) to pull images without restarting running containers.
+*   **Network Preservation**: Keeps static IPs and MAC addresses when recreating containers.
+*   **Registry Caching**: Caches registry digests for 10 minutes to prevent rate-limiting.
+*   **Log Level Control**: adjustable verbosity via `LOG_LEVEL`.
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
 Configure DockGo using environment variables:
 
@@ -104,7 +104,7 @@ services:
 
 ---
 
-## 💻 CLI Usage
+## CLI Usage
 
 You can use the `dockgo` binary directly for scripting or manual checks.
 
@@ -126,6 +126,12 @@ dockgo update -safe -a
 
 # Force Mode: Restart even if running
 dockgo update -force -y my-container
+```
+
+```bash
+# Typical workflow:
+dockgo check
+dockgo update -a
 ```
 
 ### Flags
