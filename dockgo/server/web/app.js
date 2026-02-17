@@ -119,6 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 isLoggedIn = true;
                 hideLoginModal();
                 fetchContainers(true); // Refresh data
+                checkAuthStatus(); // Refresh UI state (logout button)
             } else {
                 loginError.textContent = 'Invalid credentials';
                 loginError.classList.remove('hidden');
