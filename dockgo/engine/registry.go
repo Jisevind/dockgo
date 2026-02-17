@@ -50,7 +50,7 @@ func (r *RegistryClient) GetRemoteDigest(image string, platform *v1.Platform) (s
 		options = append(options, crane.Insecure)
 	}
 
-	// Simple normalize: if no tag, assume latest (crane handles this mostly, but good to be explicit if needed)
+	// Simple normalize: if no tag, assume latest
 	// If it's a short name like "alpine", crane expands to "index.docker.io/library/alpine"
 	digest, err := crane.Digest(image, options...)
 	if err != nil {

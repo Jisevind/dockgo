@@ -27,8 +27,6 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 	// Check if it's a compose container
 	if project, ok := json.Config.Labels["com.docker.compose.project"]; ok {
 		logger.Info("Container %s is managed by Compose project '%s'. Proceeding with API recreation (Watchtower-style).", name, project)
-		// We do NOT return error anymore. We proceed to recreate via API.
-		// This preserves labels so Compose usually accepts the new container.
 	}
 
 	logger.Info("Recreating standalone container %s with image %s...", name, imageName)
@@ -38,9 +36,7 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 	// Override the image in the config to ensure we use the new tag/digest
 	json.Config.Image = imageName
 
-	// Reset Hostname if it matches the short ID (meaning it was auto-generated)
-	// Docker IDs are hex 64 chars. Short ID is usually 12.
-	// json.ID is full ID.
+	// Reset Hostname if it matches the short ID (indicating it was auto-generated).
 	if strings.HasPrefix(json.ID, json.Config.Hostname) || json.Config.Hostname == json.ID[:12] {
 		json.Config.Hostname = "" // Let Docker generate a new one
 	}

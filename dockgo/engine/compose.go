@@ -40,7 +40,7 @@ func ComposeUpdate(ctx context.Context, workingDir string, serviceName string, l
 		return fmt.Errorf("compose working directory is not a directory: %s", workingDir)
 	}
 
-	log(fmt.Sprintf("📂 Executing Compose update for service '%s' in '%s'...", serviceName, workingDir))
+	log(fmt.Sprintf("Executing Compose update for service '%s' in '%s'...", serviceName, workingDir))
 
 	// 2. Inspect service configuration to decide Build vs Pull
 	shouldBuild := false
@@ -95,9 +95,8 @@ func ComposePull(ctx context.Context, workingDir string, serviceName string, log
 
 	log(fmt.Sprintf("⬇️  Pulling images for service '%s' in '%s' (Safe Mode)...", serviceName, workingDir))
 
-	// We just run pull. We don't build because 'safe mode' implies we want to prep for update but not change running state.
-	// If it was a build, we'd theoretically 'build' but not 'up'.
-	// But usually people want to pull the new image.
+	// In Safe Mode, we only pull the image to prepare for an update.
+	// We do not build or restart the service.
 	err := streamCommand(ctx, workingDir, log, "docker", "compose", "pull", serviceName)
 	if err != nil {
 		return fmt.Errorf("compose pull failed: %w", err)
@@ -138,10 +137,8 @@ func streamCommand(ctx context.Context, dir string, log Logger, name string, arg
 		scanner := bufio.NewScanner(stderr)
 		for scanner.Scan() {
 			text := scanner.Text()
-			// Filter out some noise or just log all?
-			// Docker Compose progress bars use \r which might look weird in logs.
-			// scanner strips \r usually or just treats lines.
-			// Ideally we'd parse progress but for now raw log is fine.
+			// Docker Compose often uses carriage returns for progress bars.
+			// Ideally we would parse this, but for now raw logging is sufficient.
 			if strings.TrimSpace(text) != "" {
 				log(text)
 			}

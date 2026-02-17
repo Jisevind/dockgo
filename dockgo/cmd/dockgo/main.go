@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	// 0. Setup Logger
+	// Setup Logger
 	logLevel := os.Getenv("LOG_LEVEL")
 	if logLevel != "" {
 		logger.SetLevel(logLevel)
@@ -90,8 +90,8 @@ func handleUpdate(args []string) {
 	streamOutput := fs.Bool("stream", false, "Output as a stream of JSON events")
 	updateName := fs.String("y", "", "Update specific container by name (e.g. 'container-name' or 'all')")
 	updateAll := fs.Bool("a", false, "Update all containers with available updates")
-	updateSafe := fs.Bool("safe", false, "Safe mode: Download updates but do NOT restart running containers") // Renamed from --update-safe
-	updateForce := fs.Bool("force", false, "Force mode: Update and restart even if running")                  // Renamed from --update-force
+	updateSafe := fs.Bool("safe", false, "Safe mode: Download updates but do NOT restart running containers")
+	updateForce := fs.Bool("force", false, "Force mode: Update and restart even if running")
 	preserveNetwork := fs.Bool("preserve-network", false, "Preserve network settings (IP, MAC) during recreation")
 	fs.Parse(args)
 
@@ -164,37 +164,10 @@ func runScan(checkOnly, jsonOutput, streamOutput bool, filter string, safe, forc
 			upd := &updates[i]
 
 			if upd.UpdateAvailable {
-				// Filter check (Scan already filters, but double check if specific name logic varies)
-				// Actually engine.Scan filters by 'filter' argument if passed.
-				// If 'filter' was "all" or specific, Scan returned matches.
-				// So we iterate all returned updates.
-
-				// BUT if filter was "all", Scan returns all.
-				// If filter was specific, Scan returns specific.
-				// So we interpret 'filter' logic:
-				// If we are in 'update' mode, and Scan returned updates, we process them.
-				// Wait, if I run `dockgo update`, filter is "". Scan returns ALL.
-				// But we only update if user said `dockgo update -a` (all) or `dockgo update -y foo`.
-				// If `dockgo update` (no args), what happens?
-				// Original logic: `targetContainer` default was "".
-				// `if !*checkOnly && targetContainer != ""` -> it required a target to update!
-				// So `dockgo update` without args should probably DO NOTHING or show help?
-				// Or check all and update none?
-				// The user asked for "dockgo update". Ideally it updates all?
-				// Or maybe matches usage `dockgo update` -> updates all?
-				// No, safe default is: Check all, update none unless confirmed?
-				// CLI usually asks or requires flag.
-				// Let's stick to original logic: Requires target ("-y name" or "-a").
-
-				// Wait, `handleUpdate` sets `target = "all"` if `-a` is set.
-				// If neither `-a` nor `-y` is set, `target` is "".
-				// So we need to Check `if filter == "" { return }`?
-				// Original: `if !*checkOnly && targetContainer != ""`
-				// Yes.
-
-				// BUT I passed `filter` to `Scan`.
-				// If `filter` is empty, Scan returns all.
-				// Then we check if we should ACT.
+				// Safety: The 'Scan' function returns all available updates if no filter is provided.
+				// However, for the 'update' command, we require an explicit target
+				// ('-a' for all or '-y' for specific) to prevent accidental bulk updates.
+				// If no target was specified (filter is empty), we abort here.
 
 				if filter == "" {
 					fmt.Println("No target specified. Use -a for all or -y <name>.")
@@ -219,10 +192,6 @@ func runScan(checkOnly, jsonOutput, streamOutput bool, filter string, safe, forc
 					// Continue to pull
 				}
 
-				// Check for Compose and Logic... (Simulating original logic)
-				// For brevity in this refactor, I will reuse the core logic but adapted.
-
-				// ... (Compose Logic) ...
 				var composeError error
 				composeHandled := false
 				project, hasProject := upd.Labels["com.docker.compose.project"]
@@ -230,7 +199,6 @@ func runScan(checkOnly, jsonOutput, streamOutput bool, filter string, safe, forc
 				serviceName, hasService := upd.Labels["com.docker.compose.service"]
 
 				if hasWorkingDir && hasService {
-					// ... Compose Update ...
 					ctxCompose, cancel := context.WithTimeout(ctx, 10*time.Minute)
 					logger := func(line string) {
 						if streamOutput {

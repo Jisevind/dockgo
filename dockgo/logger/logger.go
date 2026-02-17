@@ -34,7 +34,7 @@ func SetLevel(levelStr string) {
 	case "error":
 		currentLevel = LevelError
 	default:
-		currentLevel = LevelInfo // Default
+		currentLevel = LevelInfo
 	}
 }
 

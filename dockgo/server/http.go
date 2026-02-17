@@ -72,7 +72,7 @@ func NewServer(port string) (*Server, error) {
 	authSecret := os.Getenv("AUTH_SECRET")
 
 	if authSecret == "" {
-		// Generate random secret if not provided (restarts invalidate sessions, which is fine)
+		// Generate random secret if not provided, restarts invalidate sessions
 		authSecret = fmt.Sprintf("%d-%d", time.Now().UnixNano(), os.Getpid())
 	}
 
@@ -83,7 +83,7 @@ func NewServer(port string) (*Server, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to hash password: %v", err)
 		}
-		// Clear plain text password from memory (best effort)
+		// Clear plain text password from memory
 		authPass = ""
 	}
 
@@ -109,7 +109,6 @@ func NewServer(port string) (*Server, error) {
 }
 
 func (s *Server) Start() error {
-	// ... (rest is same)
 	mux := http.NewServeMux()
 
 	// API Routes
@@ -118,14 +117,11 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/stream/check", s.enableCors(s.requireAuth(s.handleStreamCheck)))
 	mux.HandleFunc("/api/update/", s.enableCors(s.requireAuth(s.handleUpdate)))
 
-	// ...
 	// Auth Routes
 	mux.HandleFunc("/api/login", s.enableCors(s.handleLogin))
-	// ...
 	mux.HandleFunc("/api/logout", s.enableCors(s.handleLogout))
 	mux.HandleFunc("/api/me", s.enableCors(s.handleMe))
 
-	// ...
 	// DEBUG ROUTE
 	mux.HandleFunc("/api/debug/cache", func(w http.ResponseWriter, r *http.Request) {
 		s.mu.RLock()
@@ -136,15 +132,14 @@ func (s *Server) Start() error {
 			"stat":       s.lastCheckStat,
 		})
 	})
-	// ...
-	// Static Files
+
 	webFS, err := fs.Sub(content, "web")
 	if err != nil {
 		return err
 	}
 	mux.Handle("/", http.FileServer(http.FS(webFS)))
 
-	logger.Info("🚀 DockGo listening at http://localhost:%s", s.Port)
+	logger.Info("DockGo listening at http://localhost:%s", s.Port)
 	return http.ListenAndServe(":"+s.Port, mux)
 }
 
@@ -179,30 +174,25 @@ func (s *Server) enableCors(next http.HandlerFunc) http.HandlerFunc {
 // Middleware: Auth
 func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// logger.Debug("Auth Check for %s", r.URL.Path) // Reduced logging
-
 		// 1. Check Session Cookie (User Login) - PRIORITIZE
 		if s.AuthUsername != "" {
 			cookie, err := r.Cookie("dockgo_session")
 			if err == nil && s.validateSessionToken(cookie.Value) {
-				// fmt.Println("DEBUG: Auth Success (Cookie)")
 				next(w, r)
 				return
 			}
 		}
 
-		// 2. Check Legacy Token (Header Only - Removed Query Param Support)
+		// 2. Check Legacy Token, Header Only
 		auth := r.Header.Get("Authorization")
 		token := ""
 		if auth != "" && strings.HasPrefix(auth, "Bearer ") {
 			token = strings.TrimPrefix(auth, "Bearer ")
 		}
-		// Removed: else { token = r.URL.Query().Get("token") }
 
 		if s.APIToken != "" && token != "" {
 			// Use Constant-Time Comparison to prevent timing attacks
 			if hmac.Equal([]byte(token), []byte(s.APIToken)) {
-				// fmt.Println("DEBUG: Auth Success (Token)")
 				next(w, r)
 				return
 			}
@@ -266,7 +256,7 @@ func (s *Server) sign(data string) string {
 
 // Rate Limiting
 func (s *Server) checkRateLimit(remoteAddr string) bool {
-	// Robust IP parsing
+	// IP parsing
 	ip, _, err := net.SplitHostPort(remoteAddr)
 	if err != nil {
 		// Fallback if no port or other format issue
@@ -381,14 +371,11 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Check Header (optional, if we want to reflect it back, but usually for UI init we care if cookie works)
-	// UI can know if it has a token. Backend tells if it recognizes a session.
-
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"logged_in":         loggedIn,
 		"auth_method":       method,
 		"user_auth_enabled": s.AuthUsername != "",
-		"api_token_enabled": s.APIToken != "", // New field
+		"api_token_enabled": s.APIToken != "",
 	})
 }
 
@@ -467,7 +454,7 @@ func (s *Server) getRegistryStatus() string {
 
 	// Use recent successful scan as proof of connectivity
 	if lastStat == "success" && time.Since(lastCheck) < 15*time.Minute {
-		return "reachable" // inferred
+		return "reachable"
 	}
 
 	if time.Since(last) < 5*time.Minute && status != "" {
@@ -479,7 +466,6 @@ func (s *Server) getRegistryStatus() string {
 
 	newStatus := "reachable"
 	if err != nil {
-		// We could log details if we had a logger, e.g. fmt.Printf("Registry ping error: %v\n", err)
 		newStatus = "unreachable"
 	}
 
@@ -687,7 +673,6 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 
 // /api/update/:name
 func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
-	// Debug Logger
 	logFile, _ := os.OpenFile("/tmp/dockgo.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if logFile != nil {
 		defer logFile.Close()
@@ -697,7 +682,6 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		if logFile != nil {
 			logFile.WriteString(time.Now().Format(time.RFC3339) + " " + msg + "\n")
 		}
-		// Also print to stdout just in case
 		logger.Debug("%s", msg)
 	}
 
@@ -709,7 +693,6 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Sanitize name a bit
 	if strings.ContainsAny(name, ";&|") {
 		http.Error(w, "Invalid name", http.StatusBadRequest)
 		return
@@ -725,7 +708,6 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Send start event
 	fmt.Fprintf(w, "data: {\"type\":\"start\", \"message\": \"Starting update for %s...\"}\n\n", name)
 	flusher.Flush()
 

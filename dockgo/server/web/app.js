@@ -26,7 +26,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // Initialize View UI
     updateViewUI();
 
     // View Toggle Listeners
@@ -89,7 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
             window.location.reload();
         } catch (e) {
             console.error('Logout failed', e);
-            window.location.reload(); // Reload anyway
+            window.location.reload();
         }
     });
 
@@ -225,8 +224,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 } else if (!authEnabled) {
                     // Legacy mode, token missing or invalid
-                    // Prompt? Or just show error?
-                    // Let's show error in status
+                    // Show error in status
                     statusEl.textContent = 'Auth Required (Token)';
                     statusEl.style.color = 'var(--danger)';
                     return;
@@ -306,10 +304,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (updateSection) {
                         updateSection.classList.remove('hidden');
                         const btn = updateSection.querySelector('.btn-update');
-                        // console.log(`[Render] Attaching click listener to ${container.name}`);
                         btn.addEventListener('click', (e) => {
                             e.preventDefault();
-                            // console.log(`[Click] Update button clicked for ${container.name}`);
                             handleUpdate(container.name, containerEl);
                         });
                     }
@@ -334,16 +330,13 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeUpdates = 0;
 
     const handleUpdate = async (name, containerEl) => {
-        // console.log(`[App] handleUpdate called for ${name}`);
         if (!confirm(`Are you sure you want to update ${name}?`)) {
-            // console.log('[App] Update cancelled by user');
             return;
         }
 
         let token = null;
 
         // AUTH LOGIC
-        // console.log(`[App] Auth State - isLoggedIn: ${isLoggedIn}, authEnabled: ${authEnabled}`);
         if (isLoggedIn) {
             // We have a session cookie, so we don't need a token.
             // Pass empty or null, backend checks cookie.
@@ -374,7 +367,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         activeUpdates++;
-        // console.log(`[Update] Starting update for ${name}`);
         const btn = containerEl.querySelector('.btn-update');
         const msgEl = containerEl.querySelector('.update-message');
         const updateSection = containerEl.querySelector('.update-section');
@@ -392,7 +384,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers['Authorization'] = `Bearer ${token}`;
             }
 
-            // console.log(`[App] Fetching /api/update/${name}`);
             const response = await fetch(`/api/update/${name}`, {
                 method: 'POST',
                 headers: headers
