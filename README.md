@@ -151,3 +151,10 @@ git clone https://github.com/yourusername/dockgo.git
 cd dockgo
 go build -o dockgo ./cmd/dockgo
 ```
+
+### Building for Windows
+
+```powershell
+cd dockgo
+go build -o dockgo.exe ./cmd/dockgo
+```
