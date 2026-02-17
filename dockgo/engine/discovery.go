@@ -2,6 +2,8 @@ package engine
 
 import (
 	"context"
+	"fmt"
+	"runtime"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -15,7 +17,15 @@ type DiscoveryEngine struct {
 func NewDiscoveryEngine() (*DiscoveryEngine, error) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create docker client: %w", err)
+	}
+
+	// Ping to verify connection
+	if _, err := cli.Ping(context.Background()); err != nil {
+		if runtime.GOOS == "windows" {
+			return nil, fmt.Errorf("failed to connect to Docker (is Docker Desktop running? try setting DOCKER_HOST, e.g., 'npipe:////./pipe/docker_engine'): %v", err)
+		}
+		return nil, fmt.Errorf("failed to connect to Docker: %w", err)
 	}
 	return &DiscoveryEngine{Client: cli}, nil
 }

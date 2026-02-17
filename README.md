@@ -154,7 +154,18 @@ go build -o dockgo ./cmd/dockgo
 
 ### Building for Windows
 
+
+### Troubleshooting
+
+#### Windows Connection Issues
+
+If you see an error like `failed to connect to Docker`, ensure Docker Desktop is running. You may need to set the `DOCKER_HOST` environment variable if the default connection fails:
+
 ```powershell
-cd dockgo
-go build -o dockgo.exe ./cmd/dockgo
+$env:DOCKER_HOST = "npipe:////./pipe/docker_engine"
 ```
+
+#### Docker Container "no such file or directory"
+
+If the container crashes with `exec ./entrypoint.sh: no such file or directory`, it likely has Windows line endings (CRLF). Ensure `entrypoint.sh` uses Unix line endings (LF). The build process should handle this, but if you are mounting the file locally, you may need to convert it.
+
