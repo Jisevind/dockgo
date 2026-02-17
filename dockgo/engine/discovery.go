@@ -36,7 +36,7 @@ func (d *DiscoveryEngine) GetContainerImageDetails(ctx context.Context, containe
 	}
 
 	// Image field in ContainerJSON is the ImageID
-	iJSON, _, err := d.Client.ImageInspectWithRaw(ctx, cJSON.Image)
+	iJSON, err := d.Client.ImageInspect(ctx, cJSON.Image)
 	if err != nil {
 		// If image inspect fails, we return what we have
 		if cJSON.Config != nil {
