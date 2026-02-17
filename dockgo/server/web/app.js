@@ -129,12 +129,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Close modal on outside click
+    // Strict Auth: Do not allow closing the modal by clicking outside
     loginModal.addEventListener('click', (e) => {
         if (e.target === loginModal) {
-            // Optional: prevent closing if auth is STRICTLY required?
-            // For now allow closing (view might vary).
-            hideLoginModal();
+            return;
         }
     });
 
