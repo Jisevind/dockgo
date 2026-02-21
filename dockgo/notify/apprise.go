@@ -72,6 +72,22 @@ func getAppriseHost() string {
 	return strings.TrimSuffix(host, "/")
 }
 
+// normalizeAppriseTarget determines the absolute base HTTP URL to reach the Apprise sidecar
+func normalizeAppriseTarget(url string) string {
+	targetURL := getAppriseHost()
+
+	// If the user specified a full custom apprise host remotely via an http prefix, use its base
+	if !strings.Contains(url, "gotify://") && (strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://")) {
+		targetURL = strings.TrimSuffix(url, "/all")
+		parts := strings.Split(targetURL, "/notify")
+		if len(parts) > 0 {
+			targetURL = strings.TrimSuffix(parts[0], "/")
+		}
+	}
+
+	return targetURL
+}
+
 // WaitUntilReady blocks until at least one Apprise URL is reachable or timeout occurs
 func (a *AppriseNotifier) WaitUntilReady(timeout time.Duration) bool {
 	if a == nil || len(a.urls) == 0 {
@@ -81,15 +97,7 @@ func (a *AppriseNotifier) WaitUntilReady(timeout time.Duration) bool {
 	start := time.Now()
 	for time.Since(start) < timeout {
 		for _, url := range a.urls {
-			targetURL := getAppriseHost()
-
-			// If the user specified a full custom apprise host, ping its base
-			if !strings.Contains(url, "gotify://") && (strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://")) {
-				parts := strings.Split(url, "/notify")
-				if len(parts) > 0 {
-					targetURL = strings.TrimSuffix(parts[0], "/")
-				}
-			}
+			targetURL := normalizeAppriseTarget(url)
 
 			if err := a.ping(targetURL); err == nil {
 				return true
@@ -152,16 +160,7 @@ func (a *AppriseNotifier) send(client *http.Client, n Notification) {
 
 		b, _ := json.Marshal(payload)
 
-		// IMPORTANT: Ensure we hit the base /notify endpoint exactly
-		targetURL := getAppriseHost() + "/notify"
-
-		// If the user specified a full custom apprise host, use its base notify
-		if !strings.Contains(url, "gotify://") && (strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://")) {
-			targetURL = strings.TrimSuffix(url, "/all")
-			if !strings.Contains(targetURL, "/notify") {
-				targetURL = strings.TrimSuffix(targetURL, "/") + "/notify"
-			}
-		}
+		targetURL := normalizeAppriseTarget(url) + "/notify"
 
 		// Simple 3-attempt retry loop
 		maxRetries := 3
