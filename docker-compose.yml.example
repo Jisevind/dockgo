@@ -23,6 +23,7 @@ services:
 
       # Optional: Apprise API Endpoint for notifications
       # - APPRISE_URL=gotify://192.168.1.204/Aon5xAnYo-hTn70
+      # - APPRISE_URL=ntfys://user:pass@ntfy.example.com/myprivatetopic
 
   # Optional: Apprise API container for sending notifications
   # apprise:
