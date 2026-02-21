@@ -2,6 +2,7 @@ package notify
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -32,7 +33,7 @@ type AppriseNotifier struct {
 	queue chan Notification
 }
 
-func NewAppriseNotifier() *AppriseNotifier {
+func NewAppriseNotifier(ctx context.Context) *AppriseNotifier {
 	notifier := &AppriseNotifier{}
 
 	envUrls := os.Getenv("APPRISE_URL")
@@ -55,7 +56,7 @@ func NewAppriseNotifier() *AppriseNotifier {
 	notifier.urls = cleanUrls
 	notifier.queue = make(chan Notification, 100)
 
-	go notifier.worker()
+	go notifier.worker(ctx)
 	return notifier
 }
 
@@ -100,10 +101,16 @@ func (a *AppriseNotifier) ping(url string) error {
 	return nil
 }
 
-func (a *AppriseNotifier) worker() {
+func (a *AppriseNotifier) worker(ctx context.Context) {
 	client := &http.Client{Timeout: 10 * time.Second}
-	for n := range a.queue {
-		a.send(client, n)
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Debug("Apprise info: worker shutting down")
+			return
+		case n := <-a.queue:
+			a.send(client, n)
+		}
 	}
 }
 
@@ -135,12 +142,22 @@ func (a *AppriseNotifier) send(client *http.Client, n Notification) {
 			}
 		}
 
-		resp, err := client.Post(targetURL, "application/json", bytes.NewBuffer(b))
-		if err != nil {
-			logger.Error("Apprise: Send failed to %s: %v", targetURL, err)
-			continue
+		// Simple 3-attempt retry loop
+		maxRetries := 3
+		for i := 0; i < maxRetries; i++ {
+			resp, err := client.Post(targetURL, "application/json", bytes.NewBuffer(b))
+			if err != nil {
+				if i == maxRetries-1 {
+					logger.Error("Apprise: Send failed to %s after %d retries: %v", targetURL, maxRetries, err)
+				} else {
+					logger.Warn("Apprise: Send failed, retrying (%d/%d)...", i+1, maxRetries)
+					time.Sleep(2 * time.Second)
+				}
+				continue
+			}
+			resp.Body.Close()
+			break // Success
 		}
-		resp.Body.Close()
 	}
 }
 

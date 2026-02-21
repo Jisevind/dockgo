@@ -106,7 +106,7 @@ func NewServer(port string) (*Server, error) {
 		AuthSecret:       authSecret,
 		Discovery:        disc,
 		Registry:         registry,
-		Notifier:         notify.NewAppriseNotifier(),
+		Notifier:         notify.NewAppriseNotifier(context.Background()),
 		updatesCache:     make(map[string]bool),
 		startTime:        time.Now(),
 		loginAttempts:    make(map[string]*RateLimiter),
