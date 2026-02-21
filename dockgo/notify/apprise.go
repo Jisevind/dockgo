@@ -171,7 +171,10 @@ func (a *AppriseNotifier) send(client *http.Client, n Notification) {
 
 		b, _ := json.Marshal(payload)
 
-		targetURL := normalizeAppriseTarget(url) + "/notify"
+		targetURL := normalizeAppriseTarget(url)
+		if !strings.HasSuffix(targetURL, "/notify") {
+			targetURL += "/notify"
+		}
 
 		// Simple 3-attempt retry loop
 		maxRetries := 3
