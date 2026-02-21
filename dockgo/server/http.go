@@ -8,6 +8,7 @@ import (
 	"dockgo/api"
 	"dockgo/engine"
 	"dockgo/logger"
+	"dockgo/notify"
 	"embed"
 	"encoding/base64"
 	"encoding/json"
@@ -40,6 +41,7 @@ type Server struct {
 	AuthSecret       string // For signing sessions
 	Discovery        *engine.DiscoveryEngine
 	Registry         *engine.RegistryClient
+	Notifier         *notify.AppriseNotifier
 	updatesCache     map[string]bool // key: Container ID
 	cacheUnix        int64
 	mu               sync.RWMutex
@@ -50,6 +52,8 @@ type Server struct {
 	registryPingTime time.Time
 	loginAttempts    map[string]*RateLimiter
 	loginMu          sync.Mutex
+	lastDockerStatus string
+	lastRegStatus    string
 }
 
 type RateLimiter struct {
@@ -102,6 +106,7 @@ func NewServer(port string) (*Server, error) {
 		AuthSecret:       authSecret,
 		Discovery:        disc,
 		Registry:         registry,
+		Notifier:         notify.NewAppriseNotifier(),
 		updatesCache:     make(map[string]bool),
 		startTime:        time.Now(),
 		loginAttempts:    make(map[string]*RateLimiter),
@@ -121,6 +126,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/login", s.enableCors(s.handleLogin))
 	mux.HandleFunc("/api/logout", s.enableCors(s.handleLogout))
 	mux.HandleFunc("/api/me", s.enableCors(s.handleMe))
+	mux.HandleFunc("/api/test-notify", s.enableCors(s.requireAuth(s.handleTestNotify)))
 
 	// DEBUG ROUTE
 	mux.HandleFunc("/api/debug/cache", func(w http.ResponseWriter, r *http.Request) {
@@ -140,6 +146,21 @@ func (s *Server) Start() error {
 	mux.Handle("/", http.FileServer(http.FS(webFS)))
 
 	logger.Info("DockGo listening at http://localhost:%s", s.Port)
+
+	// Send startup notification in a goroutine so it doesn't block the server
+	go func() {
+		// Give Apprise up to 15 seconds to wake up
+		if s.Notifier.WaitUntilReady(15 * time.Second) {
+			s.Notifier.Notify(
+				"DockGo Started",
+				fmt.Sprintf("DockGo v%s is now online and listening on port %s", Version, s.Port),
+				notify.TypeInfo,
+			)
+		} else {
+			logger.Warn("Apprise: Notification server failed to become ready in time.")
+		}
+	}()
+
 	return http.ListenAndServe(":"+s.Port, mux)
 }
 
@@ -379,6 +400,15 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) handleTestNotify(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" && r.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	s.Notifier.Notify("DockGo Test", "Test notification sent successfully.", notify.TypeSuccess)
+	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+}
+
 // /api/health
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	// Ping Docker
@@ -401,6 +431,31 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 		"uptime_human":   formatUptime(uptime),
 		"registry":       s.getRegistryStatus(),
 	}
+
+	// Notify on state change (Docker)
+	s.mu.Lock()
+	if s.lastDockerStatus != "" && s.lastDockerStatus != dockerStatus {
+		if dockerStatus == "disconnected" {
+			s.Notifier.Notify("DockGo Alert", "Docker Daemon disconnected!", notify.TypeFailure)
+		} else {
+			s.Notifier.Notify("DockGo Recovered", "Docker Daemon connected.", notify.TypeSuccess)
+		}
+	}
+	s.lastDockerStatus = dockerStatus
+	s.mu.Unlock()
+
+	// Notify on state change (Registry)
+	regStatus := resp["registry"].(string)
+	s.mu.Lock()
+	if s.lastRegStatus != "" && s.lastRegStatus != regStatus {
+		if regStatus == "unreachable" {
+			s.Notifier.Notify("DockGo Alert", "Registry unreachable!", notify.TypeWarning)
+		} else if s.lastRegStatus == "unreachable" && regStatus == "reachable" {
+			s.Notifier.Notify("DockGo Recovered", "Registry reachable.", notify.TypeSuccess)
+		}
+	}
+	s.lastRegStatus = regStatus
+	s.mu.Unlock()
 
 	if !s.lastCheckTime.IsZero() {
 		resp["last_update_check"] = s.lastCheckTime
@@ -653,6 +708,14 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 			newCache := make(map[string]bool)
 			for _, u := range updates {
 				if u.UpdateAvailable {
+					// Check if this is a NEW update (not in cache)
+					if !s.updatesCache[u.ID] {
+						s.Notifier.Notify(
+							"DockGo Update Available",
+							fmt.Sprintf("%s has an update available", u.Name),
+							notify.TypeInfo,
+						)
+					}
 					newCache[u.ID] = true
 					logger.Debug("Found update for %s (ID: %s)", u.Name, u.ID)
 				}
@@ -779,8 +842,18 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	if err := cmd.Wait(); err != nil {
 		debugLog("Update process failed for %s: %v", name, err)
 		fmt.Fprintf(w, "data: {\"type\":\"error\", \"error\": \"Update process failed: %v\"}\n\n", err)
+		s.Notifier.Notify(
+			"DockGo Update Failed",
+			fmt.Sprintf("Failed to update container %s: %v", name, err),
+			notify.TypeFailure,
+		)
 	} else {
 		// Success
+		s.Notifier.Notify(
+			"DockGo Update Success",
+			fmt.Sprintf("Container %s updated successfully", name),
+			notify.TypeSuccess,
+		)
 		// Invalidate cache ONLY for this container
 		if targetID != "" {
 			s.mu.Lock()

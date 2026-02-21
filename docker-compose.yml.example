@@ -20,3 +20,16 @@ services:
       # - AUTH_USERNAME=admin
       # - AUTH_PASSWORD=supersecurepassword
       # - AUTH_SECRET=random_string_for_signing_cookies
+
+      # Optional: Apprise API Endpoint for notifications
+      # - APPRISE_URL=gotify://192.168.1.204/Aon5xAnYo-hTn70
+
+  # Optional: Apprise API container for sending notifications
+  # apprise:
+  #   image: caronc/apprise
+  #   container_name: apprise
+  #   restart: unless-stopped
+  #   ports:
+  #     - "4747:8000"
+  #   volumes:
+  #     - ./apprise.yml:/config/apprise.yml

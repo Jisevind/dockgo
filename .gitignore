@@ -2,6 +2,7 @@ documentation
 updates.cache
 
 .contextignore
+
 CODEBASE.md
 *.log
 *.old
@@ -9,3 +10,6 @@ CODEBASE.md
 *.exe
 docker-compose.yml
 dockgo/dockgo
+
+Dockerfile.dev
+dev.ps1
