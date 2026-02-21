@@ -706,20 +706,39 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 		} else {
 			// Update cache
 			newCache := make(map[string]bool)
+			var newUpdates []string
+
 			for _, u := range updates {
 				if u.UpdateAvailable {
 					// Check if this is a NEW update (not in cache)
 					if !s.updatesCache[u.ID] {
-						s.Notifier.Notify(
-							"DockGo Update Available",
-							fmt.Sprintf("%s has an update available", u.Name),
-							notify.TypeInfo,
-						)
+						newUpdates = append(newUpdates, u.Name)
 					}
 					newCache[u.ID] = true
 					logger.Debug("Found update for %s (ID: %s)", u.Name, u.ID)
 				}
 			}
+
+			if len(newUpdates) > 0 {
+				title := "DockGo Update Available"
+				if len(newUpdates) > 1 {
+					title = "DockGo Updates Available"
+				}
+
+				var body string
+				if len(newUpdates) == 1 {
+					body = fmt.Sprintf("%s has an update available", newUpdates[0])
+				} else {
+					body = fmt.Sprintf("Updates are available for: %s", strings.Join(newUpdates, ", "))
+				}
+
+				s.Notifier.Notify(
+					title,
+					body,
+					notify.TypeInfo,
+				)
+			}
+
 			logger.Debug("New cache size: %d", len(newCache))
 
 			s.mu.Lock()
