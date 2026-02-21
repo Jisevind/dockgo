@@ -9,8 +9,10 @@ COPY dockgo .
 RUN ls -lR /build
 
 # Build
+# Accept version arg from GitHub Actions, defaulting to "dev"
+ARG VERSION=dev
 RUN go mod download
-RUN go build -o dockgo ./cmd/dockgo
+RUN go build -ldflags "-X 'dockgo/server.Version=${VERSION}'" -o dockgo ./cmd/dockgo
 
 # Final Stage
 FROM alpine:latest

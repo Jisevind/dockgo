@@ -29,8 +29,8 @@ import (
 //go:embed web
 var content embed.FS
 
-// Define version (could be set via ldflags)
-var Version = "0.2.0"
+// Define version (injected via ldflags: -X 'dockgo/server.Version=1.0.0')
+var Version = "dev"
 
 type Server struct {
 	Port             string
