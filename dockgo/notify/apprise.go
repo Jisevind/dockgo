@@ -213,18 +213,18 @@ func (a *AppriseNotifier) Notify(title, body string, notifType NotificationType)
 	if a == nil || a.queue == nil {
 		return
 	}
-	a.mu.Lock()
-	if a.closed {
-		a.mu.Unlock()
-		return
-	}
-	a.mu.Unlock()
-
 	n := Notification{Title: title, Body: body, Type: notifType}
 
 	for {
+		a.mu.Lock()
+		if a.closed {
+			a.mu.Unlock()
+			return
+		}
+
 		select {
 		case a.queue <- n:
+			a.mu.Unlock()
 			return // Successfully queued
 		default:
 			// Queue is full, drop the oldest message to make room
@@ -234,6 +234,7 @@ func (a *AppriseNotifier) Notify(title, body string, notifType NotificationType)
 			default:
 				// The worker grabbed it in the microsecond between selects, loop again
 			}
+			a.mu.Unlock()
 		}
 	}
 }
