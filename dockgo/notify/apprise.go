@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -58,7 +59,17 @@ func NewAppriseNotifier(ctx context.Context) *AppriseNotifier {
 	}
 
 	notifier.urls = cleanUrls
-	notifier.queue = make(chan Notification, 100)
+
+	queueSize := 100
+	if sizeStr := os.Getenv("APPRISE_QUEUE_SIZE"); sizeStr != "" {
+		if size, err := strconv.Atoi(sizeStr); err == nil && size > 0 {
+			queueSize = size
+		} else if err != nil || size <= 0 {
+			logger.Warn("Apprise: Invalid APPRISE_QUEUE_SIZE '%s', defaulting to 100", sizeStr)
+		}
+	}
+
+	notifier.queue = make(chan Notification, queueSize)
 
 	go notifier.worker(ctx)
 	return notifier

@@ -22,6 +22,7 @@ services:
       # - AUTH_SECRET=random_string_for_signing_cookies
 
       # Optional: Apprise API Endpoint for notifications
+      # - APPRISE_QUEUE_SIZE=200
       # - APPRISE_URL=gotify://192.168.1.204/Aon5xAnYo-hTn70
       # - APPRISE_URL=ntfys://user:pass@ntfy.example.com/myprivatetopic
 
