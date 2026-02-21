@@ -550,6 +550,11 @@ func (s *Server) handleContainers(w http.ResponseWriter, r *http.Request) {
 	for _, c := range containers {
 		name := strings.TrimPrefix(c.Names[0], "/")
 
+		// Hide temporary update containers from the UI
+		if strings.Contains(name, "_old_") {
+			continue
+		}
+
 		image := c.Image
 		if strings.HasPrefix(image, "sha256:") {
 			if resolved, _, _, _, _, err := s.Discovery.GetContainerImageDetails(context.Background(), c.ID); err == nil && resolved != "" {
