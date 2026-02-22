@@ -27,16 +27,18 @@ func NewRegistryClient() *RegistryClient {
 }
 
 // GetRemoteDigest fetches the digest of the remote image
-func (r *RegistryClient) GetRemoteDigest(image string, platform *v1.Platform) (string, error) {
+func (r *RegistryClient) GetRemoteDigest(image string, platform *v1.Platform, force bool) (string, error) {
 	// 1. Check Cache
-	r.mu.RLock()
-	if entry, ok := r.cache[image]; ok {
-		if time.Now().Before(entry.expiresAt) {
-			r.mu.RUnlock()
-			return entry.digest, nil
+	if !force {
+		r.mu.RLock()
+		if entry, ok := r.cache[image]; ok {
+			if time.Now().Before(entry.expiresAt) {
+				r.mu.RUnlock()
+				return entry.digest, nil
+			}
 		}
+		r.mu.RUnlock()
 	}
-	r.mu.RUnlock()
 
 	options := []crane.Option{
 		crane.WithAuthFromKeychain(authn.DefaultKeychain),
@@ -79,7 +81,7 @@ func (r *RegistryClient) CheckUpdate(localDigest string, remoteDigest string) bo
 
 // Ping checks registry connectivity by attempting to fetch a known image digest
 func (r *RegistryClient) Ping() error {
-	// We use alpine:latest as a lightweight check
-	_, err := r.GetRemoteDigest("library/alpine:latest", nil)
+	// We use alpine:latest as a lightweight check (forced to verify actual remote connection)
+	_, err := r.GetRemoteDigest("library/alpine:latest", nil, true)
 	return err
 }

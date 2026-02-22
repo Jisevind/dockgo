@@ -143,7 +143,7 @@ func runScan(checkOnly, jsonOutput, streamOutput bool, filter string, safe, forc
 		}
 	}
 
-	updates, err := engine.Scan(ctx, discovery, registry, filter, onProgress)
+	updates, err := engine.Scan(ctx, discovery, registry, filter, true, onProgress)
 	if err != nil {
 		fatal("Scan error: %v", err)
 	}

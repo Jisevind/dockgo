@@ -697,7 +697,8 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 
 	// 7. Run Scan
 	logger.Debug("Starting Engine Scan...")
-	updates, err := engine.Scan(ctx, s.Discovery, s.Registry, "", onProgress)
+	force := r.URL.Query().Get("force") == "true"
+	updates, err := engine.Scan(ctx, s.Discovery, s.Registry, "", force, onProgress)
 	logger.Debug("Scan returned %d updates, err=%v", len(updates), err)
 
 	// 8. Handle result
@@ -762,7 +763,7 @@ func (s *Server) StartScheduler(ctx context.Context) {
 
 func (s *Server) runScheduledScan(ctx context.Context) {
 	logger.Debug("Scheduler: Running background engine scan...")
-	updates, err := engine.Scan(ctx, s.Discovery, s.Registry, "", nil) // nil progress callback since this is headless
+	updates, err := engine.Scan(ctx, s.Discovery, s.Registry, "", true, nil) // nil progress callback since this is headless
 	if err != nil {
 		logger.Error("Scheduler: Engine scan failed: %v", err)
 

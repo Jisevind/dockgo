@@ -137,8 +137,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    const fetchContainers = async (force = false) => {
-        if (force) {
+    const fetchContainers = async (showProgress = false, forceRefresh = false) => {
+        if (showProgress) {
             refreshBtn.disabled = true;
             refreshBtn.classList.add('spinning');
             statusEl.textContent = 'Connecting stream...';
@@ -155,9 +155,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Construct URL with token if needed (for legacy auth SSE)
             let streamUrl = '/api/stream/check';
+            if (forceRefresh) streamUrl += '?force=true';
+
             const token = sessionStorage.getItem('dockgo_token');
             if (token && !isLoggedIn) {
-                streamUrl += `?token=${encodeURIComponent(token)}`;
+                const sep = streamUrl.includes('?') ? '&' : '?';
+                streamUrl += `${sep}token=${encodeURIComponent(token)}`;
             }
             const evtSource = new EventSource(streamUrl);
 
@@ -241,14 +244,14 @@ document.addEventListener('DOMContentLoaded', () => {
             statusEl.textContent = 'Error connecting';
             statusEl.style.color = 'var(--danger)';
         } finally {
-            if (!force) {
+            if (!showProgress) {
                 refreshBtn.disabled = false;
                 refreshBtn.classList.remove('spinning');
             }
         }
     };
 
-    refreshBtn.addEventListener('click', () => fetchContainers(true));
+    refreshBtn.addEventListener('click', () => fetchContainers(true, true));
 
     const renderContainers = (containers) => {
         listEl.innerHTML = '';

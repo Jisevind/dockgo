@@ -12,7 +12,7 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 )
 
-func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryClient, filter string, onProgress func(api.ContainerUpdate, int, int)) ([]api.ContainerUpdate, error) {
+func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryClient, filter string, force bool, onProgress func(api.ContainerUpdate, int, int)) ([]api.ContainerUpdate, error) {
 	allContainers, err := discovery.ListContainers(ctx)
 	if err != nil {
 		return nil, err
@@ -120,7 +120,7 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 					imageToCheck = strings.Replace(imageToCheck, "127.0.0.1:", "host.docker.internal:", 1)
 				}
 
-				remoteDigest, err := registry.GetRemoteDigest(imageToCheck, platform)
+				remoteDigest, err := registry.GetRemoteDigest(imageToCheck, platform, force)
 				if err != nil {
 					// Check if error is due to context cancellation
 					if ctx.Err() != nil {
