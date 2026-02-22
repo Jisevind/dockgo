@@ -65,6 +65,8 @@ DockGo takes security seriously.
     *   Checks standard Docker Hub images.
     *   Supports **Private Registries** (using your host's credentials).
     *   Works for most standard **Docker Compose** setups.
+*   **Apprise Notifications**: Sends instant automated alerts for newly discovered updates and container upgrade status to over 100+ supported services (Discord, Slack, Telegram, Gotify, etc.).
+*   **Autonomous Scheduler**: Periodically checks for container updates in the background without needing the UI open (default: 24h).
 *   **Safe Mode**: Use `--safe` (or Safe Mode in UI if implemented) to pull images without restarting running containers.
 *   **Network Preservation**: Keeps static IPs and MAC addresses when recreating containers.
 *   **Registry Caching**: Caches registry digests for 10 minutes to prevent rate-limiting.
@@ -85,6 +87,18 @@ Configure DockGo using environment variables:
 | `AUTH_SECRET` | Secret for signing session cookies | *(random)* |
 | `API_TOKEN` | Legacy token for API updates | *(empty)* |
 | `CORS_ORIGIN` | Allowed Origin for CORS (e.g. `https://mydomain.com`) | *(disabled)* |
+| `APPRISE_URL` | Apprise notification endpoint (e.g., `discord://...`) | *(empty)* |
+| `APPRISE_QUEUE_SIZE` | Buffer size for outbound notification events | `200` |
+| `SCAN_INTERVAL` | Background update polling schedule (`s`, `m`, `h`) | `24h` |
+
+---
+
+## Documentation
+
+For deeper dives into specific integrations and features, check out our [Documentation Folder](./documentation/):
+*   [Apprise Integration Guide](./documentation/apprise.md)
+*   [API Token Authentication](./documentation/api_token.md)
+*   [GitHub Actions Release Flow](./documentation/github_actions.md)
 
 **Example `docker-compose.yml`:**
 
