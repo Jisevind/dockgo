@@ -26,10 +26,10 @@ services:
 
       # Optional: Apprise API Endpoint for notifications
       # - APPRISE_QUEUE_SIZE=200
-      # - APPRISE_URL=gotify://192.168.1.204/Aon5xAnYo-hTn70
+      # - APPRISE_URL=gotify://gotify.example.com/myprivatetopic
       # - APPRISE_URL=ntfys://user:pass@ntfy.example.com/myprivatetopic
 
-      # Background Update Polling Schedule (Default: 24h)
+      # Background Update Polling Schedule for notifications (Default: 24h)
       # Valid units: 's' (seconds), 'm' (minutes), 'h' (hours)
       # Examples: '12h' (12 hours), '30m' (30 minutes)
       # - SCAN_INTERVAL=24h
