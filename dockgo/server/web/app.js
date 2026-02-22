@@ -215,7 +215,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (response.status === 401) {
                 // Unauthorized
-                if (authEnabled && !isLoggedIn && force === false) {
+                if (authEnabled && !isLoggedIn && !showProgress) {
                     // Initial load or background poll failed
                     // If initial load (listEl has loading or empty), show login
                     if (listEl.querySelector('.loading')) {
@@ -498,13 +498,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initial load
     Promise.all([checkAuthStatus(), fetchHealth()]).then(() => {
         fetchContainers().then(() => {
-            fetchContainers(true);
+            if (isLoggedIn || !authEnabled) {
+                fetchContainers(true);
+            }
         });
     });
 
     // Poll every 30 seconds
     setInterval(() => {
-        if (activeUpdates === 0) {
+        if (activeUpdates === 0 && (isLoggedIn || !authEnabled)) {
             fetchContainers(false);
         }
     }, 30000);
