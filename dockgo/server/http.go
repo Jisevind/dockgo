@@ -147,6 +147,9 @@ func (s *Server) Start() error {
 
 	logger.Info("DockGo listening at http://localhost:%s", s.Port)
 
+	// Start background update scheduler
+	go s.StartScheduler(context.Background())
+
 	// Send startup notification in a goroutine so it doesn't block the server
 	go func() {
 		// Give Apprise up to 15 seconds to wake up
@@ -709,45 +712,9 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 
 			fmt.Fprintf(w, "data: {\"type\":\"error\", \"error\": \"%v\"}\n\n", err)
 		} else {
-			// Update cache
-			newCache := make(map[string]bool)
-			var newUpdates []string
-
-			for _, u := range updates {
-				if u.UpdateAvailable {
-					// Check if this is a NEW update (not in cache)
-					if !s.updatesCache[u.ID] {
-						newUpdates = append(newUpdates, u.Name)
-					}
-					newCache[u.ID] = true
-					logger.Debug("Found update for %s (ID: %s)", u.Name, u.ID)
-				}
-			}
-
-			if len(newUpdates) > 0 {
-				title := "DockGo Update Available"
-				if len(newUpdates) > 1 {
-					title = "DockGo Updates Available"
-				}
-
-				var body string
-				if len(newUpdates) == 1 {
-					body = fmt.Sprintf("%s has an update available", newUpdates[0])
-				} else {
-					body = fmt.Sprintf("Updates are available for: %s", strings.Join(newUpdates, ", "))
-				}
-
-				s.Notifier.Notify(
-					title,
-					body,
-					notify.TypeInfo,
-				)
-			}
-
-			logger.Debug("New cache size: %d", len(newCache))
-
+			// Record the scan time but DO NOT mutate the notification cache here.
+			// True notification caching is handled exclusively by the background StartScheduler.
 			s.mu.Lock()
-			s.updatesCache = newCache
 			s.lastCheckTime = time.Now()
 			s.lastCheckStat = "success"
 			s.mu.Unlock()
@@ -756,6 +723,103 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 		}
 		flusher.Flush()
 	}
+}
+
+// StartScheduler is an autonomous background daemon that polls the Docker registries
+// on a set interval and issues Apprise notifications. It acts as the single source of truth
+// for update alerts, cleanly decoupled from the UI.
+func (s *Server) StartScheduler(ctx context.Context) {
+	intervalStr := os.Getenv("SCAN_INTERVAL")
+	if intervalStr == "" {
+		intervalStr = "24h"
+	}
+	interval, err := time.ParseDuration(intervalStr)
+	if err != nil || interval <= 0 {
+		logger.Warn("Apprise: Invalid SCAN_INTERVAL '%s', defaulting to 24h", intervalStr)
+		interval = 24 * time.Hour
+	}
+
+	logger.Info("Starting autonomous background update scheduler (interval: %v)", interval)
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	// Optionally do an immediate invisible scan on startup (after a slight delay so Docker API is ready)
+	go func() {
+		time.Sleep(30 * time.Second)
+		s.runScheduledScan(ctx)
+	}()
+
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Info("Stopping background update scheduler")
+			return
+		case <-ticker.C:
+			s.runScheduledScan(ctx)
+		}
+	}
+}
+
+func (s *Server) runScheduledScan(ctx context.Context) {
+	logger.Debug("Scheduler: Running background engine scan...")
+	updates, err := engine.Scan(ctx, s.Discovery, s.Registry, "", nil) // nil progress callback since this is headless
+	if err != nil {
+		logger.Error("Scheduler: Engine scan failed: %v", err)
+
+		s.mu.Lock()
+		s.lastCheckStat = "error"
+		s.mu.Unlock()
+		return
+	}
+
+	// Update cache
+	newCache := make(map[string]bool)
+	var newUpdates []string
+
+	for _, u := range updates {
+		if u.UpdateAvailable {
+			// Ensure we check the map thread-safely
+			s.mu.RLock()
+			isNew := !s.updatesCache[u.ID]
+			s.mu.RUnlock()
+
+			name := strings.TrimPrefix(u.Name, "/")
+			if isNew {
+				// Hide temporary update containers from the UI and Alerts
+				if !strings.Contains(name, "_old_") {
+					newUpdates = append(newUpdates, name)
+				}
+			}
+			newCache[u.ID] = true
+			logger.Debug("Scheduler: Found update for %s (ID: %s)", name, u.ID)
+		}
+	}
+
+	if len(newUpdates) > 0 {
+		title := "DockGo Update Available"
+		if len(newUpdates) > 1 {
+			title = "DockGo Updates Available"
+		}
+
+		var body string
+		if len(newUpdates) == 1 {
+			body = fmt.Sprintf("%s has an update available", newUpdates[0])
+		} else {
+			body = fmt.Sprintf("Updates are available for: %s", strings.Join(newUpdates, ", "))
+		}
+
+		s.Notifier.Notify(
+			title,
+			body,
+			notify.TypeInfo,
+		)
+	}
+
+	s.mu.Lock()
+	s.updatesCache = newCache
+	s.lastCheckTime = time.Now()
+	s.lastCheckStat = "success"
+	s.mu.Unlock()
 }
 
 // /api/update/:name
