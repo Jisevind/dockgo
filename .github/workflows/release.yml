@@ -37,6 +37,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
+      - name: Lowercase Repository Name
+        if: steps.semantic.outputs.new_release_published == 'true'
+        run: |
+          echo "REPO=${GITHUB_REPOSITORY,,}" >> ${GITHUB_ENV}
+
       - name: Setup Docker Buildx
         if: steps.semantic.outputs.new_release_published == 'true'
         uses: docker/setup-buildx-action@v3
@@ -58,5 +63,5 @@ jobs:
           build-args: |
             VERSION=${{ steps.semantic.outputs.new_release_version }}
           tags: |
-            ghcr.io/${{ github.repository }}:latest
-            ghcr.io/${{ github.repository }}:${{ steps.semantic.outputs.new_release_version }}
+            ghcr.io/${{ env.REPO }}:latest
+            ghcr.io/${{ env.REPO }}:${{ steps.semantic.outputs.new_release_version }}
