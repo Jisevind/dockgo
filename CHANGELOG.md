@@ -1,3 +1,10 @@
+## [0.2.1](https://github.com/Jisevind/dockgo/compare/v0.2.0...v0.2.1) (2026-02-22)
+
+
+### Bug Fixes
+
+* trigger docker release pipeline ([ff94b31](https://github.com/Jisevind/dockgo/commit/ff94b31374cca23e37d22e489475d03281a4d632))
+
 # [0.2.0](https://github.com/Jisevind/dockgo/compare/v0.1.0...v0.2.0) (2026-02-22)
 
 
