@@ -40,6 +40,6 @@ services:
   #   container_name: apprise
   #   restart: unless-stopped
   #   ports:
-  #     - "4747:8000"
+  #     - "8000:8000"
   #   volumes:
   #     - ./apprise.yml:/config/apprise.yml
