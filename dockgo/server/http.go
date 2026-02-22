@@ -713,9 +713,17 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 
 			fmt.Fprintf(w, "data: {\"type\":\"error\", \"error\": \"%v\"}\n\n", err)
 		} else {
-			// Record the scan time but DO NOT mutate the notification cache here.
-			// True notification caching is handled exclusively by the background StartScheduler.
+			// Update the cache explicitly so the UI's subsequent fetch to /api/containers sees it.
+			// However, explicitly do NOT fire a notification. The background scheduler handles that.
+			newCache := make(map[string]bool)
+			for _, u := range updates {
+				if u.UpdateAvailable {
+					newCache[u.ID] = true
+				}
+			}
+
 			s.mu.Lock()
+			s.updatesCache = newCache
 			s.lastCheckTime = time.Now()
 			s.lastCheckStat = "success"
 			s.mu.Unlock()
