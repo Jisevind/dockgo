@@ -3,6 +3,9 @@ services:
   dockgo:
     build: .
     container_name: dockgo
+    # Optional: If using Apprise API container for sending notifications
+    # depends_on:
+    #   - apprise
     restart: unless-stopped
     ports:
       - "3131:3131"
