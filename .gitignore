@@ -1,5 +1,6 @@
 documentation
 updates.cache
+node_modules
 
 .contextignore
 
