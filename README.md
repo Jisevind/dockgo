@@ -54,7 +54,17 @@ DockGo takes security seriously.
     *   **CORS**: Disabled by default. Only enabled if you specifically set `CORS_ORIGIN`.
 4.  **Log Redaction**: Sensitive errors and login failures are redacted in logs.
 
-> **⚠️ Security Warning**: Mounting /var/run/docker.sock effectively grants root-level control of Docker. While DockGo minimizes risk by running non-root, DockGo is intended for trusted networks or behind a reverse proxy (like Nginx or Traefik) and authentication.
+> [!CAUTION]
+> **CRITICAL SECURITY WARNING: Docker Socket Exposure**
+>
+> Mounting `/var/run/docker.sock` explicitly grants **full root-level access** to your host machine. This is an unavoidable requirement for any tool that manages Docker containers, but it comes with severe security implications.
+>
+> **You MUST:**
+> 1. **Never expose DockGo publicly to the internet** without robust authentication.
+> 2. **Use Network Isolation:** Run DockGo on a trusted, private local network.
+> 3. **Implement a Reverse Proxy:** If you must expose it, place it behind a secure reverse proxy (like Nginx, Traefik, or Caddy) equipped with SSL/TLS and preferably external Single Sign-On (SSO) or robust reverse-proxy-level authentication, *in addition* to DockGo's built-in `AUTH_USERNAME`/`AUTH_PASSWORD`.
+>
+> Failing to secure this endpoint means giving anyone on the internet immediate root access to your entire server.
 
 ---
 
