@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -65,6 +66,7 @@ type Server struct {
 	UpdatesChan      chan string // Added UpdatesChan
 	sessionStorePath string      // Added sessionStorePath
 	sessionMu        sync.RWMutex
+	savePending      atomic.Bool // Debounce session persistence writes
 }
 
 type RateLimiter struct {
@@ -547,6 +549,26 @@ func (s *Server) saveAuthState() {
 	}
 }
 
+// queueSaveAuthState debounces disk writes for high-frequency session revocations (storms)
+func (s *Server) queueSaveAuthState() {
+	if s.sessionStorePath == "" {
+		return
+	}
+
+	// Only trigger background save if one isn't already sleeping/pending
+	if s.savePending.CompareAndSwap(false, true) {
+		go func() {
+			// Debounce window
+			time.Sleep(5 * time.Second)
+
+			// Unset flag immediately before writing.
+			// Any rapid events that happen *during* the disk I/O will correctly queue a fresh save.
+			s.savePending.Store(false)
+			s.saveAuthState()
+		}()
+	}
+}
+
 // Auth Handlers
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if s.AuthUsername == "" {
@@ -630,7 +652,7 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 				s.sessionMu.Lock()
 				s.revokedSessions[sessionUUID] = time.Now()
 				s.sessionMu.Unlock()
-				s.saveAuthState()
+				s.queueSaveAuthState()
 			}
 		}
 	}
@@ -661,7 +683,7 @@ func (s *Server) handleLogoutAll(w http.ResponseWriter, r *http.Request) {
 	s.revokedSessions = make(map[string]time.Time)
 	s.sessionMu.Unlock()
 
-	s.saveAuthState()
+	s.queueSaveAuthState()
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     "dockgo_session",
