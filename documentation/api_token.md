@@ -1,7 +1,7 @@
 # API Token Authentication
 
 DockGo provides two main methods of authentication:
-1.  **User Authentication** (`AUTH_USERNAME` / `AUTH_PASSWORD`): Recommended for humans accessing the Web UI. It provisions secure, session-based cookies.
+1.  **User Authentication** (`AUTH_USERNAME` / `AUTH_PASSWORD_HASH`): Recommended for humans accessing the Web UI. It provisions secure, session-based cookies.
 2.  **API Token** (`API_TOKEN`): A traditional, stateless Bearer token designed for scripts, webhooks, and headless automation.
 
 This document covers the **API Token**.
