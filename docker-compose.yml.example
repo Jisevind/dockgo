@@ -23,6 +23,7 @@ services:
       # - AUTH_USERNAME=admin
       # - AUTH_PASSWORD=supersecurepassword
       # - AUTH_SECRET=random_string_for_signing_cookies
+      # - AUTH_BCRYPT_COST=10 # Optional: Set hashing complexity (min 4, max 31, default 10)
 
       # Optional: Apprise API Endpoint for notifications
       # - APPRISE_QUEUE_SIZE=200

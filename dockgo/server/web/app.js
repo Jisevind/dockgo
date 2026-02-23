@@ -57,8 +57,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const loginUsernameInput = document.getElementById('username');
     const loginPasswordInput = document.getElementById('password');
     const logoutBtn = document.getElementById('logout-btn');
+    const logoutAllBtn = document.getElementById('logout-all-btn');
 
     // Auth Functions
+    const getCsrfToken = () => {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; dockgo_csrf=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return '';
+    };
+
     const checkAuthStatus = async () => {
         try {
             const response = await fetch('/api/me');
@@ -69,8 +77,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (isLoggedIn) {
                     logoutBtn.classList.remove('hidden');
+                    logoutAllBtn.classList.remove('hidden');
                 } else {
                     logoutBtn.classList.add('hidden');
+                    logoutAllBtn.classList.add('hidden');
                 }
 
                 // Global flag for legacy token
@@ -84,10 +94,27 @@ document.addEventListener('DOMContentLoaded', () => {
     logoutBtn.addEventListener('click', async () => {
         if (!confirm('Are you sure you want to logout?')) return;
         try {
-            await fetch('/api/logout', { method: 'POST' });
+            await fetch('/api/logout', {
+                method: 'POST',
+                headers: { 'X-CSRF-Token': getCsrfToken() }
+            });
             window.location.reload();
         } catch (e) {
             console.error('Logout failed', e);
+            window.location.reload();
+        }
+    });
+
+    logoutAllBtn.addEventListener('click', async () => {
+        if (!confirm('Are you sure you want to forcefully logout ALL devices?')) return;
+        try {
+            await fetch('/api/logout-all', {
+                method: 'POST',
+                headers: { 'X-CSRF-Token': getCsrfToken() }
+            });
+            window.location.reload();
+        } catch (e) {
+            console.error('Logout All failed', e);
             window.location.reload();
         }
     });
@@ -384,6 +411,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const headers = {};
             if (token) {
                 headers['Authorization'] = `Bearer ${token}`;
+            }
+            if (isLoggedIn) {
+                headers['X-CSRF-Token'] = getCsrfToken();
             }
 
             const response = await fetch(`/api/update/${name}`, {
