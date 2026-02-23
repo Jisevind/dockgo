@@ -28,10 +28,10 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 
 	// Check if it's a compose container
 	if project, ok := json.Config.Labels["com.docker.compose.project"]; ok {
-		engineLog.InfoContext(ctx, "Container %s is managed by Compose project '%s'. Proceeding with API recreation (Watchtower-style).", name, project)
+		engineLog.InfoContextf(ctx, "Container %s is managed by Compose project '%s'. Proceeding with API recreation (Watchtower-style).", name, project)
 	}
 
-	engineLog.InfoContext(ctx, "Recreating standalone container %s with image %s...", name, imageName)
+	engineLog.InfoContextf(ctx, "Recreating standalone container %s with image %s...", name, imageName)
 
 	// --- Config Sanitization ---
 
@@ -122,7 +122,7 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 	err = d.Client.ContainerStart(ctx, newContainer.ID, container.StartOptions{})
 	if err != nil {
 		// Rollback: Remove new, rename old back, start old
-		engineLog.WarnContext(ctx, "Failed to start new container %s. Rolling back...", name)
+		engineLog.WarnContextf(ctx, "Failed to start new container %s. Rolling back...", name)
 		_ = d.Client.ContainerRemove(ctx, newContainer.ID, container.RemoveOptions{Force: true})
 		_ = d.Client.ContainerRename(ctx, containerID, name)
 		_ = d.Client.ContainerStart(ctx, containerID, container.StartOptions{})
@@ -130,7 +130,7 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 	}
 
 	// 6. Verify Health / State
-	engineLog.InfoContext(ctx, "Waiting for container health/stability (up to 60s)...")
+	engineLog.InfoContextf(ctx, "Waiting for container health/stability (up to 60s)...")
 
 	verifyCtx, cancelVerify := context.WithTimeout(ctx, 60*time.Second)
 	defer cancelVerify()
@@ -151,7 +151,7 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 			verificationSuccess = true
 		} else {
 			if err == nil {
-				engineLog.WarnContext(ctx, "Container stopped running within 3 seconds.")
+				engineLog.WarnContextf(ctx, "Container stopped running within 3 seconds.")
 			}
 		}
 	} else if err == nil {
@@ -159,7 +159,7 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 		for {
 			select {
 			case <-verifyCtx.Done():
-				engineLog.WarnContext(ctx, "Timed out waiting for healthy status.")
+				engineLog.WarnContextf(ctx, "Timed out waiting for healthy status.")
 				goto EndVerify
 			case <-checkTicker.C:
 				inspect, err := d.Client.ContainerInspect(ctx, newContainer.ID)
@@ -167,7 +167,7 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 					continue
 				}
 				if !inspect.State.Running {
-					engineLog.WarnContext(ctx, "Container stopped running while waiting for health.")
+					engineLog.WarnContextf(ctx, "Container stopped running while waiting for health.")
 					goto EndVerify
 				}
 				if inspect.State.Health.Status == "healthy" {
@@ -175,7 +175,7 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 					goto EndVerify
 				}
 				if inspect.State.Health.Status == "unhealthy" {
-					engineLog.WarnContext(ctx, "Container became unhealthy.")
+					engineLog.WarnContextf(ctx, "Container became unhealthy.")
 					goto EndVerify
 				}
 			}
@@ -185,7 +185,7 @@ EndVerify:
 
 	// 7. Stability Wait (Post-Verification)
 	if verificationSuccess {
-		engineLog.InfoContext(ctx, "✅ Initial verification passed. Monitoring for 20s stability...")
+		engineLog.InfoContextf(ctx, "✅ Initial verification passed. Monitoring for 20s stability...")
 		select {
 		case <-ctx.Done():
 			verificationSuccess = false
@@ -193,23 +193,23 @@ EndVerify:
 			// Check one last time
 			finalInspect, err := d.Client.ContainerInspect(ctx, newContainer.ID)
 			if err != nil {
-				engineLog.ErrorContext(ctx, "❌ Failed to inspect container after stability wait: %v", err)
+				engineLog.ErrorContextf(ctx, "❌ Failed to inspect container after stability wait: %v", err)
 				verificationSuccess = false
 			} else if !finalInspect.State.Running {
-				engineLog.ErrorContext(ctx, "❌ Container crashed during stability wait (Exit Code: %d).", finalInspect.State.ExitCode)
+				engineLog.ErrorContextf(ctx, "❌ Container crashed during stability wait (Exit Code: %d).", finalInspect.State.ExitCode)
 				verificationSuccess = false
 			} else if finalInspect.State.Health != nil && finalInspect.State.Health.Status == "unhealthy" {
-				engineLog.ErrorContext(ctx, "❌ Container became unhealthy during stability wait.")
+				engineLog.ErrorContextf(ctx, "❌ Container became unhealthy during stability wait.")
 				verificationSuccess = false
 			} else {
-				engineLog.InfoContext(ctx, "✅ Container is stable.")
+				engineLog.InfoContextf(ctx, "✅ Container is stable.")
 			}
 		}
 	}
 
 	if !verificationSuccess {
 		// Rollback logic
-		engineLog.WarnContext(ctx, "Verification failed. Rolling back...")
+		engineLog.WarnContextf(ctx, "Verification failed. Rolling back...")
 		// Stop/Remove New
 		d.Client.ContainerStop(ctx, newContainer.ID, container.StopOptions{})
 		d.Client.ContainerRemove(ctx, newContainer.ID, container.RemoveOptions{Force: true})
@@ -217,13 +217,13 @@ EndVerify:
 		// Restore Old
 		renameErr := d.Client.ContainerRename(ctx, containerID, name)
 		if renameErr != nil {
-			engineLog.ErrorContext(ctx, "CRITICAL: Failed to rename old container back: %v", renameErr)
+			engineLog.ErrorContextf(ctx, "CRITICAL: Failed to rename old container back: %v", renameErr)
 			return fmt.Errorf("verification failed and rollback failed (rename): %v", renameErr)
 		}
 
 		startErr := d.Client.ContainerStart(ctx, containerID, container.StartOptions{})
 		if startErr != nil {
-			engineLog.ErrorContext(ctx, "CRITICAL: Failed to restart old container: %v", startErr)
+			engineLog.ErrorContextf(ctx, "CRITICAL: Failed to restart old container: %v", startErr)
 			return fmt.Errorf("verification failed and rollback failed (start): %v", startErr)
 		}
 
@@ -231,10 +231,10 @@ EndVerify:
 	}
 
 	// 7. Remove old container (Success path)
-	engineLog.InfoContext(ctx, "New container healthy/stable. Removing old container...")
+	engineLog.InfoContextf(ctx, "New container healthy/stable. Removing old container...")
 	err = d.Client.ContainerRemove(ctx, containerID, container.RemoveOptions{Force: true})
 	if err != nil {
-		engineLog.WarnContext(ctx, "Warning: Failed to remove old container: %v", err)
+		engineLog.WarnContextf(ctx, "Warning: Failed to remove old container: %v", err)
 	}
 
 	return nil

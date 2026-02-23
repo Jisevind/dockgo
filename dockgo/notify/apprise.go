@@ -67,7 +67,7 @@ func NewAppriseNotifier(ctx context.Context) *AppriseNotifier {
 		if size, err := strconv.Atoi(sizeStr); err == nil && size > 0 {
 			queueSize = size
 		} else if err != nil || size <= 0 {
-			notifyLog.Warn("Apprise: Invalid APPRISE_QUEUE_SIZE '%s', defaulting to 100", sizeStr)
+			notifyLog.Warnf("Apprise: Invalid APPRISE_QUEUE_SIZE '%s', defaulting to 100", sizeStr)
 		}
 	}
 
@@ -144,7 +144,7 @@ func (a *AppriseNotifier) worker(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			notifyLog.Debug("Apprise info: worker shutting down, draining queue...")
+			notifyLog.Debugf("Apprise info: worker shutting down, draining queue...")
 			a.mu.Lock()
 			a.closed = true
 			close(a.queue)
@@ -189,9 +189,9 @@ func (a *AppriseNotifier) send(client *http.Client, n Notification) {
 			resp, err := client.Post(targetURL, "application/json", bytes.NewBuffer(b))
 			if err != nil {
 				if i == maxRetries-1 {
-					notifyLog.Error("Apprise: Send failed to %s after %d retries: %v", targetURL, maxRetries, err)
+					notifyLog.Errorf("Apprise: Send failed to %s after %d retries: %v", targetURL, maxRetries, err)
 				} else {
-					notifyLog.Warn("Apprise: Send failed, retrying (%d/%d)...", i+1, maxRetries)
+					notifyLog.Warnf("Apprise: Send failed, retrying (%d/%d)...", i+1, maxRetries)
 					jitter := time.Duration(rand.Intn(1000)) * time.Millisecond
 					time.Sleep(2*time.Second + jitter)
 				}
@@ -201,9 +201,9 @@ func (a *AppriseNotifier) send(client *http.Client, n Notification) {
 			if resp.StatusCode >= 300 {
 				resp.Body.Close()
 				if i == maxRetries-1 {
-					notifyLog.Error("Apprise: Send failed to %s after %d retries: status %d", targetURL, maxRetries, resp.StatusCode)
+					notifyLog.Errorf("Apprise: Send failed to %s after %d retries: status %d", targetURL, maxRetries, resp.StatusCode)
 				} else {
-					notifyLog.Warn("Apprise: Send failed (status %d), retrying (%d/%d)...", resp.StatusCode, i+1, maxRetries)
+					notifyLog.Warnf("Apprise: Send failed (status %d), retrying (%d/%d)...", resp.StatusCode, i+1, maxRetries)
 					jitter := time.Duration(rand.Intn(1000)) * time.Millisecond
 					time.Sleep(2*time.Second + jitter)
 				}
@@ -237,7 +237,7 @@ func (a *AppriseNotifier) Notify(title, body string, notifType NotificationType)
 			// Queue is full, drop the oldest message to make room
 			select {
 			case dropped := <-a.queue:
-				notifyLog.Warn("Apprise: Queue full, dropping oldest notification: %s", dropped.Title)
+				notifyLog.Warnf("Apprise: Queue full, dropping oldest notification: %s", dropped.Title)
 			default:
 				// The worker grabbed it in the microsecond between selects, loop again
 			}
