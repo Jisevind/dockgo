@@ -20,6 +20,9 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 
 	totalToCheck := 0
 	for _, c := range allContainers {
+		if len(c.Names) == 0 {
+			continue
+		}
 		cName := c.Names[0]
 		if len(cName) > 0 && cName[0] == '/' {
 			cName = cName[1:]
@@ -39,6 +42,10 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 	sem := make(chan struct{}, 5)
 
 	for _, c := range allContainers {
+		if len(c.Names) == 0 {
+			continue
+		}
+
 		// Clean name
 		cName := c.Names[0]
 		if len(cName) > 0 && cName[0] == '/' {
