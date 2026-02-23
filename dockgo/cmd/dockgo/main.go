@@ -12,7 +12,6 @@ import (
 	"os"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -215,131 +214,36 @@ func runScan(checkOnly, jsonOutput, streamOutput bool, filter string, safe, forc
 					fmt.Printf("Updating %s...\n", upd.Name)
 				}
 
-				// Check Safe Mode
-				inspectState, err := discovery.GetContainerState(updateCtx, upd.ID)
-				isRunning := false
-				if err == nil && inspectState == "running" {
-					isRunning = true
-				}
-
-				if safe && isRunning {
-					if !jsonOutput && !streamOutput {
-						fmt.Printf("🛡️  Safe Mode: Skipping restart of running container '%s'. Pulling only.\n", upd.Name)
-					}
-					// Continue to pull
-				}
-
-				var composeError error
-				composeHandled := false
-				_, hasProject := upd.Labels["com.docker.compose.project"]
-				workingDir, hasWorkingDir := upd.Labels["com.docker.compose.project.working_dir"]
-				serviceName, hasService := upd.Labels["com.docker.compose.service"]
-
-				// Orchestrator Fence
-				isCompose := hasProject || hasService
-				isSwarmStack := upd.Labels["com.docker.stack.namespace"] != ""
-				isManaged := isCompose || isSwarmStack
-
-				if hasWorkingDir && hasService {
-					ctxCompose, cancel := context.WithTimeout(ctx, 10*time.Minute)
-					logger := func(line string) {
-						if streamOutput {
-							json.NewEncoder(os.Stdout).Encode(api.ProgressEvent{
-								Type: "progress", Status: line, Container: upd.Name,
-							})
-						} else if !jsonOutput {
-							fmt.Println(line)
-						}
-					}
-					var err error
-					if safe && isRunning {
-						err = engine.ComposePull(ctxCompose, workingDir, serviceName, logger)
-						if err == nil {
-							upd.Status = "pulled_safe"
-							if !jsonOutput && !streamOutput {
-								fmt.Printf("✅ %s image pulled (no restart)\n", upd.Name)
-							}
-						}
-					} else {
-						err = engine.ComposeUpdate(ctxCompose, workingDir, serviceName, logger)
-						if err == nil {
-							upd.Status = "updated"
-							if !jsonOutput && !streamOutput {
-								fmt.Printf("✅ %s updated via Docker Compose\n", upd.Name)
-							}
-						}
-					}
-					cancel()
-					if err == nil {
-						composeHandled = true
-					} else {
-						composeError = err
-						if !jsonOutput && !streamOutput {
-							fmt.Printf("⚠️  Compose action failed: %v\n", err)
-						}
-					}
-				}
-
-				if isManaged && !composeHandled {
-					// It's a managed stack but we couldn't run `docker compose` natively.
-					// DO NOT fallback to standalone.
-					errMsg := fmt.Sprintf("Container %s is orchestrated by Compose/Swarm but lacks local config context or the CLI failed. Standalone update aborted to prevent state corruption.", upd.Name)
-					if !jsonOutput && !streamOutput {
-						fmt.Printf("❌ %s\n", errMsg)
-					} else if streamOutput {
-						json.NewEncoder(os.Stdout).Encode(api.ProgressEvent{
-							Type: "error", Error: errMsg, Container: upd.Name,
-						})
-					}
-					// Only print error, then exit the updater scope
-					return
-				}
-
-				if composeHandled {
-					return
-				}
-
-				// Standalone Pull
-				err = discovery.PullImage(updateCtx, upd.Image, func(evt api.PullProgressEvent) {
+				// Prepare callback for CLI formatting
+				logCb := func(evt api.ProgressEvent) {
 					if streamOutput {
 						json.NewEncoder(os.Stdout).Encode(evt)
 					} else if !jsonOutput {
-						if evt.Status == "Downloading" || evt.Status == "Extracting" {
+						// Format for terminal
+						if evt.Type == "progress" {
 							if evt.Percent > 0 {
-								fmt.Printf("\r%s %s: %.1f%%", evt.Status, evt.Container, evt.Percent)
+								// \r is handled intrinsically or explicitly by the event if it's meant to overwrite
+								fmt.Printf("%s\n", evt.Status)
+							} else {
+								fmt.Printf("%s\n", evt.Status)
 							}
-						} else {
-							fmt.Printf("\n%s\n", evt.Status)
+						} else if evt.Type == "error" {
+							fmt.Printf("❌ %s\n", evt.Error)
 						}
 					}
-				})
-				if err != nil {
-					fmt.Printf("Failed to pull %s: %v\n", upd.Name, err)
-					upd.Error = err.Error()
-					if composeError != nil {
-						upd.Error += fmt.Sprintf(" (Compose error: %v)", composeError)
-					}
-					continue
 				}
 
-				if safe && isRunning {
-					if !jsonOutput && !streamOutput {
-						fmt.Printf("✅ %s checked/pulled (safe mode active)\n", upd.Name)
-					}
-					upd.Status = "pulled_safe"
-					continue
+				opts := engine.UpdateOptions{
+					Safe:            safe,
+					PreserveNetwork: preserveNetwork,
+					LogCallback:     logCb,
 				}
 
-				// Recreate
-				err = discovery.RecreateContainer(updateCtx, upd.ID, upd.Image, preserveNetwork)
+				err = engine.PerformUpdate(updateCtx, discovery, upd, opts)
 				if err != nil {
-					fmt.Printf("Failed to recreate %s: %v\n", upd.Name, err)
-					upd.Error = err.Error()
-				} else {
 					if !jsonOutput && !streamOutput {
-						fmt.Printf("Successfully updated %s\n", upd.Name)
+						fmt.Printf("Failed to update %s: %v\n", upd.Name, err)
 					}
-					upd.Status = "updated"
 				}
 			}
 		}
