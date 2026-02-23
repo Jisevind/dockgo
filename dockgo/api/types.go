@@ -19,13 +19,14 @@ type CheckReport struct {
 }
 
 type ProgressEvent struct {
-	Type            string `json:"type"`      // "start", "progress", "done", "error"
-	Current         int    `json:"current"`   // Current count
-	Total           int    `json:"total"`     // Total count
-	Container       string `json:"container"` // Container name being checked
-	Status          string `json:"status"`    // result of check
-	Error           string `json:"error,omitempty"`
-	UpdateAvailable bool   `json:"update_available"`
+	Type            string  `json:"type"`      // "start", "progress", "done", "error"
+	Current         int     `json:"current"`   // Current count
+	Total           int     `json:"total"`     // Total count
+	Container       string  `json:"container"` // Container name being checked
+	Status          string  `json:"status"`    // result of check
+	Error           string  `json:"error,omitempty"`
+	UpdateAvailable bool    `json:"update_available"`
+	Percent         float64 `json:"percent,omitempty"`
 }
 
 type PullProgressEvent struct {

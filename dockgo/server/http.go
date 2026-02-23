@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bufio"
 	"context"
 	"crypto/hmac"
 	cryptorand "crypto/rand"
@@ -19,7 +18,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -1124,74 +1122,49 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "data: {\"type\":\"start\", \"message\": \"Starting update for %s...\"}\n\n", name)
 	flusher.Flush()
 
-	self, err := os.Executable()
-	if err != nil {
-		fmt.Fprintf(w, "data: {\"type\":\"error\", \"error\": \"Failed to find executable: %v\"}\n\n", err)
+	// 1. Scan the specific container natively
+	updates, err := engine.Scan(context.Background(), s.Discovery, s.Registry, name, false, nil)
+	if err != nil || len(updates) == 0 {
+		debugLog("Failed to scan container %s natively: %v", name, err)
+		if err == nil {
+			err = fmt.Errorf("container not found or not running")
+		}
+		fmt.Fprintf(w, "data: {\"type\":\"error\", \"error\": \"Failed to locate container: %v\"}\n\n", err)
+		flusher.Flush()
 		return
 	}
+	targetUpdate := &updates[0]
+	targetID := targetUpdate.ID
 
-	// Find Container ID before update (to clear cache later)
-	var targetID string
-	containers, _ := s.Discovery.ListContainers(context.Background())
-	for _, c := range containers {
-		for _, n := range c.Names {
-			if strings.TrimPrefix(n, "/") == name {
-				targetID = c.ID
-				break
-			}
-		}
-		if targetID != "" {
-			break
-		}
-	}
 	debugLog("Resolved container %s to ID: %s", name, targetID)
 
-	// spawn: update -y name -stream
-	cmd := exec.Command(self, "update", "-y", name, "-stream")
-	cmd.Env = os.Environ()
+	// 2. Wrap SSE Writes inside a local lock
+	// The HTTP ResponseWriter is inherently NOT thread-safe for concurrent SSE pushes when flushed.
+	var sseMu sync.Mutex
+	emitSSE := func(evt api.ProgressEvent) {
+		sseMu.Lock()
+		defer sseMu.Unlock()
+		if bytes, err := json.Marshal(evt); err == nil {
+			fmt.Fprintf(w, "data: %s\n\n", string(bytes))
+			flusher.Flush()
+		}
+	}
 
-	// Merge stderr into stdout to capture all output
-	cmd.Stderr = cmd.Stdout
-	stdout, err := cmd.StdoutPipe()
+	// 3. Delegate to native engine update
+	opts := engine.UpdateOptions{
+		Safe:            false, // GUI updates are explicit commands (typically bypassing safe mode limits unless instructed otherwise)
+		PreserveNetwork: true,
+		LogCallback:     emitSSE,
+	}
+
+	debugLog("Beginning native engine update for %s", name)
+	err = engine.PerformUpdate(r.Context(), s.Discovery, targetUpdate, opts)
+
 	if err != nil {
-		debugLog("Failed to pipe stdout: %v", err)
-		fmt.Fprintf(w, "data: {\"type\":\"error\", \"error\": \"Failed to pipe stdout: %v\"}\n\n", err)
-		return
-	}
-
-	if err := cmd.Start(); err != nil {
-		debugLog("Failed to start update command: %v", err)
-		fmt.Fprintf(w, "data: {\"type\":\"error\", \"error\": \"Failed to start update command: %v\"}\n\n", err)
-		return
-	}
-
-	scanner := bufio.NewScanner(stdout)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if line == "" {
-			continue
-		}
-
-		// Check if line is valid JSON
-		if json.Valid([]byte(line)) {
-			fmt.Fprintf(w, "data: %s\n\n", line)
-		} else {
-			// Wrap raw text in JSON
-			// Use simple string escaping or a struct
-			rawEvt := api.ProgressEvent{
-				Type:   "progress",
-				Status: line,
-			}
-			if bytes, err := json.Marshal(rawEvt); err == nil {
-				fmt.Fprintf(w, "data: %s\n\n", string(bytes))
-			}
-		}
-		flusher.Flush()
-	}
-
-	if err := cmd.Wait(); err != nil {
 		debugLog("Update process failed for %s: %v", name, err)
+		sseMu.Lock()
 		fmt.Fprintf(w, "data: {\"type\":\"error\", \"error\": \"Update process failed: %v\"}\n\n", err)
+		sseMu.Unlock()
 		s.Notifier.Notify(
 			"DockGo Update Failed",
 			fmt.Sprintf("Failed to update container %s: %v", name, err),
@@ -1212,11 +1185,14 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 			lenAfter := len(s.updatesCache)
 			s.mu.Unlock()
 			debugLog("Clearing cache for %s (ID: %s). Len Before: %d, Len After: %d", name, targetID, lenBefore, lenAfter)
-		} else {
-			debugLog("Could not find ID for %s, cache not cleared.", name)
 		}
 
+		sseMu.Lock()
 		fmt.Fprintf(w, "data: {\"type\":\"done\", \"success\": true, \"message\": \"Update completed successfully\"}\n\n")
+		sseMu.Unlock()
 	}
+
+	sseMu.Lock()
 	flusher.Flush()
+	sseMu.Unlock()
 }
