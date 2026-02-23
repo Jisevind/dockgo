@@ -101,7 +101,11 @@ func NewServer(port string) (*Server, error) {
 
 	if authSecret == "" {
 		// Generate random secret if not provided, restarts invalidate sessions
-		authSecret = fmt.Sprintf("%d-%d", time.Now().UnixNano(), os.Getpid())
+		b := make([]byte, 32)
+		if _, err := cryptorand.Read(b); err != nil {
+			return nil, fmt.Errorf("failed to generate auth secret: %w", err)
+		}
+		authSecret = base64.RawURLEncoding.EncodeToString(b)
 	}
 
 	bcryptCost := bcrypt.DefaultCost
