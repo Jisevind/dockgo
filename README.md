@@ -49,7 +49,8 @@ DockGo takes security seriously.
 1.  **Non-Root Execution**: Inside the container, the process runs as the `dockgo` user (UID 1000), not root.
 2.  **Socket Permissions**: The entrypoint script creates a `docker` group matching the host's socket GID, allowing the `dockgo` user to talk to the engine without being root.
 3.  **Authentication**:
-    *   **User Login (Recommended)**: Set `AUTH_USERNAME` and `AUTH_PASSWORD` to enable a secure login flow with HttpOnly cookies.
+    *   **User Login**: Set `AUTH_USERNAME` and map either `AUTH_PASSWORD_HASH` (recommended) or `AUTH_PASSWORD` (convenience/testing) to enable a secure login flow with HttpOnly cookies.
+        *   *Generate hashes using the built-in CLI command, e.g., `dockgo hash-password secret`.*
     *   **Legacy Token**: Set `API_TOKEN` for simple script integrations.
     *   **CORS**: Disabled by default. Only enabled if you specifically set `CORS_ORIGIN`.
 4.  **Log Redaction**: Sensitive errors and login failures are redacted in logs.
@@ -62,7 +63,7 @@ DockGo takes security seriously.
 > **You MUST:**
 > 1. **Never expose DockGo publicly to the internet** without robust authentication.
 > 2. **Use Network Isolation:** Run DockGo on a trusted, private local network.
-> 3. **Implement a Reverse Proxy:** If you must expose it, place it behind a secure reverse proxy (like Nginx, Traefik, or Caddy) equipped with SSL/TLS and preferably external Single Sign-On (SSO) or robust reverse-proxy-level authentication, *in addition* to DockGo's built-in `AUTH_USERNAME`/`AUTH_PASSWORD`.
+> 3. **Implement a Reverse Proxy:** If you must expose it, place it behind a secure reverse proxy (like Nginx, Traefik, or Caddy) equipped with SSL/TLS and preferably external Single Sign-On (SSO) or robust reverse-proxy-level authentication, *in addition* to DockGo's built-in authentication.
 >
 > Failing to secure this endpoint means giving anyone on the internet immediate root access to your entire server.
 
@@ -93,7 +94,8 @@ Configure DockGo using environment variables:
 | `PORT` | Web server port | `3131` |
 | `LOG_LEVEL` | Log verbosity (`debug`, `info`, `warn`, `error`) | `info` |
 | `AUTH_USERNAME` | Username for web login | *(empty)* |
-| `AUTH_PASSWORD` | Password for web login | *(empty)* |
+| `AUTH_PASSWORD_HASH`| Pre-hashed bcrypt string (Recommended for production) | *(empty)* |
+| `AUTH_PASSWORD` | Plaintext password (Convenience/Testing) | *(empty)* |
 | `AUTH_SECRET` | Secret for signing session cookies | *(random)* |
 | `AUTH_BCRYPT_COST` | Configurable bcrypt hashing cost (min 4, max 31) | `10` |
 | `API_TOKEN` | Legacy token for API updates | *(empty)* |
@@ -124,7 +126,8 @@ services:
     environment:
       - LOG_LEVEL=info
       - AUTH_USERNAME=admin
-      - AUTH_PASSWORD=secret
+      # Generate with: dockgo hash-password your_password
+      - AUTH_PASSWORD_HASH=$$2a$$10$$YOUR_GENERATED_HASH_HERE
 ```
 
 ---
@@ -138,6 +141,10 @@ You can use the `dockgo` binary directly for scripting or manual checks.
 dockgo check
 
 # Check with JSON output (great for scripts)
+dockgo check -json
+
+# Generate a password hash for the dashboard server configuration
+dockgo hash-password supersecretpassword
 dockgo check -json
 
 # Update a specific container

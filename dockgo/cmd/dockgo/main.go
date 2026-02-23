@@ -10,10 +10,12 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func main() {
@@ -38,6 +40,8 @@ func main() {
 		handleCheck(args)
 	case "update":
 		handleUpdate(args)
+	case "hash-password":
+		handleHashPassword(args)
 	default:
 		fmt.Printf("Unknown command: %s\n", cmd)
 		help()
@@ -48,9 +52,10 @@ func main() {
 func help() {
 	fmt.Println("Usage: dockgo <command> [flags]")
 	fmt.Println("\nCommands:")
-	fmt.Println("  serve   Start the web server")
-	fmt.Println("  check   Check for updates (dry-run)")
-	fmt.Println("  update  Update containers")
+	fmt.Println("  serve          Start the web server")
+	fmt.Println("  check          Check for updates (dry-run)")
+	fmt.Println("  update         Update containers")
+	fmt.Println("  hash-password  Generate a bcrypt hash for AUTH_PASSWORD_HASH")
 }
 
 func handleServe(args []string) {
@@ -68,12 +73,40 @@ func handleServe(args []string) {
 
 	srv, err := server.NewServer(p)
 	if err != nil {
-		fatal("Failed to init server: %v", err)
+		fmt.Printf("Failed to initialize server: %v\n", err)
+		os.Exit(1)
+	}
+	if err := srv.Start(); err != nil {
+		fmt.Printf("Server failed: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func handleHashPassword(args []string) {
+	if len(args) < 1 {
+		fmt.Println("Usage: dockgo hash-password <password>")
+		os.Exit(1)
 	}
 
-	if err := srv.Start(); err != nil {
-		fatal("Server error: %v", err)
+	password := args[0]
+	costStr := os.Getenv("AUTH_BCRYPT_COST")
+	bcryptCost := bcrypt.DefaultCost
+
+	if costStr != "" {
+		if c, err := strconv.Atoi(costStr); err == nil && c >= bcrypt.MinCost && c <= bcrypt.MaxCost {
+			bcryptCost = c
+		} else {
+			fmt.Println("Warning: Invalid AUTH_BCRYPT_COST, falling back to default")
+		}
 	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcryptCost)
+	if err != nil {
+		fmt.Printf("Failed to generate hash: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("%s\n", string(hash))
 }
 
 func handleCheck(args []string) {

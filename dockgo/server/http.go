@@ -82,6 +82,7 @@ func NewServer(port string) (*Server, error) {
 	token := os.Getenv("API_TOKEN")
 	authUser := os.Getenv("AUTH_USERNAME")
 	authPass := os.Getenv("AUTH_PASSWORD")
+	authPassHash := os.Getenv("AUTH_PASSWORD_HASH")
 	authSecret := os.Getenv("AUTH_SECRET")
 	costStr := os.Getenv("AUTH_BCRYPT_COST")
 
@@ -95,26 +96,45 @@ func NewServer(port string) (*Server, error) {
 		if c, err := strconv.Atoi(costStr); err == nil && c >= bcrypt.MinCost && c <= bcrypt.MaxCost {
 			bcryptCost = c
 		} else {
-			logger.Warnf("Invalid AUTH_BCRYPT_COST, falling back to default")
+			serverLog.Warnf("Invalid AUTH_BCRYPT_COST, falling back to default")
 		}
 	}
 
 	var passHash []byte
-	if authUser != "" && authPass != "" {
-		var err error
-		passHash, err = bcrypt.GenerateFromPassword([]byte(authPass), bcryptCost)
-		if err != nil {
-			return nil, fmt.Errorf("failed to hash password: %v", err)
+	if authUser != "" {
+		if authPass == "" && authPassHash == "" {
+			return nil, fmt.Errorf("authentication is enabled but no AUTH_PASSWORD or AUTH_PASSWORD_HASH provided")
 		}
-		// Clear plain text password from memory
-		authPass = ""
+
+		if authPass != "" && authPassHash != "" {
+			serverLog.Warnf("Both AUTH_PASSWORD_HASH and AUTH_PASSWORD provided. Using AUTH_PASSWORD_HASH.")
+			// Let it go out of scope ASAP since hash takes precedence
+			authPass = ""
+		}
+
+		if authPassHash != "" {
+			passHash = []byte(authPassHash)
+			// Validate that it's actually a valid bcrypt hash
+			_, err := bcrypt.Cost(passHash)
+			if err != nil {
+				return nil, fmt.Errorf("AUTH_PASSWORD_HASH provided but is not a valid bcrypt hash: %v", err)
+			}
+		} else if authPass != "" {
+			var err error
+			passHash, err = bcrypt.GenerateFromPassword([]byte(authPass), bcryptCost)
+			if err != nil {
+				return nil, fmt.Errorf("failed to hash password: %v", err)
+			}
+			// Clear plain text password from memory
+			authPass = ""
+		}
 	}
 
 	if token == "" && authUser == "" {
-		logger.Warnf("WARNING: No API_TOKEN or AUTH_USERNAME set. Updates disabled.")
+		serverLog.Warnf("WARNING: No API_TOKEN or AUTH_USERNAME set. Updates disabled.")
 	}
 
-	logger.Infof("Server Initializing...")
+	serverLog.Infof("Server Initializing...")
 
 	return &Server{
 		Port:             port,

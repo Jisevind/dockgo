@@ -19,8 +19,12 @@ services:
       - CORS_ORIGIN=http://localhost:3131
       # Option 1: Legacy Token
       # - API_TOKEN=your_secure_token_here
-      # Option 2: User Login (Recommended)
+      # Option 2: User Login
       # - AUTH_USERNAME=admin
+      # Recommended (Production): Pre-hashed bcrypt string (generate with `dockgo hash-password secret`)
+      # Double the '$' character to escape it in docker-compose.yml files (e.g., $$2a$$10$$...)
+      # - AUTH_PASSWORD_HASH=$$2a$$10$$w...
+      # Convenience (Testing): Plaintext password (not recommended for production)
       # - AUTH_PASSWORD=supersecurepassword
       # - AUTH_SECRET=random_string_for_signing_cookies
       # - AUTH_BCRYPT_COST=10 # Optional: Set hashing complexity (min 4, max 31, default 10)
