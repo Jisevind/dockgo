@@ -212,6 +212,7 @@ func (s *Server) Start() error {
 
 	// Start background update scheduler
 	go s.StartScheduler(context.Background())
+	go s.cleanupRateLimiters(context.Background())
 
 	// Send startup notification in a goroutine so it doesn't block the server
 	go func() {
@@ -437,6 +438,27 @@ func (s *Server) checkRateLimit(remoteAddr string) bool {
 
 	// Max 5 attempts per minute
 	return limiter.count <= 5
+}
+
+// cleanupRateLimiters periodically prunes stale IP tracking data to prevent OOMs
+func (s *Server) cleanupRateLimiters(ctx context.Context) {
+	ticker := time.NewTicker(10 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			s.loginMu.Lock()
+			for ip, limiter := range s.loginAttempts {
+				if time.Since(limiter.lastSeen) > 10*time.Minute {
+					delete(s.loginAttempts, ip)
+				}
+			}
+			s.loginMu.Unlock()
+		}
+	}
 }
 
 // loadAuthState hydrates session revocations from the JSON persistence layer.
