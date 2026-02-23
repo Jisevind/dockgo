@@ -67,9 +67,39 @@ func SetLevel(levelStr string) {
 	}
 }
 
+// SubsystemLogger wraps slog.Logger to provide Printf-style methods
+type SubsystemLogger struct {
+	sl *slog.Logger
+}
+
+func (s *SubsystemLogger) Infof(format string, args ...any) {
+	s.sl.Info(fmt.Sprintf(format, args...))
+}
+func (s *SubsystemLogger) Debugf(format string, args ...any) {
+	s.sl.Debug(fmt.Sprintf(format, args...))
+}
+func (s *SubsystemLogger) Warnf(format string, args ...any) {
+	s.sl.Warn(fmt.Sprintf(format, args...))
+}
+func (s *SubsystemLogger) Errorf(format string, args ...any) {
+	s.sl.Error(fmt.Sprintf(format, args...))
+}
+func (s *SubsystemLogger) InfoContextf(ctx context.Context, format string, args ...any) {
+	s.sl.InfoContext(ctx, fmt.Sprintf(format, args...), extractAttrs(ctx)...)
+}
+func (s *SubsystemLogger) DebugContextf(ctx context.Context, format string, args ...any) {
+	s.sl.DebugContext(ctx, fmt.Sprintf(format, args...), extractAttrs(ctx)...)
+}
+func (s *SubsystemLogger) WarnContextf(ctx context.Context, format string, args ...any) {
+	s.sl.WarnContext(ctx, fmt.Sprintf(format, args...), extractAttrs(ctx)...)
+}
+func (s *SubsystemLogger) ErrorContextf(ctx context.Context, format string, args ...any) {
+	s.sl.ErrorContext(ctx, fmt.Sprintf(format, args...), extractAttrs(ctx)...)
+}
+
 // WithSubsystem returns a bound logger with a component tag
-func WithSubsystem(name string) *slog.Logger {
-	return globalLogger.With(slog.String("component", name))
+func WithSubsystem(name string) *SubsystemLogger {
+	return &SubsystemLogger{sl: globalLogger.With(slog.String("component", name))}
 }
 
 // WithUpdateID injects a correlation ID into a context
@@ -90,40 +120,40 @@ func extractAttrs(ctx context.Context) []any {
 
 // Contextual Logging Helpers
 
-func InfoCtx(ctx context.Context, format string, args ...any) {
+func InfoCtxf(ctx context.Context, format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
 	globalLogger.InfoContext(ctx, msg, extractAttrs(ctx)...)
 }
 
-func DebugCtx(ctx context.Context, format string, args ...any) {
+func DebugCtxf(ctx context.Context, format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
 	globalLogger.DebugContext(ctx, msg, extractAttrs(ctx)...)
 }
 
-func WarnCtx(ctx context.Context, format string, args ...any) {
+func WarnCtxf(ctx context.Context, format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
 	globalLogger.WarnContext(ctx, msg, extractAttrs(ctx)...)
 }
 
-func ErrorCtx(ctx context.Context, format string, args ...any) {
+func ErrorCtxf(ctx context.Context, format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
 	globalLogger.ErrorContext(ctx, msg, extractAttrs(ctx)...)
 }
 
 // Legacy Printf-style Wrappers (for backwards compatibility)
 
-func Debug(format string, args ...interface{}) {
+func Debugf(format string, args ...interface{}) {
 	globalLogger.Debug(fmt.Sprintf(format, args...))
 }
 
-func Info(format string, args ...interface{}) {
+func Infof(format string, args ...interface{}) {
 	globalLogger.Info(fmt.Sprintf(format, args...))
 }
 
-func Warn(format string, args ...interface{}) {
+func Warnf(format string, args ...interface{}) {
 	globalLogger.Warn(fmt.Sprintf(format, args...))
 }
 
-func Error(format string, args ...interface{}) {
+func Errorf(format string, args ...interface{}) {
 	globalLogger.Error(fmt.Sprintf(format, args...))
 }

@@ -30,6 +30,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+var serverLog = logger.WithSubsystem("server")
+
 //go:embed web
 var content embed.FS
 
@@ -93,7 +95,7 @@ func NewServer(port string) (*Server, error) {
 		if c, err := strconv.Atoi(costStr); err == nil && c >= bcrypt.MinCost && c <= bcrypt.MaxCost {
 			bcryptCost = c
 		} else {
-			logger.Warn("Invalid AUTH_BCRYPT_COST, falling back to default")
+			logger.Warnf("Invalid AUTH_BCRYPT_COST, falling back to default")
 		}
 	}
 
@@ -109,10 +111,10 @@ func NewServer(port string) (*Server, error) {
 	}
 
 	if token == "" && authUser == "" {
-		logger.Warn("WARNING: No API_TOKEN or AUTH_USERNAME set. Updates disabled.")
+		logger.Warnf("WARNING: No API_TOKEN or AUTH_USERNAME set. Updates disabled.")
 	}
 
-	logger.Info("Server Initializing...")
+	logger.Infof("Server Initializing...")
 
 	return &Server{
 		Port:             port,
@@ -164,7 +166,7 @@ func (s *Server) Start() error {
 	}
 	mux.Handle("/", http.FileServer(http.FS(webFS)))
 
-	logger.Info("DockGo listening at http://localhost:%s", s.Port)
+	logger.Infof("DockGo listening at http://localhost:%s", s.Port)
 
 	// Start background update scheduler
 	go s.StartScheduler(context.Background())
@@ -179,7 +181,7 @@ func (s *Server) Start() error {
 				notify.TypeInfo,
 			)
 		} else {
-			logger.Warn("Apprise: Notification server failed to become ready in time.")
+			logger.Warnf("Apprise: Notification server failed to become ready in time.")
 		}
 	}()
 
@@ -253,12 +255,12 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 		// 3. Fallback: Fail
 		// If neither configured, fail.
 		if s.APIToken == "" && s.AuthUsername == "" {
-			logger.Debug("Auth Failed (No Config)")
+			logger.Debugf("Auth Failed (No Config)")
 			http.Error(w, "Updates disabled (No Auth Configured)", http.StatusForbidden)
 			return
 		}
 
-		logger.Warn("Auth Failed (Unauthorized)")
+		logger.Warnf("Auth Failed (Unauthorized)")
 		w.Header().Set("WWW-Authenticate", `Bearer realm="dockgo"`)
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 	}
@@ -407,7 +409,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	// Verify Password Hash
 	if err := bcrypt.CompareHashAndPassword(s.AuthPasswordHash, []byte(creds.Password)); err != nil {
-		logger.Debug("Login Failed (redacted)")
+		logger.Debugf("Login Failed (redacted)")
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
@@ -725,7 +727,7 @@ func (s *Server) handleContainers(w http.ResponseWriter, r *http.Request) {
 
 // /api/stream/check
 func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
-	logger.Debug("👉 Stream Request Started")
+	logger.Debugf("👉 Stream Request Started")
 	// 1. Set headers
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -741,9 +743,9 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 	// 3. Panic recovery
 	defer func() {
 		if r := recover(); r != nil {
-			logger.Error("🔥 PANIC in handleStreamCheck: %v", r)
+			logger.Errorf("🔥 PANIC in handleStreamCheck: %v", r)
 		}
-		logger.Debug("🛑 Stream Request Ended")
+		logger.Debugf("🛑 Stream Request Ended")
 	}()
 
 	// 4. Send initial "start" event
@@ -808,7 +810,7 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 		defer writeMu.Unlock()
 
 		if _, err := fmt.Fprintf(w, "data: %s\n\n", string(bytes)); err != nil {
-			logger.Error("❌ Write Error for %s: %v", u.Name, err)
+			logger.Errorf("❌ Write Error for %s: %v", u.Name, err)
 			cancel()
 			return
 		}
@@ -816,10 +818,10 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 7. Run Scan
-	logger.Debug("Starting Engine Scan...")
+	logger.Debugf("Starting Engine Scan...")
 	force := r.URL.Query().Get("force") == "true"
 	updates, err := engine.Scan(ctx, s.Discovery, s.Registry, "", force, onProgress)
-	logger.Debug("Scan returned %d updates, err=%v", len(updates), err)
+	logger.Debugf("Scan returned %d updates, err=%v", len(updates), err)
 
 	// 8. Handle result
 	if ctx.Err() == nil {
@@ -864,11 +866,11 @@ func (s *Server) StartScheduler(ctx context.Context) {
 	}
 	interval, err := time.ParseDuration(intervalStr)
 	if err != nil || interval <= 0 {
-		logger.Warn("Apprise: Invalid SCAN_INTERVAL '%s', defaulting to 24h", intervalStr)
+		logger.Warnf("Apprise: Invalid SCAN_INTERVAL '%s', defaulting to 24h", intervalStr)
 		interval = 24 * time.Hour
 	}
 
-	logger.Info("Starting autonomous background update scheduler (interval: %v)", interval)
+	logger.Infof("Starting autonomous background update scheduler (interval: %v)", interval)
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
@@ -881,7 +883,7 @@ func (s *Server) StartScheduler(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			serverLog.Info("Stopping background update scheduler")
+			serverLog.Infof("Stopping background update scheduler")
 			return
 		case <-ticker.C:
 			s.runScheduledScan(ctx)
@@ -891,10 +893,10 @@ func (s *Server) StartScheduler(ctx context.Context) {
 
 func (s *Server) runScheduledScan(ctx context.Context) {
 	updateCtx := logger.WithUpdateID(ctx, uuid.New().String())
-	serverLog.DebugCtx(updateCtx, "Scheduler: Running background engine scan...")
+	serverLog.DebugContextf(updateCtx, "Scheduler: Running background engine scan...")
 	updates, err := engine.Scan(updateCtx, s.Discovery, s.Registry, "", true, nil) // nil progress callback since this is headless
 	if err != nil {
-		serverLog.ErrorCtx(updateCtx, "Scheduler: Engine scan failed: %v", err)
+		serverLog.ErrorContextf(updateCtx, "Scheduler: Engine scan failed: %v", err)
 
 		s.mu.Lock()
 		s.lastCheckStat = "error"
@@ -921,7 +923,7 @@ func (s *Server) runScheduledScan(ctx context.Context) {
 				}
 			}
 			newCache[u.ID] = true
-			serverLog.DebugCtx(updateCtx, "Scheduler: Found update for %s (ID: %s)", name, u.ID)
+			serverLog.DebugContextf(updateCtx, "Scheduler: Found update for %s (ID: %s)", name, u.ID)
 		}
 	}
 
@@ -965,7 +967,7 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		if logFile != nil {
 			logFile.WriteString(time.Now().Format(time.RFC3339) + " " + msg + "\n")
 		}
-		logger.Debug("%s", msg)
+		logger.Debugf("%s", msg)
 	}
 
 	name := strings.TrimPrefix(r.URL.Path, "/api/update/")
