@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -949,6 +950,8 @@ func (s *Server) runScheduledScan(ctx context.Context) {
 	s.mu.Unlock()
 }
 
+var validContainerName = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
+
 // /api/update/:name
 func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	logFile, _ := os.OpenFile("/tmp/dockgo.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -971,8 +974,8 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if strings.ContainsAny(name, ";&|") {
-		http.Error(w, "Invalid name", http.StatusBadRequest)
+	if !validContainerName.MatchString(name) {
+		http.Error(w, "Invalid container name format", http.StatusBadRequest)
 		return
 	}
 
