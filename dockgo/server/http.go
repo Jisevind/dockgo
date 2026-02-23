@@ -26,6 +26,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -880,7 +881,7 @@ func (s *Server) StartScheduler(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Info("Stopping background update scheduler")
+			serverLog.Info("Stopping background update scheduler")
 			return
 		case <-ticker.C:
 			s.runScheduledScan(ctx)
@@ -889,10 +890,11 @@ func (s *Server) StartScheduler(ctx context.Context) {
 }
 
 func (s *Server) runScheduledScan(ctx context.Context) {
-	logger.Debug("Scheduler: Running background engine scan...")
-	updates, err := engine.Scan(ctx, s.Discovery, s.Registry, "", true, nil) // nil progress callback since this is headless
+	updateCtx := logger.WithUpdateID(ctx, uuid.New().String())
+	serverLog.DebugCtx(updateCtx, "Scheduler: Running background engine scan...")
+	updates, err := engine.Scan(updateCtx, s.Discovery, s.Registry, "", true, nil) // nil progress callback since this is headless
 	if err != nil {
-		logger.Error("Scheduler: Engine scan failed: %v", err)
+		serverLog.ErrorCtx(updateCtx, "Scheduler: Engine scan failed: %v", err)
 
 		s.mu.Lock()
 		s.lastCheckStat = "error"
@@ -919,7 +921,7 @@ func (s *Server) runScheduledScan(ctx context.Context) {
 				}
 			}
 			newCache[u.ID] = true
-			logger.Debug("Scheduler: Found update for %s (ID: %s)", name, u.ID)
+			serverLog.DebugCtx(updateCtx, "Scheduler: Found update for %s (ID: %s)", name, u.ID)
 		}
 	}
 
