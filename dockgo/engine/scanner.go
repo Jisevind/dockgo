@@ -81,7 +81,7 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 			}
 
 			// Get local details first to resolve true image name (in case List returned SHA)
-			resolvedName, _, repoDigests, _, _, err := discovery.GetContainerImageDetails(ctx, id)
+			resolvedName, _, repoDigests, os, arch, err := discovery.GetContainerImageDetails(ctx, id)
 			logger.Debug("[Scan] %s: Image=%s, Resolved=%s, RepoDigests=%d", name, image, resolvedName, len(repoDigests))
 
 			// Check context again
@@ -106,6 +106,13 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 
 				// Now check registry with the resolved name
 				var platform *v1.Platform
+				if os != "" && arch != "" {
+					platform = &v1.Platform{
+						OS:           os,
+						Architecture: arch,
+					}
+					logger.Debug("[Scan] %s: Platform Resolution %s/%s", name, os, arch)
+				}
 
 				// Check context before remote call
 				if ctx.Err() != nil {
