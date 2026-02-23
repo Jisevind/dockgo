@@ -194,9 +194,14 @@ func runScan(checkOnly, jsonOutput, streamOutput bool, filter string, safe, forc
 
 				var composeError error
 				composeHandled := false
-				project, hasProject := upd.Labels["com.docker.compose.project"]
+				_, hasProject := upd.Labels["com.docker.compose.project"]
 				workingDir, hasWorkingDir := upd.Labels["com.docker.compose.project.working_dir"]
 				serviceName, hasService := upd.Labels["com.docker.compose.service"]
+
+				// Orchestrator Fence
+				isCompose := hasProject || hasService
+				isSwarmStack := upd.Labels["com.docker.stack.namespace"] != ""
+				isManaged := isCompose || isSwarmStack
 
 				if hasWorkingDir && hasService {
 					ctxCompose, cancel := context.WithTimeout(ctx, 10*time.Minute)
@@ -233,17 +238,28 @@ func runScan(checkOnly, jsonOutput, streamOutput bool, filter string, safe, forc
 					} else {
 						composeError = err
 						if !jsonOutput && !streamOutput {
-							fmt.Printf("⚠️  Compose action failed: %v. Falling back to standalone...\n", err)
+							fmt.Printf("⚠️  Compose action failed: %v\n", err)
 						}
-					}
-				} else if hasProject {
-					if !jsonOutput && !streamOutput {
-						fmt.Printf("⚠️  Container %s appears to be a Compose service (project: %s) but matches no working directory. Falling back to standalone update.\n", upd.Name, project)
 					}
 				}
 
+				if isManaged && !composeHandled {
+					// It's a managed stack but we couldn't run `docker compose` natively.
+					// DO NOT fallback to standalone.
+					errMsg := fmt.Sprintf("Container %s is orchestrated by Compose/Swarm but lacks local config context or the CLI failed. Standalone update aborted to prevent state corruption.", upd.Name)
+					if !jsonOutput && !streamOutput {
+						fmt.Printf("❌ %s\n", errMsg)
+					} else if streamOutput {
+						json.NewEncoder(os.Stdout).Encode(api.ProgressEvent{
+							Type: "error", Error: errMsg, Container: upd.Name,
+						})
+					}
+					// Only print error, then exit the updater scope
+					return
+				}
+
 				if composeHandled {
-					continue
+					return
 				}
 
 				// Standalone Pull
