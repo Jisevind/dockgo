@@ -12,6 +12,8 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 func main() {
@@ -143,7 +145,9 @@ func runScan(checkOnly, jsonOutput, streamOutput bool, filter string, safe, forc
 		}
 	}
 
-	updates, err := engine.Scan(ctx, discovery, registry, filter, true, onProgress)
+	updateCtx := logger.WithUpdateID(ctx, uuid.New().String())
+
+	updates, err := engine.Scan(updateCtx, discovery, registry, filter, true, onProgress)
 	if err != nil {
 		fatal("Scan error: %v", err)
 	}
@@ -179,7 +183,7 @@ func runScan(checkOnly, jsonOutput, streamOutput bool, filter string, safe, forc
 				}
 
 				// Check Safe Mode
-				inspectState, err := discovery.GetContainerState(ctx, upd.ID)
+				inspectState, err := discovery.GetContainerState(updateCtx, upd.ID)
 				isRunning := false
 				if err == nil && inspectState == "running" {
 					isRunning = true
@@ -263,7 +267,7 @@ func runScan(checkOnly, jsonOutput, streamOutput bool, filter string, safe, forc
 				}
 
 				// Standalone Pull
-				err = discovery.PullImage(ctx, upd.Image, func(evt api.PullProgressEvent) {
+				err = discovery.PullImage(updateCtx, upd.Image, func(evt api.PullProgressEvent) {
 					if streamOutput {
 						json.NewEncoder(os.Stdout).Encode(evt)
 					} else if !jsonOutput {
@@ -294,7 +298,7 @@ func runScan(checkOnly, jsonOutput, streamOutput bool, filter string, safe, forc
 				}
 
 				// Recreate
-				err = discovery.RecreateContainer(ctx, upd.ID, upd.Image, preserveNetwork)
+				err = discovery.RecreateContainer(updateCtx, upd.ID, upd.Image, preserveNetwork)
 				if err != nil {
 					fmt.Printf("Failed to recreate %s: %v\n", upd.Name, err)
 					upd.Error = err.Error()
