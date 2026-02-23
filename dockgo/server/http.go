@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -62,12 +63,20 @@ type Server struct {
 	lastRegStatus    string
 	revokedSessions  map[string]time.Time
 	globalReauthTime time.Time
+	UpdatesChan      chan string // Added UpdatesChan
+	sessionStorePath string      // Added sessionStorePath
 	sessionMu        sync.RWMutex
 }
 
 type RateLimiter struct {
 	count    int
 	lastSeen time.Time
+}
+
+// AuthState is used to serialize and deserialize the session persistence store
+type AuthState struct {
+	GlobalReauthTime int64             `json:"global_reauth_time"`
+	RevokedSessions  map[string]string `json:"revoked_sessions"` // map[UUID]RFC3339
 }
 
 func NewServer(port string) (*Server, error) {
@@ -85,6 +94,11 @@ func NewServer(port string) (*Server, error) {
 	authPassHash := os.Getenv("AUTH_PASSWORD_HASH")
 	authSecret := os.Getenv("AUTH_SECRET")
 	costStr := os.Getenv("AUTH_BCRYPT_COST")
+	sessionPath := os.Getenv("SESSION_STORE_PATH")
+
+	if sessionPath == "" {
+		sessionPath = "/app/data/sessions.json"
+	}
 
 	if authSecret == "" {
 		// Generate random secret if not provided, restarts invalidate sessions
@@ -136,13 +150,14 @@ func NewServer(port string) (*Server, error) {
 
 	serverLog.Infof("Server Initializing...")
 
-	return &Server{
+	srv := &Server{
 		Port:             port,
 		CorsOrigin:       corsOrigin,
 		APIToken:         token,
 		AuthUsername:     authUser,
 		AuthPasswordHash: passHash,
 		AuthSecret:       authSecret,
+		sessionStorePath: sessionPath,
 		Discovery:        disc,
 		Registry:         registry,
 		Notifier:         notify.NewAppriseNotifier(context.Background()),
@@ -150,7 +165,11 @@ func NewServer(port string) (*Server, error) {
 		startTime:        time.Now(),
 		loginAttempts:    make(map[string]*RateLimiter),
 		revokedSessions:  make(map[string]time.Time),
-	}, nil
+	}
+
+	srv.loadAuthState()
+
+	return srv, nil
 }
 
 func (s *Server) Start() error {
@@ -392,6 +411,92 @@ func (s *Server) checkRateLimit(remoteAddr string) bool {
 	return limiter.count <= 5
 }
 
+// loadAuthState hydrates session revocations from the JSON persistence layer.
+// Handles missing files gracefully and detects/recovers uniformly from corruption.
+func (s *Server) loadAuthState() {
+	if s.sessionStorePath == "" {
+		return
+	}
+
+	data, err := os.ReadFile(s.sessionStorePath)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			serverLog.Errorf("AuthStore: Failed to read %s: %v", s.sessionStorePath, err)
+		}
+		return // Start fresh
+	}
+
+	var state AuthState
+	if err := json.Unmarshal(data, &state); err != nil {
+		serverLog.Errorf("AuthStore: Corrupt JSON detected in %s: %v. Starting fresh.", s.sessionStorePath, err)
+		corruptPath := s.sessionStorePath + ".corrupt"
+		if renameErr := os.Rename(s.sessionStorePath, corruptPath); renameErr != nil {
+			serverLog.Errorf("AuthStore: Failed to backup corrupt store: %v", renameErr)
+		} else {
+			serverLog.Warnf("AuthStore: Backed up corrupt store to %s", corruptPath)
+		}
+		return // Start fresh
+	}
+
+	s.sessionMu.Lock()
+	defer s.sessionMu.Unlock()
+
+	if state.GlobalReauthTime > 0 {
+		s.globalReauthTime = time.Unix(state.GlobalReauthTime, 0)
+	}
+
+	if state.RevokedSessions != nil {
+		for id, timeStr := range state.RevokedSessions {
+			if t, err := time.Parse(time.RFC3339, timeStr); err == nil {
+				s.revokedSessions[id] = t
+			}
+		}
+	}
+	serverLog.Infof("AuthStore: Hydrated %d revoked sessions from disk.", len(s.revokedSessions))
+}
+
+// saveAuthState safely commits session invariants to disk without holding hot locks during I/O.
+// Uses an atomic .tmp file swap structure to prevent corruption on crash.
+func (s *Server) saveAuthState() {
+	if s.sessionStorePath == "" {
+		return
+	}
+
+	s.sessionMu.RLock()
+	// State copy
+	state := AuthState{
+		GlobalReauthTime: s.globalReauthTime.Unix(),
+		RevokedSessions:  make(map[string]string, len(s.revokedSessions)),
+	}
+	for id, t := range s.revokedSessions {
+		state.RevokedSessions[id] = t.Format(time.RFC3339)
+	}
+	s.sessionMu.RUnlock() // Complete lock before doing expensive marshal and IO
+
+	data, err := json.MarshalIndent(state, "", "  ")
+	if err != nil {
+		serverLog.Errorf("AuthStore: Failed to marshal state: %v", err)
+		return
+	}
+
+	tmpPath := s.sessionStorePath + ".tmp"
+	// Ensure directory exists
+	if dir := filepath.Dir(s.sessionStorePath); dir != "" {
+		os.MkdirAll(dir, 0700)
+	}
+
+	// Write to tmp safely using 0600
+	if err := os.WriteFile(tmpPath, data, 0600); err != nil {
+		serverLog.Errorf("AuthStore: Failed to write .tmp state array: %v", err)
+		return
+	}
+
+	// Atomic commit
+	if err := os.Rename(tmpPath, s.sessionStorePath); err != nil {
+		serverLog.Errorf("AuthStore: Failed to commit atomic auth store rename: %v", err)
+	}
+}
+
 // Auth Handlers
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if s.AuthUsername == "" {
@@ -475,6 +580,7 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 				s.sessionMu.Lock()
 				s.revokedSessions[sessionUUID] = time.Now()
 				s.sessionMu.Unlock()
+				s.saveAuthState()
 			}
 		}
 	}
@@ -504,6 +610,8 @@ func (s *Server) handleLogoutAll(w http.ResponseWriter, r *http.Request) {
 	// Clear all individually revoked sessions to free memory
 	s.revokedSessions = make(map[string]time.Time)
 	s.sessionMu.Unlock()
+
+	s.saveAuthState()
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     "dockgo_session",
