@@ -17,6 +17,7 @@ import (
 	"io/fs"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -234,13 +235,38 @@ func (s *Server) enableCors(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		// 2. If Origin matches allowed origin, set headers
 		origin := r.Header.Get("Origin")
-		if origin == s.CorsOrigin {
-			w.Header().Set("Access-Control-Allow-Origin", s.CorsOrigin)
+		allowed := false
+
+		if origin != "" {
+			if s.CorsOrigin == "*" {
+				allowed = true
+			} else {
+				// Clean slashes and case
+				a := strings.TrimRight(strings.ToLower(s.CorsOrigin), "/")
+				b := strings.TrimRight(strings.ToLower(origin), "/")
+
+				if a == b {
+					allowed = true
+				} else {
+					// Fallback to hostname comparison using net/url
+					uAlloc, err1 := url.Parse(a)
+					uOrigin, err2 := url.Parse(b)
+					if err1 == nil && err2 == nil {
+						if uAlloc.Hostname() != "" && uAlloc.Hostname() == uOrigin.Hostname() {
+							allowed = true
+						}
+					}
+				}
+			}
+		}
+
+		// 2. If Origin matches loosely, set headers using the exact request origin
+		if allowed {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-CSRF-Token")
 		}
 
 		// 3. Handle Preflight OPTIONS
