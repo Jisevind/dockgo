@@ -147,14 +147,17 @@ func (a *AppriseNotifier) worker(ctx context.Context) {
 			notifyLog.Debugf("Apprise info: worker shutting down, draining queue...")
 			a.mu.Lock()
 			a.closed = true
-			close(a.queue)
 			a.mu.Unlock()
 
-			// Drain remaining messages directly from the closed channel
-			for n := range a.queue {
-				a.send(client, n)
+			// Drain remaining messages directly
+			for {
+				select {
+				case n := <-a.queue:
+					a.send(client, n)
+				default:
+					return
+				}
 			}
-			return
 		case n := <-a.queue:
 			a.send(client, n)
 		}
