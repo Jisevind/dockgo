@@ -1158,16 +1158,8 @@ var validContainerName = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
 
 // /api/update/:name
 func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
-	logFile, _ := os.OpenFile("/tmp/dockgo.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if logFile != nil {
-		defer logFile.Close()
-	}
 	debugLog := func(format string, args ...interface{}) {
-		msg := fmt.Sprintf(format, args...)
-		if logFile != nil {
-			logFile.WriteString(time.Now().Format(time.RFC3339) + " " + msg + "\n")
-		}
-		logger.Debugf("%s", msg)
+		serverLog.Debugf(format, args...)
 	}
 
 	name := strings.TrimPrefix(r.URL.Path, "/api/update/")
