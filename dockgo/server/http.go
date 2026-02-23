@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"crypto/hmac"
+	cryptorand "crypto/rand"
 	"crypto/sha256"
 	"dockgo/api"
 	"dockgo/engine"
@@ -11,6 +12,7 @@ import (
 	"dockgo/notify"
 	"embed"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/fs"
@@ -54,6 +56,9 @@ type Server struct {
 	loginMu          sync.Mutex
 	lastDockerStatus string
 	lastRegStatus    string
+	revokedSessions  map[string]time.Time
+	globalReauthTime time.Time
+	sessionMu        sync.RWMutex
 }
 
 type RateLimiter struct {
@@ -74,16 +79,26 @@ func NewServer(port string) (*Server, error) {
 	authUser := os.Getenv("AUTH_USERNAME")
 	authPass := os.Getenv("AUTH_PASSWORD")
 	authSecret := os.Getenv("AUTH_SECRET")
+	costStr := os.Getenv("AUTH_BCRYPT_COST")
 
 	if authSecret == "" {
 		// Generate random secret if not provided, restarts invalidate sessions
 		authSecret = fmt.Sprintf("%d-%d", time.Now().UnixNano(), os.Getpid())
 	}
 
+	bcryptCost := bcrypt.DefaultCost
+	if costStr != "" {
+		if c, err := strconv.Atoi(costStr); err == nil && c >= bcrypt.MinCost && c <= bcrypt.MaxCost {
+			bcryptCost = c
+		} else {
+			logger.Warn("Invalid AUTH_BCRYPT_COST, falling back to default")
+		}
+	}
+
 	var passHash []byte
 	if authUser != "" && authPass != "" {
 		var err error
-		passHash, err = bcrypt.GenerateFromPassword([]byte(authPass), bcrypt.DefaultCost)
+		passHash, err = bcrypt.GenerateFromPassword([]byte(authPass), bcryptCost)
 		if err != nil {
 			return nil, fmt.Errorf("failed to hash password: %v", err)
 		}
@@ -110,6 +125,7 @@ func NewServer(port string) (*Server, error) {
 		updatesCache:     make(map[string]bool),
 		startTime:        time.Now(),
 		loginAttempts:    make(map[string]*RateLimiter),
+		revokedSessions:  make(map[string]time.Time),
 	}, nil
 }
 
@@ -125,6 +141,7 @@ func (s *Server) Start() error {
 	// Auth Routes
 	mux.HandleFunc("/api/login", s.enableCors(s.handleLogin))
 	mux.HandleFunc("/api/logout", s.enableCors(s.handleLogout))
+	mux.HandleFunc("/api/logout-all", s.enableCors(s.requireAuth(s.handleLogoutAll)))
 	mux.HandleFunc("/api/me", s.enableCors(s.handleMe))
 	mux.HandleFunc("/api/test-notify", s.enableCors(s.requireAuth(s.handleTestNotify)))
 
@@ -202,6 +219,15 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 		if s.AuthUsername != "" {
 			cookie, err := r.Cookie("dockgo_session")
 			if err == nil && s.validateSessionToken(cookie.Value) {
+				// CSRF Protection for state-changing methods
+				if r.Method != "GET" && r.Method != "OPTIONS" && r.Method != "HEAD" {
+					csrfCookie, err1 := r.Cookie("dockgo_csrf")
+					csrfHeader := r.Header.Get("X-CSRF-Token")
+					if err1 != nil || csrfHeader == "" || csrfCookie.Value != csrfHeader {
+						http.Error(w, "CSRF validation failed", http.StatusForbidden)
+						return
+					}
+				}
 				next(w, r)
 				return
 			}
@@ -238,11 +264,23 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 
 // Auth Helpers
 func (s *Server) generateSessionToken() string {
-	// Format: user|expiration|signature
+	// Format: sessionUUID|user|issuedAt|expiration|signature
+	uuidBytes := make([]byte, 16)
+	cryptorand.Read(uuidBytes)
+	uuidHex := hex.EncodeToString(uuidBytes)
+
+	issuedAt := time.Now().Unix()
 	exp := time.Now().Add(24 * time.Hour).Unix()
-	data := fmt.Sprintf("%s|%d", s.AuthUsername, exp)
+
+	data := fmt.Sprintf("%s|%s|%d|%d", uuidHex, s.AuthUsername, issuedAt, exp)
 	sig := s.sign(data)
 	return base64.URLEncoding.EncodeToString([]byte(fmt.Sprintf("%s|%s", data, sig)))
+}
+
+func (s *Server) generateCSRFToken() string {
+	b := make([]byte, 32)
+	cryptorand.Read(b)
+	return hex.EncodeToString(b)
 }
 
 func (s *Server) validateSessionToken(token string) bool {
@@ -252,14 +290,21 @@ func (s *Server) validateSessionToken(token string) bool {
 	}
 	decoded := string(decodedBytes)
 	parts := strings.Split(decoded, "|")
-	if len(parts) != 3 {
+	if len(parts) != 5 {
 		return false
 	}
-	user := parts[0]
-	expStr := parts[1]
-	sig := parts[2]
+	sessionUUID := parts[0]
+	user := parts[1]
+	issuedStr := parts[2]
+	expStr := parts[3]
+	sig := parts[4]
 
 	if user != s.AuthUsername {
+		return false
+	}
+
+	issuedAt, err := strconv.ParseInt(issuedStr, 10, 64)
+	if err != nil {
 		return false
 	}
 
@@ -268,7 +313,21 @@ func (s *Server) validateSessionToken(token string) bool {
 		return false
 	}
 
-	expectedSig := s.sign(fmt.Sprintf("%s|%s", user, expStr))
+	// 1. Global Revocation Check
+	s.sessionMu.RLock()
+	if issuedAt < s.globalReauthTime.Unix() {
+		s.sessionMu.RUnlock()
+		return false
+	}
+
+	// 2. Individual Revocation Check
+	if _, exists := s.revokedSessions[sessionUUID]; exists {
+		s.sessionMu.RUnlock()
+		return false
+	}
+	s.sessionMu.RUnlock()
+
+	expectedSig := s.sign(fmt.Sprintf("%s|%s|%s|%s", sessionUUID, user, issuedStr, expStr))
 	return hmac.Equal([]byte(sig), []byte(expectedSig))
 }
 
@@ -353,6 +412,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	// Success
 	token := s.generateSessionToken()
+	csrfToken := s.generateCSRFToken()
 
 	// Determine if Secure flag should be set
 	isSecure := r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
@@ -366,17 +426,75 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		Secure:   isSecure, // Strict secure flag
 		SameSite: http.SameSiteStrictMode,
 	})
+	http.SetCookie(w, &http.Cookie{
+		Name:     "dockgo_csrf",
+		Value:    csrfToken,
+		Path:     "/",
+		Expires:  time.Now().Add(24 * time.Hour),
+		HttpOnly: false, // Must be accessible to JS
+		Secure:   isSecure,
+		SameSite: http.SameSiteStrictMode,
+	})
 
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
+	// Revoke the session UUID
+	cookie, err := r.Cookie("dockgo_session")
+	if err == nil {
+		decodedBytes, err := base64.URLEncoding.DecodeString(cookie.Value)
+		if err == nil {
+			parts := strings.Split(string(decodedBytes), "|")
+			if len(parts) == 5 {
+				sessionUUID := parts[0]
+				s.sessionMu.Lock()
+				s.revokedSessions[sessionUUID] = time.Now()
+				s.sessionMu.Unlock()
+			}
+		}
+	}
+
 	http.SetCookie(w, &http.Cookie{
 		Name:     "dockgo_session",
 		Value:    "",
 		Path:     "/",
 		Expires:  time.Unix(0, 0),
 		HttpOnly: true,
+		MaxAge:   -1,
+	})
+	http.SetCookie(w, &http.Cookie{
+		Name:     "dockgo_csrf",
+		Value:    "",
+		Path:     "/",
+		Expires:  time.Unix(0, 0),
+		HttpOnly: false,
+		MaxAge:   -1,
+	})
+	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+}
+
+func (s *Server) handleLogoutAll(w http.ResponseWriter, r *http.Request) {
+	s.sessionMu.Lock()
+	s.globalReauthTime = time.Now()
+	// Clear all individually revoked sessions to free memory
+	s.revokedSessions = make(map[string]time.Time)
+	s.sessionMu.Unlock()
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "dockgo_session",
+		Value:    "",
+		Path:     "/",
+		Expires:  time.Unix(0, 0),
+		HttpOnly: true,
+		MaxAge:   -1,
+	})
+	http.SetCookie(w, &http.Cookie{
+		Name:     "dockgo_csrf",
+		Value:    "",
+		Path:     "/",
+		Expires:  time.Unix(0, 0),
+		HttpOnly: false,
 		MaxAge:   -1,
 	})
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})

@@ -95,6 +95,7 @@ Configure DockGo using environment variables:
 | `AUTH_USERNAME` | Username for web login | *(empty)* |
 | `AUTH_PASSWORD` | Password for web login | *(empty)* |
 | `AUTH_SECRET` | Secret for signing session cookies | *(random)* |
+| `AUTH_BCRYPT_COST` | Configurable bcrypt hashing cost (min 4, max 31) | `10` |
 | `API_TOKEN` | Legacy token for API updates | *(empty)* |
 | `CORS_ORIGIN` | Allowed Origin for CORS (e.g. `https://mydomain.com`) | *(disabled)* |
 | `APPRISE_URL` | Apprise notification endpoint (e.g., `discord://...`) | *(empty)* |
