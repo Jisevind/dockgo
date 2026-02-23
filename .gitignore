@@ -10,6 +10,7 @@ CODEBASE.md
 *.exe
 docker-compose.yml
 dockgo/dockgo
+tmp
 
 Dockerfile.dev
 dev.ps1
