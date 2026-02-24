@@ -53,10 +53,11 @@ DockGo takes security seriously.
         *   *Generate hashes using the built-in CLI command, e.g., `dockgo hash-password secret`.*
     *   **Legacy Token**: Set `API_TOKEN` for simple script integrations.
     *   **CORS**: Disabled by default. Only enabled if you specifically set `CORS_ORIGIN`.
-4.  **Log Redaction**: Sensitive errors and login failures are redacted in logs.
-5.  **Hardened SSE Streams**: All real-time progress events are strictly JSON-marshaled and HTML-escaped to prevent XSS and stream-breaking injections.
-6.  **Deep RNG Validation**: Fail-fast architecture that terminates the application immediately if the host operating system's entropy pool (`crypto/rand`) fails to provide secure random bytes.
-7.  **Strict Credential Omission**: Sensitive fields (passwords/tokens) are cryptographically tagged to be omitted from all JSON serialization at the compiler level.
+4.  **Compose Path Restrictions**: The `ALLOWED_COMPOSE_PATHS` environment variable lets you restrict which Docker Compose working directories can be updated. This is a defense-in-depth measure to prevent accidental or malicious updates outside your intended container environments. **Note:** This restriction only applies to updates, not discovery—DockGo will still discover and monitor all containers on your system, but will only allow updating those whose compose files are within the allowed paths.
+5.  **Log Redaction**: Sensitive errors and login failures are redacted in logs.
+6.  **Hardened SSE Streams**: All real-time progress events are strictly JSON-marshaled and HTML-escaped to prevent XSS and stream-breaking injections.
+7.  **Deep RNG Validation**: Fail-fast architecture that terminates the application immediately if the host operating system's entropy pool (`crypto/rand`) fails to provide secure random bytes.
+8.  **Strict Credential Omission**: Sensitive fields (passwords/tokens) are cryptographically tagged to be omitted from all JSON serialization at the compiler level.
 
 > [!CAUTION]
 > **CRITICAL SECURITY WARNING: Docker Socket Exposure**
@@ -103,6 +104,7 @@ Configure DockGo using environment variables:
 | `AUTH_BCRYPT_COST` | Configurable bcrypt hashing cost (min 4, max 31) | `10` |
 | `API_TOKEN` | Legacy token for API updates | *(empty)* |
 | `CORS_ORIGIN` | Allowed Origin for CORS (e.g. `https://mydomain.com`) | *(disabled)* |
+| `ALLOWED_COMPOSE_PATHS` | Comma-separated list of allowed base paths for Compose working directories (e.g., `/opt/docker,/srv/compose`) | *(empty)* |
 | `APPRISE_URL` | Apprise notification endpoint (e.g., `discord://...`) | *(empty)* |
 | `APPRISE_QUEUE_SIZE` | Buffer size for outbound notification events | `200` |
 | `SCAN_INTERVAL` | Background update polling schedule (`s`, `m`, `h`) | `24h` |
@@ -131,6 +133,8 @@ services:
       - AUTH_USERNAME=admin
       # Generate with: dockgo hash-password your_password
       - AUTH_PASSWORD_HASH=$$2a$$10$$YOUR_GENERATED_HASH_HERE
+      # Optional: Restrict updates to specific Compose directories
+      - ALLOWED_COMPOSE_PATHS=/opt/docker,/srv/compose
 ```
 
 ---
