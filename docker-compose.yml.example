@@ -31,6 +31,12 @@ services:
       # - AUTH_SECRET=random_string_for_signing_cookies
       # - AUTH_BCRYPT_COST=10 # Optional: Set hashing complexity (min 4, max 31, default 10)
 
+      # Compose Security
+      # Restrict Compose working directories to specific base paths (optional but recommended)
+      # Comma-separated list of allowed base paths. If empty, any valid directory is allowed.
+      # Example: ALLOWED_COMPOSE_PATHS=/opt/docker,/home/user/docker,/data/compose
+      # - ALLOWED_COMPOSE_PATHS=
+
       # Optional: Apprise API Endpoint for notifications
       # - APPRISE_QUEUE_SIZE=200
       # - APPRISE_URL=gotify://gotify.example.com/myprivatetopic

@@ -42,11 +42,12 @@ var Version = "dev"
 
 type Server struct {
 	Port             string
-	CorsOrigin       string // Allowed Origin for CORS
-	APIToken         string `json:"-"` // Legacy Token
-	AuthUsername     string // Optional: User Login
-	AuthPasswordHash []byte `json:"-"` // Bcrypt hash
-	AuthSecret       string `json:"-"` // For signing sessions
+	CorsOrigin       string   // Allowed Origin for CORS
+	APIToken         string   `json:"-"` // Legacy Token
+	AuthUsername     string   // Optional: User Login
+	AuthPasswordHash []byte   `json:"-"` // Bcrypt hash
+	AuthSecret       string   `json:"-"` // For signing sessions
+	AllowedPaths     []string // Allowed base paths for Compose working directories
 	Discovery        *engine.DiscoveryEngine
 	Registry         *engine.RegistryClient
 	Notifier         *notify.AppriseNotifier
@@ -97,6 +98,7 @@ func NewServer(port string) (*Server, error) {
 	authSecret := os.Getenv("AUTH_SECRET")
 	costStr := os.Getenv("AUTH_BCRYPT_COST")
 	sessionPath := os.Getenv("SESSION_STORE_PATH")
+	allowedPathsStr := os.Getenv("ALLOWED_COMPOSE_PATHS")
 
 	if sessionPath == "" {
 		sessionPath = "/app/data/sessions.json"
@@ -117,6 +119,20 @@ func NewServer(port string) (*Server, error) {
 			bcryptCost = c
 		} else {
 			serverLog.Warnf("Invalid AUTH_BCRYPT_COST, falling back to default")
+		}
+	}
+
+	// Parse allowed Compose paths (comma-separated list)
+	var allowedPaths []string
+	if allowedPathsStr != "" {
+		paths := strings.Split(allowedPathsStr, ",")
+		for _, p := range paths {
+			if trimmed := strings.TrimSpace(p); trimmed != "" {
+				allowedPaths = append(allowedPaths, trimmed)
+			}
+		}
+		if len(allowedPaths) > 0 {
+			serverLog.Infof("Security: Compose working directory restrictions enabled for paths: %v", allowedPaths)
 		}
 	}
 
@@ -163,6 +179,7 @@ func NewServer(port string) (*Server, error) {
 		AuthUsername:     authUser,
 		AuthPasswordHash: passHash,
 		AuthSecret:       authSecret,
+		AllowedPaths:     allowedPaths,
 		sessionStorePath: sessionPath,
 		Discovery:        disc,
 		Registry:         registry,
@@ -1247,6 +1264,7 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	opts := engine.UpdateOptions{
 		Safe:            false, // GUI updates are explicit commands (typically bypassing safe mode limits unless instructed otherwise)
 		PreserveNetwork: true,
+		AllowedPaths:    s.AllowedPaths,
 		LogCallback:     emitSSE,
 	}
 
