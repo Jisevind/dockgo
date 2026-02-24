@@ -97,6 +97,7 @@ Configure DockGo using environment variables:
 | :--- | :--- | :--- |
 | `PORT` | Web server port | `3131` |
 | `LOG_LEVEL` | Log verbosity (`debug`, `info`, `warn`, `error`) | `info` |
+| `LOG_FORMAT` | Log format (`json` or `text`) | `json` (Docker) / `text` (CLI) |
 | `AUTH_USERNAME` | Username for web login | *(empty)* |
 | `AUTH_PASSWORD_HASH`| Pre-hashed bcrypt string (Recommended for production) | *(empty)* |
 | `AUTH_PASSWORD` | Plaintext password (Convenience/Testing) | *(empty)* |
@@ -105,6 +106,7 @@ Configure DockGo using environment variables:
 | `API_TOKEN` | Legacy token for API updates | *(empty)* |
 | `CORS_ORIGIN` | Allowed Origin for CORS (e.g. `https://mydomain.com`) | *(disabled)* |
 | `ALLOWED_COMPOSE_PATHS` | Comma-separated list of allowed base paths for Compose working directories (e.g., `/opt/docker,/srv/compose`) | *(empty)* |
+| `SESSION_STORE_PATH` | Path to session persistence file | `/app/data/sessions.json` |
 | `APPRISE_URL` | Apprise notification endpoint (e.g., `discord://...`) | *(empty)* |
 | `APPRISE_QUEUE_SIZE` | Buffer size for outbound notification events | `200` |
 | `SCAN_INTERVAL` | Background update polling schedule (`s`, `m`, `h`) | `24h` |
