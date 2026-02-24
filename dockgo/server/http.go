@@ -14,6 +14,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"html"
 	"io/fs"
 	"net"
 	"net/http"
@@ -1041,10 +1042,14 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 
 		if err != nil {
 			s.mu.Lock()
-			s.lastCheckStat = "error"
 			s.mu.Unlock()
 
-			fmt.Fprintf(w, "data: {\"type\":\"error\", \"error\": \"%v\"}\n\n", err)
+			// Safely marshal the error object
+			errBytes, _ := json.Marshal(map[string]interface{}{
+				"type":  "error",
+				"error": err.Error(),
+			})
+			fmt.Fprintf(w, "data: %s\n\n", string(errBytes))
 		} else {
 			// Update the cache explicitly so the UI's subsequent fetch to /api/containers sees it.
 			// However, explicitly do NOT fire a notification. The background scheduler handles that.
@@ -1196,7 +1201,11 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Fprintf(w, "data: {\"type\":\"start\", \"message\": \"Starting update for %s...\"}\n\n", name)
+	startBytes, _ := json.Marshal(map[string]interface{}{
+		"type":    "start",
+		"message": fmt.Sprintf("Starting update for %s...", html.EscapeString(name)),
+	})
+	fmt.Fprintf(w, "data: %s\n\n", string(startBytes))
 	flusher.Flush()
 
 	// 1. Scan the specific container natively
@@ -1206,7 +1215,12 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		if err == nil {
 			err = fmt.Errorf("container not found or not running")
 		}
-		fmt.Fprintf(w, "data: {\"type\":\"error\", \"error\": \"Failed to locate container: %v\"}\n\n", err)
+
+		errBytes, _ := json.Marshal(map[string]interface{}{
+			"type":  "error",
+			"error": fmt.Sprintf("Failed to locate container: %v", err),
+		})
+		fmt.Fprintf(w, "data: %s\n\n", string(errBytes))
 		flusher.Flush()
 		return
 	}
@@ -1239,8 +1253,14 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		debugLog("Update process failed for %s: %v", name, err)
+
+		errBytes, _ := json.Marshal(map[string]interface{}{
+			"type":  "error",
+			"error": fmt.Sprintf("Update process failed: %v", err),
+		})
+
 		sseMu.Lock()
-		fmt.Fprintf(w, "data: {\"type\":\"error\", \"error\": \"Update process failed: %v\"}\n\n", err)
+		fmt.Fprintf(w, "data: %s\n\n", string(errBytes))
 		sseMu.Unlock()
 		s.Notifier.Notify(
 			"DockGo Update Failed",
@@ -1264,8 +1284,14 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 			debugLog("Clearing cache for %s (ID: %s). Len Before: %d, Len After: %d", name, targetID, lenBefore, lenAfter)
 		}
 
+		doneBytes, _ := json.Marshal(map[string]interface{}{
+			"type":    "done",
+			"success": true,
+			"message": "Update completed successfully",
+		})
+
 		sseMu.Lock()
-		fmt.Fprintf(w, "data: {\"type\":\"done\", \"success\": true, \"message\": \"Update completed successfully\"}\n\n")
+		fmt.Fprintf(w, "data: %s\n\n", string(doneBytes))
 		sseMu.Unlock()
 	}
 
