@@ -67,7 +67,10 @@ func NewAppriseNotifier(ctx context.Context) *AppriseNotifier {
 		if size, err := strconv.Atoi(sizeStr); err == nil && size > 0 {
 			queueSize = size
 		} else if err != nil || size <= 0 {
-			notifyLog.Warnf("Apprise: Invalid APPRISE_QUEUE_SIZE '%s', defaulting to 100", sizeStr)
+			notifyLog.Warn("Apprise: Invalid APPRISE_QUEUE_SIZE, defaulting to 100",
+				logger.String("provided_size", sizeStr),
+				logger.Int("default_size", 100),
+			)
 		}
 	}
 
@@ -144,7 +147,7 @@ func (a *AppriseNotifier) worker(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			notifyLog.Debugf("Apprise info: worker shutting down, draining queue...")
+			notifyLog.Debug("Apprise worker shutting down, draining queue")
 			a.mu.Lock()
 			a.closed = true
 			a.mu.Unlock()
@@ -192,9 +195,16 @@ func (a *AppriseNotifier) send(client *http.Client, n Notification) {
 			resp, err := client.Post(targetURL, "application/json", bytes.NewBuffer(b))
 			if err != nil {
 				if i == maxRetries-1 {
-					notifyLog.Errorf("Apprise: Send failed to %s after %d retries: %v", targetURL, maxRetries, err)
+					notifyLog.Error("Apprise: Send failed after retries",
+						logger.String("target_url", targetURL),
+						logger.Int("max_retries", maxRetries),
+						logger.Any("error", err),
+					)
 				} else {
-					notifyLog.Warnf("Apprise: Send failed, retrying (%d/%d)...", i+1, maxRetries)
+					notifyLog.Warn("Apprise: Send failed, retrying",
+						logger.Int("attempt", i+1),
+						logger.Int("max_retries", maxRetries),
+					)
 					b := make([]byte, 2)
 					if _, err := cryptorand.Read(b); err != nil {
 						panic(fmt.Sprintf("crypto/rand failed to generate jitter: %v", err))
@@ -209,9 +219,17 @@ func (a *AppriseNotifier) send(client *http.Client, n Notification) {
 			if resp.StatusCode >= 300 {
 				_ = resp.Body.Close()
 				if i == maxRetries-1 {
-					notifyLog.Errorf("Apprise: Send failed to %s after %d retries: status %d", targetURL, maxRetries, resp.StatusCode)
+					notifyLog.Error("Apprise: Send failed after retries",
+						logger.String("target_url", targetURL),
+						logger.Int("max_retries", maxRetries),
+						logger.Int("status_code", resp.StatusCode),
+					)
 				} else {
-					notifyLog.Warnf("Apprise: Send failed (status %d), retrying (%d/%d)...", resp.StatusCode, i+1, maxRetries)
+					notifyLog.Warn("Apprise: Send failed, retrying",
+						logger.Int("status_code", resp.StatusCode),
+						logger.Int("attempt", i+1),
+						logger.Int("max_retries", maxRetries),
+					)
 					b := make([]byte, 2)
 					if _, err := cryptorand.Read(b); err != nil {
 						panic(fmt.Sprintf("crypto/rand failed to generate jitter: %v", err))
@@ -250,7 +268,9 @@ func (a *AppriseNotifier) Notify(title, body string, notifType NotificationType)
 			// Queue is full, drop the oldest message to make room
 			select {
 			case dropped := <-a.queue:
-				notifyLog.Warnf("Apprise: Queue full, dropping oldest notification: %s", dropped.Title)
+				notifyLog.Warn("Apprise: Queue full, dropping oldest notification",
+					logger.String("title", dropped.Title),
+				)
 			default:
 				// The worker grabbed it in the microsecond between selects, loop again
 			}

@@ -5,12 +5,15 @@ import (
 	"dockgo/api"
 	"dockgo/logger"
 	"fmt"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"sync/atomic"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 )
+
+var scannerLog = logger.WithSubsystem("scanner")
 
 func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryClient, filter string, force bool, onProgress func(api.ContainerUpdate, int, int)) ([]api.ContainerUpdate, error) {
 	allContainers, err := discovery.ListContainers(ctx)
@@ -62,7 +65,11 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 			defer wg.Done()
 			defer func() {
 				if r := recover(); r != nil {
-					logger.Errorf("🔥 PANIC in scanner goroutine for %s: %v", name, r)
+					scannerLog.ErrorContext(ctx, "scanner goroutine panic",
+						logger.String("container", name),
+						logger.Any("panic", r),
+						logger.String("stack", string(debug.Stack())),
+					)
 				}
 			}()
 
@@ -89,7 +96,12 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 
 			// Get local details first to resolve true image name (in case List returned SHA)
 			resolvedName, _, repoDigests, os, arch, err := discovery.GetContainerImageDetails(ctx, id)
-			logger.Debugf("[Scan] %s: Image=%s, Resolved=%s, RepoDigests=%d", name, image, resolvedName, len(repoDigests))
+			scannerLog.DebugContext(ctx, "container image details resolved",
+				logger.String("container", name),
+				logger.String("image", image),
+				logger.String("resolved_name", resolvedName),
+				logger.Int("repo_digests_count", len(repoDigests)),
+			)
 
 			// Check context again
 			if ctx.Err() != nil {
@@ -99,7 +111,10 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 			if err != nil {
 				upd.Error = fmt.Sprintf("Inspect error: %v", err)
 				upd.Status = "error"
-				logger.Debugf("[Scan] %s: Inspect error: %v", name, err)
+				scannerLog.DebugContext(ctx, "container inspect error",
+					logger.String("container", name),
+					logger.Any("error", err),
+				)
 			} else {
 				if resolvedName != "" {
 					upd.Image = resolvedName
@@ -118,7 +133,11 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 						OS:           os,
 						Architecture: arch,
 					}
-					logger.Debugf("[Scan] %s: Platform Resolution %s/%s", name, os, arch)
+					scannerLog.DebugContext(ctx, "platform resolution",
+						logger.String("container", name),
+						logger.String("os", os),
+						logger.String("arch", arch),
+					)
 				}
 
 				// Check context before remote call
@@ -129,7 +148,9 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 				// Fix for localhost registries when running in container
 				imageToCheck := upd.Image
 				if strings.HasPrefix(imageToCheck, "localhost:") || strings.HasPrefix(imageToCheck, "127.0.0.1:") {
-					logger.Debugf("Rewriting %s to use host.docker.internal", imageToCheck)
+					scannerLog.DebugContext(ctx, "rewriting localhost image for Docker",
+						logger.String("original", imageToCheck),
+					)
 					imageToCheck = strings.Replace(imageToCheck, "localhost:", "host.docker.internal:", 1)
 					imageToCheck = strings.Replace(imageToCheck, "127.0.0.1:", "host.docker.internal:", 1)
 				}
@@ -173,14 +194,23 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 					}
 					upd.Error = fmt.Sprintf("Registry error: %v", err)
 					upd.Status = "error"
-					logger.Debugf("[Scan] %s: Registry error: %v", name, err)
+					scannerLog.DebugContext(ctx, "registry check error",
+						logger.String("container", name),
+						logger.Any("error", err),
+					)
 				} else {
 					upd.RemoteDigest = remoteDigest
 					if !found {
 						upd.UpdateAvailable = true
-						logger.Debugf("[Scan] %s: UpdateAvailable=TRUE (Local!=Remote)", name)
+						scannerLog.DebugContext(ctx, "update available",
+							logger.String("container", name),
+							logger.Bool("update_available", true),
+						)
 					} else {
-						logger.Debugf("[Scan] %s: Up to date.", name)
+						scannerLog.DebugContext(ctx, "container up to date",
+							logger.String("container", name),
+							logger.Bool("update_available", false),
+						)
 					}
 				}
 			}
