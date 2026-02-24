@@ -134,8 +134,39 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 					imageToCheck = strings.Replace(imageToCheck, "127.0.0.1:", "host.docker.internal:", 1)
 				}
 
-				remoteDigest, err := registry.GetRemoteDigest(imageToCheck, platform, force)
-				if err != nil {
+				// First check the index digest (how most RepoDigests are stored)
+				remoteDigest, err := registry.GetRemoteDigest(imageToCheck, nil, force)
+				var platformDigest string
+				platformErr := fmt.Errorf("platform check skipped")
+
+				found := false
+				if err == nil {
+					for _, rd := range repoDigests {
+						parts := strings.Split(rd, "@")
+						if len(parts) == 2 && parts[1] == remoteDigest {
+							found = true
+							break
+						}
+					}
+				}
+
+				// If we didn't match the index AND we have a platform, fetch the platform digest
+				// to ensure it's not a multi-arch false positive where local stores the child manifest.
+				if !found && platform != nil {
+					platformDigest, platformErr = registry.GetRemoteDigest(imageToCheck, platform, force)
+					if platformErr == nil {
+						remoteDigest = platformDigest // Fallback to platform remote digest for the UI
+						for _, rd := range repoDigests {
+							parts := strings.Split(rd, "@")
+							if len(parts) == 2 && parts[1] == platformDigest {
+								found = true
+								break
+							}
+						}
+					}
+				}
+
+				if err != nil && remoteDigest == "" {
 					// Check if error is due to context cancellation
 					if ctx.Err() != nil {
 						return
@@ -145,18 +176,6 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 					logger.Debugf("[Scan] %s: Registry error: %v", name, err)
 				} else {
 					upd.RemoteDigest = remoteDigest
-					logger.Debugf("[Scan] %s: RemoteDigest=%s", name, remoteDigest)
-
-					// Check if remote digest is in repoDigests
-					found := false
-					for _, rd := range repoDigests {
-						parts := strings.Split(rd, "@")
-						if len(parts) == 2 && parts[1] == remoteDigest {
-							found = true
-							break
-						}
-					}
-
 					if !found {
 						upd.UpdateAvailable = true
 						logger.Debugf("[Scan] %s: UpdateAvailable=TRUE (Local!=Remote)", name)
