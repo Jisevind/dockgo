@@ -2,7 +2,6 @@ package logger
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"os"
 	"strings"
@@ -41,7 +40,10 @@ func setupLogger() {
 	}
 
 	var handler slog.Handler
-	if strings.ToLower(os.Getenv("LOG_FORMAT")) == "json" {
+	logFormat := strings.ToLower(os.Getenv("LOG_FORMAT"))
+
+	// Default to JSON in Docker containers, or if explicitly set to "json"
+	if logFormat == "json" || (logFormat == "" && isRunningInDocker()) {
 		handler = slog.NewJSONHandler(os.Stdout, opts)
 	} else {
 		handler = slog.NewTextHandler(os.Stdout, opts)
@@ -49,6 +51,19 @@ func setupLogger() {
 
 	globalLogger = slog.New(handler)
 	slog.SetDefault(globalLogger)
+}
+
+// isRunningInDocker checks if we're running inside a Docker container
+func isRunningInDocker() bool {
+	// Check for .dockerenv file (standard for containers)
+	if _, err := os.Stat("/.dockerenv"); err == nil {
+		return true
+	}
+	// Check for Docker in cgroup (another common method)
+	if data, err := os.ReadFile("/proc/1/cgroup"); err == nil {
+		return strings.Contains(string(data), "docker") || strings.Contains(string(data), "containerd")
+	}
+	return false
 }
 
 // SetLevel dynamically adjusts the global logging level
@@ -67,34 +82,45 @@ func SetLevel(levelStr string) {
 	}
 }
 
-// SubsystemLogger wraps slog.Logger to provide Printf-style methods
+// SubsystemLogger wraps slog.Logger to provide structured logging methods
 type SubsystemLogger struct {
 	sl *slog.Logger
 }
 
-func (s *SubsystemLogger) Infof(format string, args ...any) {
-	s.sl.Info(fmt.Sprintf(format, args...))
+// Structured logging methods - PREFERRED for new code
+// These methods pass structured attributes directly to slog for machine-readable logs
+// Example: scannerLog.Info("scan completed", logger.Int("containers", 42))
+func (s *SubsystemLogger) Info(msg string, args ...any) {
+	s.sl.Info(msg, args...)
 }
-func (s *SubsystemLogger) Debugf(format string, args ...any) {
-	s.sl.Debug(fmt.Sprintf(format, args...))
+
+func (s *SubsystemLogger) Debug(msg string, args ...any) {
+	s.sl.Debug(msg, args...)
 }
-func (s *SubsystemLogger) Warnf(format string, args ...any) {
-	s.sl.Warn(fmt.Sprintf(format, args...))
+
+func (s *SubsystemLogger) Warn(msg string, args ...any) {
+	s.sl.Warn(msg, args...)
 }
-func (s *SubsystemLogger) Errorf(format string, args ...any) {
-	s.sl.Error(fmt.Sprintf(format, args...))
+
+func (s *SubsystemLogger) Error(msg string, args ...any) {
+	s.sl.Error(msg, args...)
 }
-func (s *SubsystemLogger) InfoContextf(ctx context.Context, format string, args ...any) {
-	s.sl.InfoContext(ctx, fmt.Sprintf(format, args...), extractAttrs(ctx)...)
+
+// Structured logging with context - preferred for new code
+func (s *SubsystemLogger) InfoContext(ctx context.Context, msg string, args ...any) {
+	s.sl.InfoContext(ctx, msg, append(args, extractAttrs(ctx)...)...)
 }
-func (s *SubsystemLogger) DebugContextf(ctx context.Context, format string, args ...any) {
-	s.sl.DebugContext(ctx, fmt.Sprintf(format, args...), extractAttrs(ctx)...)
+
+func (s *SubsystemLogger) DebugContext(ctx context.Context, msg string, args ...any) {
+	s.sl.DebugContext(ctx, msg, append(args, extractAttrs(ctx)...)...)
 }
-func (s *SubsystemLogger) WarnContextf(ctx context.Context, format string, args ...any) {
-	s.sl.WarnContext(ctx, fmt.Sprintf(format, args...), extractAttrs(ctx)...)
+
+func (s *SubsystemLogger) WarnContext(ctx context.Context, msg string, args ...any) {
+	s.sl.WarnContext(ctx, msg, append(args, extractAttrs(ctx)...)...)
 }
-func (s *SubsystemLogger) ErrorContextf(ctx context.Context, format string, args ...any) {
-	s.sl.ErrorContext(ctx, fmt.Sprintf(format, args...), extractAttrs(ctx)...)
+
+func (s *SubsystemLogger) ErrorContext(ctx context.Context, msg string, args ...any) {
+	s.sl.ErrorContext(ctx, msg, append(args, extractAttrs(ctx)...)...)
 }
 
 // WithSubsystem returns a bound logger with a component tag
@@ -118,42 +144,46 @@ func extractAttrs(ctx context.Context) []any {
 	return nil
 }
 
-// Contextual Logging Helpers
-
-func InfoCtxf(ctx context.Context, format string, args ...any) {
-	msg := fmt.Sprintf(format, args...)
-	globalLogger.InfoContext(ctx, msg, extractAttrs(ctx)...)
+// Structured logging helpers - convenience functions for creating slog attributes
+func String(key, value string) slog.Attr {
+	return slog.String(key, value)
 }
 
-func DebugCtxf(ctx context.Context, format string, args ...any) {
-	msg := fmt.Sprintf(format, args...)
-	globalLogger.DebugContext(ctx, msg, extractAttrs(ctx)...)
+func Int(key string, value int) slog.Attr {
+	return slog.Int(key, value)
 }
 
-func WarnCtxf(ctx context.Context, format string, args ...any) {
-	msg := fmt.Sprintf(format, args...)
-	globalLogger.WarnContext(ctx, msg, extractAttrs(ctx)...)
+func Int64(key string, value int64) slog.Attr {
+	return slog.Int64(key, value)
 }
 
-func ErrorCtxf(ctx context.Context, format string, args ...any) {
-	msg := fmt.Sprintf(format, args...)
-	globalLogger.ErrorContext(ctx, msg, extractAttrs(ctx)...)
+func Bool(key string, value bool) slog.Attr {
+	return slog.Bool(key, value)
 }
 
-// Legacy Printf-style Wrappers (for backwards compatibility)
-
-func Debugf(format string, args ...interface{}) {
-	globalLogger.Debug(fmt.Sprintf(format, args...))
+func Any(key string, value any) slog.Attr {
+	return slog.Any(key, value)
 }
 
-func Infof(format string, args ...interface{}) {
-	globalLogger.Info(fmt.Sprintf(format, args...))
+// Package-level structured logging convenience methods
+// These are useful when you don't need a SubsystemLogger
+
+// Info logs at Info level with structured attributes
+func Info(msg string, args ...any) {
+	globalLogger.Info(msg, args...)
 }
 
-func Warnf(format string, args ...interface{}) {
-	globalLogger.Warn(fmt.Sprintf(format, args...))
+// Debug logs at Debug level with structured attributes
+func Debug(msg string, args ...any) {
+	globalLogger.Debug(msg, args...)
 }
 
-func Errorf(format string, args ...interface{}) {
-	globalLogger.Error(fmt.Sprintf(format, args...))
+// Warn logs at Warn level with structured attributes
+func Warn(msg string, args ...any) {
+	globalLogger.Warn(msg, args...)
+}
+
+// Error logs at Error level with structured attributes
+func Error(msg string, args ...any) {
+	globalLogger.Error(msg, args...)
 }

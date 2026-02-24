@@ -118,7 +118,9 @@ func NewServer(port string) (*Server, error) {
 		if c, err := strconv.Atoi(costStr); err == nil && c >= bcrypt.MinCost && c <= bcrypt.MaxCost {
 			bcryptCost = c
 		} else {
-			serverLog.Warnf("Invalid AUTH_BCRYPT_COST, falling back to default")
+			serverLog.Warn("Invalid AUTH_BCRYPT_COST, falling back to default",
+				logger.String("provided_cost", costStr),
+			)
 		}
 	}
 
@@ -132,7 +134,9 @@ func NewServer(port string) (*Server, error) {
 			}
 		}
 		if len(allowedPaths) > 0 {
-			serverLog.Infof("Security: Compose working directory restrictions enabled for paths: %v", allowedPaths)
+			serverLog.Info("Security: Compose working directory restrictions enabled",
+				logger.Any("paths", allowedPaths),
+			)
 		}
 	}
 
@@ -143,7 +147,7 @@ func NewServer(port string) (*Server, error) {
 		}
 
 		if authPass != "" && authPassHash != "" {
-			serverLog.Warnf("Both AUTH_PASSWORD_HASH and AUTH_PASSWORD provided. Using AUTH_PASSWORD_HASH.")
+			serverLog.Warn("Both AUTH_PASSWORD_HASH and AUTH_PASSWORD provided. Using AUTH_PASSWORD_HASH.")
 			// Let it go out of scope ASAP since hash takes precedence
 			authPass = ""
 		}
@@ -167,10 +171,10 @@ func NewServer(port string) (*Server, error) {
 	}
 
 	if token == "" && authUser == "" {
-		serverLog.Warnf("WARNING: No API_TOKEN or AUTH_USERNAME set. Updates disabled.")
+		serverLog.Warn("No API_TOKEN or AUTH_USERNAME set. Updates disabled.")
 	}
 
-	serverLog.Infof("Server Initializing...")
+	serverLog.Info("Server initializing")
 
 	srv := &Server{
 		Port:             port,
@@ -228,7 +232,9 @@ func (s *Server) Start() error {
 	}
 	mux.Handle("/", http.FileServer(http.FS(webFS)))
 
-	logger.Infof("DockGo listening at http://localhost:%s", s.Port)
+	logger.Info("DockGo server listening",
+		logger.String("address", "localhost:"+s.Port),
+	)
 
 	// Start background update scheduler
 	go s.StartScheduler(context.Background())
@@ -244,7 +250,7 @@ func (s *Server) Start() error {
 				notify.TypeInfo,
 			)
 		} else {
-			logger.Warnf("Apprise: Notification server failed to become ready in time.")
+			logger.Warn("Apprise: Notification server failed to become ready in time")
 		}
 	}()
 
@@ -354,12 +360,12 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 		// 3. Fallback: Fail
 		// If neither configured, fail.
 		if s.APIToken == "" && s.AuthUsername == "" {
-			logger.Debugf("Auth Failed (No Config)")
+			logger.Debug("Auth failed: no auth configured")
 			http.Error(w, "Updates disabled (No Auth Configured)", http.StatusForbidden)
 			return
 		}
 
-		logger.Warnf("Auth Failed (Unauthorized)")
+		logger.Warn("Auth failed: unauthorized request")
 		w.Header().Set("WWW-Authenticate", `Bearer realm="dockgo"`)
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 	}
@@ -506,19 +512,29 @@ func (s *Server) loadAuthState() {
 	data, err := os.ReadFile(s.sessionStorePath)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			serverLog.Errorf("AuthStore: Failed to read %s: %v", s.sessionStorePath, err)
+			serverLog.Error("AuthStore: Failed to read session store",
+				logger.String("path", s.sessionStorePath),
+				logger.Any("error", err),
+			)
 		}
 		return // Start fresh
 	}
 
 	var state AuthState
 	if err := json.Unmarshal(data, &state); err != nil {
-		serverLog.Errorf("AuthStore: Corrupt JSON detected in %s: %v. Starting fresh.", s.sessionStorePath, err)
+		serverLog.Error("AuthStore: Corrupt JSON detected in session store",
+			logger.String("path", s.sessionStorePath),
+			logger.Any("error", err),
+		)
 		corruptPath := s.sessionStorePath + ".corrupt"
 		if renameErr := os.Rename(s.sessionStorePath, corruptPath); renameErr != nil {
-			serverLog.Errorf("AuthStore: Failed to backup corrupt store: %v", renameErr)
+			serverLog.Error("AuthStore: Failed to backup corrupt store",
+				logger.Any("error", renameErr),
+			)
 		} else {
-			serverLog.Warnf("AuthStore: Backed up corrupt store to %s", corruptPath)
+			serverLog.Warn("AuthStore: Backed up corrupt store",
+				logger.String("backup_path", corruptPath),
+			)
 		}
 		return // Start fresh
 	}
@@ -537,7 +553,9 @@ func (s *Server) loadAuthState() {
 			}
 		}
 	}
-	serverLog.Infof("AuthStore: Hydrated %d revoked sessions from disk.", len(s.revokedSessions))
+	serverLog.Info("AuthStore: Hydrated revoked sessions from disk",
+		logger.Int("count", len(s.revokedSessions)),
+	)
 }
 
 // saveAuthState safely commits session invariants to disk without holding hot locks during I/O.
@@ -560,7 +578,9 @@ func (s *Server) saveAuthState() {
 
 	data, err := json.MarshalIndent(state, "", "  ")
 	if err != nil {
-		serverLog.Errorf("AuthStore: Failed to marshal state: %v", err)
+		serverLog.Error("AuthStore: Failed to marshal state",
+			logger.Any("error", err),
+		)
 		return
 	}
 
@@ -572,13 +592,20 @@ func (s *Server) saveAuthState() {
 
 	// Write to tmp safely using 0600
 	if err := os.WriteFile(tmpPath, data, 0600); err != nil {
-		serverLog.Errorf("AuthStore: Failed to write .tmp state array: %v", err)
+		serverLog.Error("AuthStore: Failed to write temporary state file",
+			logger.String("tmp_path", tmpPath),
+			logger.Any("error", err),
+		)
 		return
 	}
 
 	// Atomic commit
 	if err := os.Rename(tmpPath, s.sessionStorePath); err != nil {
-		serverLog.Errorf("AuthStore: Failed to commit atomic auth store rename: %v", err)
+		serverLog.Error("AuthStore: Failed to commit atomic auth store rename",
+			logger.String("tmp_path", tmpPath),
+			logger.String("target_path", s.sessionStorePath),
+			logger.Any("error", err),
+		)
 	}
 }
 
@@ -640,7 +667,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	// Verify Password Hash
 	if err := bcrypt.CompareHashAndPassword(s.AuthPasswordHash, []byte(creds.Password)); err != nil {
-		logger.Debugf("Login Failed (redacted)")
+		serverLog.Debug("Login failed (credentials redacted)")
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
@@ -961,7 +988,7 @@ func (s *Server) handleContainers(w http.ResponseWriter, r *http.Request) {
 
 // /api/stream/check
 func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
-	logger.Debugf("👉 Stream Request Started")
+	serverLog.Debug("Stream request started")
 	// 1. Set headers
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -977,9 +1004,11 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 	// 3. Panic recovery
 	defer func() {
 		if r := recover(); r != nil {
-			logger.Errorf("🔥 PANIC in handleStreamCheck: %v", r)
+			serverLog.Error("PANIC in handleStreamCheck",
+				logger.Any("panic", r),
+			)
 		}
-		logger.Debugf("🛑 Stream Request Ended")
+		serverLog.Debug("Stream request ended")
 	}()
 
 	// 4. Send initial "start" event
@@ -1044,7 +1073,10 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 		defer writeMu.Unlock()
 
 		if _, err := fmt.Fprintf(w, "data: %s\n\n", string(bytes)); err != nil {
-			logger.Errorf("❌ Write Error for %s: %v", u.Name, err)
+			serverLog.Error("Write error for container",
+				logger.String("container", u.Name),
+				logger.Any("error", err),
+			)
 			cancel()
 			return
 		}
@@ -1052,10 +1084,13 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 7. Run Scan
-	logger.Debugf("Starting Engine Scan...")
+	serverLog.Debug("Starting engine scan")
 	force := r.URL.Query().Get("force") == "true"
 	updates, err := engine.Scan(ctx, s.Discovery, s.Registry, "", force, onProgress)
-	logger.Debugf("Scan returned %d updates, err=%v", len(updates), err)
+	serverLog.Debug("Engine scan completed",
+		logger.Int("updates_found", len(updates)),
+		logger.Any("error", err),
+	)
 
 	// 8. Handle result
 	if ctx.Err() == nil {
@@ -1101,11 +1136,15 @@ func (s *Server) StartScheduler(ctx context.Context) {
 	}
 	interval, err := time.ParseDuration(intervalStr)
 	if err != nil || interval <= 0 {
-		logger.Warnf("Apprise: Invalid SCAN_INTERVAL '%s', defaulting to 24h", intervalStr)
+		logger.Warn("Apprise: Invalid SCAN_INTERVAL, defaulting to 24h",
+			logger.String("provided_interval", intervalStr),
+		)
 		interval = 24 * time.Hour
 	}
 
-	logger.Infof("Starting autonomous background update scheduler (interval: %v)", interval)
+	logger.Info("Starting autonomous background update scheduler",
+		logger.String("interval", interval.String()),
+	)
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
@@ -1118,7 +1157,7 @@ func (s *Server) StartScheduler(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			serverLog.Infof("Stopping background update scheduler")
+			serverLog.Info("Stopping background update scheduler")
 			return
 		case <-ticker.C:
 			s.runScheduledScan(ctx)
@@ -1128,10 +1167,12 @@ func (s *Server) StartScheduler(ctx context.Context) {
 
 func (s *Server) runScheduledScan(ctx context.Context) {
 	updateCtx := logger.WithUpdateID(ctx, uuid.New().String())
-	serverLog.DebugContextf(updateCtx, "Scheduler: Running background engine scan...")
+	serverLog.DebugContext(updateCtx, "Scheduler: Running background engine scan")
 	updates, err := engine.Scan(updateCtx, s.Discovery, s.Registry, "", true, nil) // nil progress callback since this is headless
 	if err != nil {
-		serverLog.ErrorContextf(updateCtx, "Scheduler: Engine scan failed: %v", err)
+		serverLog.ErrorContext(updateCtx, "Scheduler: Engine scan failed",
+			logger.Any("error", err),
+		)
 
 		s.mu.Lock()
 		s.lastCheckStat = "error"
@@ -1158,7 +1199,10 @@ func (s *Server) runScheduledScan(ctx context.Context) {
 				}
 			}
 			newCache[u.ID] = true
-			serverLog.DebugContextf(updateCtx, "Scheduler: Found update for %s (ID: %s)", name, u.ID)
+			serverLog.DebugContext(updateCtx, "Scheduler: Found update for container",
+				logger.String("container", name),
+				logger.String("container_id", u.ID),
+			)
 		}
 	}
 
@@ -1193,12 +1237,10 @@ var validContainerName = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
 
 // /api/update/:name
 func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
-	debugLog := func(format string, args ...interface{}) {
-		serverLog.Debugf(format, args...)
-	}
-
 	name := strings.TrimPrefix(r.URL.Path, "/api/update/")
-	debugLog("Received update request for: %s", name)
+	serverLog.Debug("Received update request",
+		logger.String("container", name),
+	)
 
 	if name == "" {
 		http.Error(w, "Container name required", http.StatusBadRequest)
@@ -1230,7 +1272,10 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	// 1. Scan the specific container natively
 	updates, err := engine.Scan(context.Background(), s.Discovery, s.Registry, name, false, nil)
 	if err != nil || len(updates) == 0 {
-		debugLog("Failed to scan container %s natively: %v", name, err)
+		serverLog.Debug("Failed to scan container natively",
+			logger.String("container", name),
+			logger.Any("error", err),
+		)
 		if err == nil {
 			err = fmt.Errorf("container not found or not running")
 		}
@@ -1246,7 +1291,10 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	targetUpdate := &updates[0]
 	targetID := targetUpdate.ID
 
-	debugLog("Resolved container %s to ID: %s", name, targetID)
+	serverLog.Debug("Resolved container name to ID",
+		logger.String("container", name),
+		logger.String("container_id", targetID),
+	)
 
 	// 2. Wrap SSE Writes inside a local lock
 	// The HTTP ResponseWriter is inherently NOT thread-safe for concurrent SSE pushes when flushed.
@@ -1268,11 +1316,16 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		LogCallback:     emitSSE,
 	}
 
-	debugLog("Beginning native engine update for %s", name)
+	serverLog.Debug("Beginning native engine update",
+		logger.String("container", name),
+	)
 	err = engine.PerformUpdate(r.Context(), s.Discovery, targetUpdate, opts)
 
 	if err != nil {
-		debugLog("Update process failed for %s: %v", name, err)
+		serverLog.Debug("Update process failed",
+			logger.String("container", name),
+			logger.Any("error", err),
+		)
 
 		errBytes, _ := json.Marshal(map[string]interface{}{
 			"type":  "error",
@@ -1301,7 +1354,12 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 			delete(s.updatesCache, targetID)
 			lenAfter := len(s.updatesCache)
 			s.mu.Unlock()
-			debugLog("Clearing cache for %s (ID: %s). Len Before: %d, Len After: %d", name, targetID, lenBefore, lenAfter)
+			serverLog.Debug("Clearing cache for container",
+				logger.String("container", name),
+				logger.String("container_id", targetID),
+				logger.Int("cache_size_before", lenBefore),
+				logger.Int("cache_size_after", lenAfter),
+			)
 		}
 
 		doneBytes, _ := json.Marshal(map[string]interface{}{
