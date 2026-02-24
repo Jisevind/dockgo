@@ -196,7 +196,9 @@ func (a *AppriseNotifier) send(client *http.Client, n Notification) {
 				} else {
 					notifyLog.Warnf("Apprise: Send failed, retrying (%d/%d)...", i+1, maxRetries)
 					b := make([]byte, 2)
-					_, _ = cryptorand.Read(b)
+					if _, err := cryptorand.Read(b); err != nil {
+						panic(fmt.Sprintf("crypto/rand failed to generate jitter: %v", err))
+					}
 					jitterMs := (int(b[0])<<8 | int(b[1])) % 1000
 					jitter := time.Duration(jitterMs) * time.Millisecond
 					time.Sleep(2*time.Second + jitter)
@@ -211,7 +213,9 @@ func (a *AppriseNotifier) send(client *http.Client, n Notification) {
 				} else {
 					notifyLog.Warnf("Apprise: Send failed (status %d), retrying (%d/%d)...", resp.StatusCode, i+1, maxRetries)
 					b := make([]byte, 2)
-					_, _ = cryptorand.Read(b)
+					if _, err := cryptorand.Read(b); err != nil {
+						panic(fmt.Sprintf("crypto/rand failed to generate jitter: %v", err))
+					}
 					jitterMs := (int(b[0])<<8 | int(b[1])) % 1000
 					jitter := time.Duration(jitterMs) * time.Millisecond
 					time.Sleep(2*time.Second + jitter)
