@@ -102,15 +102,13 @@ func PerformUpdate(ctx context.Context, discovery *DiscoveryEngine, upd *api.Con
 		}
 	}
 
-	// 4. Fence verification for failed Compose executions
+	// 4. Fallback verification for failed Compose executions
 	if isManaged && !composeHandled {
-		errMsg := fmt.Sprintf("Container %s is orchestrated by Compose/Swarm but lacks local config context or the CLI failed. Standalone update aborted to prevent state corruption.", upd.Name)
 		logCb(api.ProgressEvent{
-			Type:      "error",
-			Error:     errMsg,
+			Type:      "progress",
+			Status:    fmt.Sprintf("⚠️  Container %s is managed by Compose/Swarm but native orchestrator failed or lacks context. Falling back to standalone API update.", upd.Name),
 			Container: upd.Name,
 		})
-		return fmt.Errorf("orchestrator update failed: %s", errMsg)
 	}
 
 	if composeHandled {
