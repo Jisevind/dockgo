@@ -14,7 +14,10 @@ import (
 var engineLog = logger.WithSubsystem("engine")
 
 // RecreateContainer handles the stop, rename, create, start flow
-func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID string, imageName string, preserveNetwork bool) error {
+func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID string, imageName string, preserveNetwork bool, logCb func(string)) error {
+	if logCb == nil {
+		logCb = func(string) {}
+	}
 	// 1. Inspect the container to get config
 	json, err := d.Client.ContainerInspect(ctx, containerID)
 	if err != nil {
@@ -28,10 +31,14 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 
 	// Check if it's a compose container
 	if project, ok := json.Config.Labels["com.docker.compose.project"]; ok {
-		engineLog.InfoContextf(ctx, "Container %s is managed by Compose project '%s'. Proceeding with API recreation (Watchtower-style).", name, project)
+		msg := fmt.Sprintf("Container %s is managed by Compose project '%s'. Proceeding with API recreation (Watchtower-style).", name, project)
+		engineLog.InfoContextf(ctx, "%s", msg)
+		logCb(msg)
 	}
 
-	engineLog.InfoContextf(ctx, "Recreating standalone container %s with image %s...", name, imageName)
+	startMsg := fmt.Sprintf("Recreating standalone container %s with image %s...", name, imageName)
+	engineLog.InfoContextf(ctx, "%s", startMsg)
+	logCb(startMsg)
 
 	// --- Config Sanitization ---
 
@@ -122,7 +129,9 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 	err = d.Client.ContainerStart(ctx, newContainer.ID, container.StartOptions{})
 	if err != nil {
 		// Rollback: Remove new, rename old back, start old
-		engineLog.WarnContextf(ctx, "Failed to start new container %s. Rolling back...", name)
+		failMsg := fmt.Sprintf("Failed to start new container %s. Rolling back...", name)
+		engineLog.WarnContextf(ctx, "%s", failMsg)
+		logCb("⚠️ " + failMsg)
 		_ = d.Client.ContainerRemove(ctx, newContainer.ID, container.RemoveOptions{Force: true})
 		_ = d.Client.ContainerRename(ctx, containerID, name)
 		_ = d.Client.ContainerStart(ctx, containerID, container.StartOptions{})
@@ -130,7 +139,9 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 	}
 
 	// 6. Verify Health / State
-	engineLog.InfoContextf(ctx, "Waiting for container health/stability (up to 60s)...")
+	waitMsg := "Waiting for container health/stability (up to 60s)..."
+	engineLog.InfoContextf(ctx, "%s", waitMsg)
+	logCb("⏳ " + waitMsg)
 
 	verifyCtx, cancelVerify := context.WithTimeout(ctx, 60*time.Second)
 	defer cancelVerify()
@@ -185,7 +196,9 @@ EndVerify:
 
 	// 7. Stability Wait (Post-Verification)
 	if verificationSuccess {
-		engineLog.InfoContextf(ctx, "✅ Initial verification passed. Monitoring for 20s stability...")
+		stableMsg := "Initial verification passed. Monitoring for 20s stability..."
+		engineLog.InfoContextf(ctx, "✅ %s", stableMsg)
+		logCb("✅ " + stableMsg)
 		select {
 		case <-ctx.Done():
 			verificationSuccess = false
@@ -203,6 +216,7 @@ EndVerify:
 				verificationSuccess = false
 			} else {
 				engineLog.InfoContextf(ctx, "✅ Container is stable.")
+				logCb("✅ Container is stable.")
 			}
 		}
 	}
@@ -210,6 +224,7 @@ EndVerify:
 	if !verificationSuccess {
 		// Rollback logic
 		engineLog.WarnContextf(ctx, "Verification failed. Rolling back...")
+		logCb("❌ Verification failed. Rolling back...")
 		// Stop/Remove New
 		d.Client.ContainerStop(ctx, newContainer.ID, container.StopOptions{})
 		d.Client.ContainerRemove(ctx, newContainer.ID, container.RemoveOptions{Force: true})
@@ -231,7 +246,9 @@ EndVerify:
 	}
 
 	// 7. Remove old container (Success path)
-	engineLog.InfoContextf(ctx, "New container healthy/stable. Removing old container...")
+	cleanupMsg := "New container healthy/stable. Removing old container..."
+	engineLog.InfoContextf(ctx, "%s", cleanupMsg)
+	logCb("🧹 " + cleanupMsg)
 	err = d.Client.ContainerRemove(ctx, containerID, container.RemoveOptions{Force: true})
 	if err != nil {
 		engineLog.WarnContextf(ctx, "Warning: Failed to remove old container: %v", err)
