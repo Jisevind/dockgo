@@ -150,7 +150,13 @@ func PerformUpdate(ctx context.Context, discovery *DiscoveryEngine, upd *api.Con
 	}
 
 	// 6. Standalone Recreate Container
-	err = discovery.RecreateContainer(ctx, upd.ID, upd.Image, opts.PreserveNetwork)
+	err = discovery.RecreateContainer(ctx, upd.ID, upd.Image, opts.PreserveNetwork, func(msg string) {
+		logCb(api.ProgressEvent{
+			Type:      "progress",
+			Status:    msg,
+			Container: upd.Name,
+		})
+	})
 	if err != nil {
 		upd.Error = err.Error()
 		return fmt.Errorf("failed to recreate container: %w", err)

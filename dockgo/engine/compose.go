@@ -2,6 +2,7 @@ package engine
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -65,12 +66,12 @@ func ComposeUpdate(ctx context.Context, workingDir string, serviceName string, l
 
 	// 3. Execute Build or Pull
 	if shouldBuild {
-		err = streamCommand(ctx, workingDir, log, "docker", "compose", "build", serviceName)
+		err = streamCommand(ctx, workingDir, log, "docker", "compose", "--ansi", "never", "build", "--progress", "plain", serviceName)
 		if err != nil {
 			return fmt.Errorf("compose build failed: %w", err)
 		}
 	} else {
-		err = streamCommand(ctx, workingDir, log, "docker", "compose", "pull", serviceName)
+		err = streamCommand(ctx, workingDir, log, "docker", "compose", "--ansi", "never", "pull", serviceName)
 		if err != nil {
 			return fmt.Errorf("compose pull failed: %w", err)
 		}
@@ -78,7 +79,7 @@ func ComposeUpdate(ctx context.Context, workingDir string, serviceName string, l
 
 	// 4. Run 'docker compose up -d [service]'
 	// This recreates the container if the image/build changed
-	err = streamCommand(ctx, workingDir, log, "docker", "compose", "up", "-d", serviceName)
+	err = streamCommand(ctx, workingDir, log, "docker", "compose", "--ansi", "never", "up", "-d", serviceName)
 	if err != nil {
 		return fmt.Errorf("compose up failed: %w", err)
 	}
@@ -97,7 +98,7 @@ func ComposePull(ctx context.Context, workingDir string, serviceName string, log
 
 	// In Safe Mode, we only pull the image to prepare for an update.
 	// We do not build or restart the service.
-	err := streamCommand(ctx, workingDir, log, "docker", "compose", "pull", serviceName)
+	err := streamCommand(ctx, workingDir, log, "docker", "compose", "--ansi", "never", "pull", serviceName)
 	if err != nil {
 		return fmt.Errorf("compose pull failed: %w", err)
 	}
@@ -122,12 +123,30 @@ func streamCommand(ctx context.Context, dir string, log Logger, name string, arg
 	var wg sync.WaitGroup
 	wg.Add(2)
 
+	// Custom split function to handle both \n and \r as line delimiters
+	splitFunc := func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+		if atEOF && len(data) == 0 {
+			return 0, nil, nil
+		}
+		if i := bytes.IndexAny(data, "\r\n"); i >= 0 {
+			return i + 1, data[0:i], nil
+		}
+		if atEOF {
+			return len(data), data, nil
+		}
+		return 0, nil, nil
+	}
+
 	// Stream stdout
 	go func() {
 		defer wg.Done()
 		scanner := bufio.NewScanner(stdout)
+		scanner.Split(splitFunc)
 		for scanner.Scan() {
-			log(scanner.Text())
+			text := strings.TrimSpace(scanner.Text())
+			if text != "" {
+				log(text)
+			}
 		}
 	}()
 
@@ -135,11 +154,10 @@ func streamCommand(ctx context.Context, dir string, log Logger, name string, arg
 	go func() {
 		defer wg.Done()
 		scanner := bufio.NewScanner(stderr)
+		scanner.Split(splitFunc)
 		for scanner.Scan() {
-			text := scanner.Text()
-			// Docker Compose often uses carriage returns for progress bars.
-			// Ideally we would parse this, but for now raw logging is sufficient.
-			if strings.TrimSpace(text) != "" {
+			text := strings.TrimSpace(scanner.Text())
+			if text != "" {
 				log(text)
 			}
 		}
