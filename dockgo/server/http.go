@@ -352,7 +352,9 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 func (s *Server) generateSessionToken() string {
 	// Format: sessionUUID|user|issuedAt|expiration|signature
 	uuidBytes := make([]byte, 16)
-	_, _ = cryptorand.Read(uuidBytes)
+	if _, err := cryptorand.Read(uuidBytes); err != nil {
+		panic(fmt.Sprintf("crypto/rand failed to generate session UUID: %v", err))
+	}
 	uuidHex := hex.EncodeToString(uuidBytes)
 
 	issuedAt := time.Now().Unix()
@@ -365,7 +367,9 @@ func (s *Server) generateSessionToken() string {
 
 func (s *Server) generateCSRFToken() string {
 	b := make([]byte, 32)
-	_, _ = cryptorand.Read(b)
+	if _, err := cryptorand.Read(b); err != nil {
+		panic(fmt.Sprintf("crypto/rand failed to generate CSRF token: %v", err))
+	}
 	return hex.EncodeToString(b)
 }
 
