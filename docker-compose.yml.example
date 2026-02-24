@@ -66,9 +66,14 @@ services:
       ####################################
       # Compose Security (Recommended)
       ####################################
-      # Restrict directories DockGo can manage.
+      # Restrict directories DockGo can update.
       # Helps prevent accidental or malicious updates
       # outside intended container environments.
+      #
+      # NOTE: This restriction only applies to UPDATES, not discovery.
+      # DockGo will still discover and monitor ALL containers on your
+      # system, but will only allow updating containers whose compose
+      # working directories are within these allowed paths.
       #
       # Example:
       # - ALLOWED_COMPOSE_PATHS=/opt/docker,/srv/compose
