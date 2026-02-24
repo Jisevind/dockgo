@@ -54,6 +54,9 @@ DockGo takes security seriously.
     *   **Legacy Token**: Set `API_TOKEN` for simple script integrations.
     *   **CORS**: Disabled by default. Only enabled if you specifically set `CORS_ORIGIN`.
 4.  **Log Redaction**: Sensitive errors and login failures are redacted in logs.
+5.  **Hardened SSE Streams**: All real-time progress events are strictly JSON-marshaled and HTML-escaped to prevent XSS and stream-breaking injections.
+6.  **Deep RNG Validation**: Fail-fast architecture that terminates the application immediately if the host operating system's entropy pool (`crypto/rand`) fails to provide secure random bytes.
+7.  **Strict Credential Omission**: Sensitive fields (passwords/tokens) are cryptographically tagged to be omitted from all JSON serialization at the compiler level.
 
 > [!CAUTION]
 > **CRITICAL SECURITY WARNING: Docker Socket Exposure**
