@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -28,10 +29,15 @@ func NewRegistryClient() *RegistryClient {
 
 // GetRemoteDigest fetches the digest of the remote image
 func (r *RegistryClient) GetRemoteDigest(image string, platform *v1.Platform, force bool) (string, error) {
+	cacheKey := image
+	if platform != nil {
+		cacheKey = fmt.Sprintf("%s|%s/%s", image, platform.OS, platform.Architecture)
+	}
+
 	// 1. Check Cache
 	if !force {
 		r.mu.RLock()
-		if entry, ok := r.cache[image]; ok {
+		if entry, ok := r.cache[cacheKey]; ok {
 			if time.Now().Before(entry.expiresAt) {
 				r.mu.RUnlock()
 				return entry.digest, nil
@@ -61,7 +67,7 @@ func (r *RegistryClient) GetRemoteDigest(image string, platform *v1.Platform, fo
 
 	// 2. Update Cache (TTL 10m)
 	r.mu.Lock()
-	r.cache[image] = cachedDigest{
+	r.cache[cacheKey] = cachedDigest{
 		digest:    digest,
 		expiresAt: time.Now().Add(10 * time.Minute),
 	}
