@@ -601,6 +601,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	var creds struct {
 		Username string `json:"username"`
+		// #nosec G117 - this struct exclusively deserializes incoming login payloads, never re-serialized outward
 		Password string `json:"password"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&creds); err != nil {
@@ -1041,9 +1042,6 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 		defer writeMu.Unlock()
 
 		if err != nil {
-			s.mu.Lock()
-			s.mu.Unlock()
-
 			// Safely marshal the error object
 			errBytes, _ := json.Marshal(map[string]interface{}{
 				"type":  "error",
