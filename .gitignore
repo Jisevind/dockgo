@@ -1,5 +1,7 @@
 updates.cache
 node_modules
+favicon
+plans
 
 .contextignore
 
