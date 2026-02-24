@@ -43,10 +43,10 @@ var Version = "dev"
 type Server struct {
 	Port             string
 	CorsOrigin       string // Allowed Origin for CORS
-	APIToken         string // Legacy Token
+	APIToken         string `json:"-"` // Legacy Token
 	AuthUsername     string // Optional: User Login
-	AuthPasswordHash []byte // Bcrypt hash
-	AuthSecret       string // For signing sessions
+	AuthPasswordHash []byte `json:"-"` // Bcrypt hash
+	AuthSecret       string `json:"-"` // For signing sessions
 	Discovery        *engine.DiscoveryEngine
 	Registry         *engine.RegistryClient
 	Notifier         *notify.AppriseNotifier
