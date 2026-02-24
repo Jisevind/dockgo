@@ -60,7 +60,7 @@ func help() {
 func handleServe(args []string) {
 	fs := flag.NewFlagSet("serve", flag.ExitOnError)
 	port := fs.String("port", "", "Port to listen on (default: $PORT or 3131)")
-	fs.Parse(args)
+	_ = fs.Parse(args)
 
 	p := *port
 	if p == "" {
@@ -113,7 +113,7 @@ func handleCheck(args []string) {
 	jsonOutput := fs.Bool("json", false, "Output in JSON format")
 	streamOutput := fs.Bool("stream", false, "Output as a stream of JSON events")
 	updateName := fs.String("y", "", "Check specific container by name (e.g. 'container-name' or 'all')")
-	fs.Parse(args)
+	_ = fs.Parse(args)
 
 	runScan(true, *jsonOutput, *streamOutput, *updateName, false, false, false)
 }
@@ -127,7 +127,7 @@ func handleUpdate(args []string) {
 	updateSafe := fs.Bool("safe", false, "Safe mode: Download updates but do NOT restart running containers")
 	updateForce := fs.Bool("force", false, "Force mode: Update and restart even if running")
 	preserveNetwork := fs.Bool("preserve-network", false, "Preserve network settings (IP, MAC) during recreation")
-	fs.Parse(args)
+	_ = fs.Parse(args)
 
 	target := *updateName
 	if *updateAll {
@@ -162,7 +162,7 @@ func runScan(checkOnly, jsonOutput, streamOutput bool, filter string, safe, forc
 				Status:          u.Status,
 				UpdateAvailable: u.UpdateAvailable,
 			}
-			json.NewEncoder(os.Stdout).Encode(evt)
+			_ = json.NewEncoder(os.Stdout).Encode(evt)
 		} else if !jsonOutput {
 			mu.Lock()
 			defer mu.Unlock()
@@ -189,7 +189,7 @@ func runScan(checkOnly, jsonOutput, streamOutput bool, filter string, safe, forc
 		if jsonOutput {
 			enc := json.NewEncoder(os.Stdout)
 			enc.SetIndent("", "  ")
-			enc.Encode(api.CheckReport{Containers: updates})
+			_ = enc.Encode(api.CheckReport{Containers: updates})
 		}
 		return
 	}
@@ -217,7 +217,7 @@ func runScan(checkOnly, jsonOutput, streamOutput bool, filter string, safe, forc
 				// Prepare callback for CLI formatting
 				logCb := func(evt api.ProgressEvent) {
 					if streamOutput {
-						json.NewEncoder(os.Stdout).Encode(evt)
+						_ = json.NewEncoder(os.Stdout).Encode(evt)
 					} else if !jsonOutput {
 						// Format for terminal
 						if evt.Type == "progress" {
@@ -252,7 +252,7 @@ func runScan(checkOnly, jsonOutput, streamOutput bool, filter string, safe, forc
 	if jsonOutput {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
-		enc.Encode(api.CheckReport{Containers: updates})
+		_ = enc.Encode(api.CheckReport{Containers: updates})
 	}
 }
 

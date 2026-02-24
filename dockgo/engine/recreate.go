@@ -226,8 +226,8 @@ EndVerify:
 		engineLog.WarnContextf(ctx, "Verification failed. Rolling back...")
 		logCb("❌ Verification failed. Rolling back...")
 		// Stop/Remove New
-		d.Client.ContainerStop(ctx, newContainer.ID, container.StopOptions{})
-		d.Client.ContainerRemove(ctx, newContainer.ID, container.RemoveOptions{Force: true})
+		_ = d.Client.ContainerStop(ctx, newContainer.ID, container.StopOptions{})
+		_ = d.Client.ContainerRemove(ctx, newContainer.ID, container.RemoveOptions{Force: true})
 
 		// Restore Old
 		renameErr := d.Client.ContainerRename(ctx, containerID, name)
