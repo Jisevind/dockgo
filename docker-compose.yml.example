@@ -70,6 +70,10 @@ services:
       # Helps prevent accidental or malicious updates
       # outside intended container environments.
       #
+      # This restriction applies to both native Compose updates
+      # AND fallback to standalone API recreation for Compose-managed
+      # containers (when Compose orchestration fails or lacks context).
+      #
       # NOTE: This restriction only applies to UPDATES, not discovery.
       # DockGo will still discover and monitor ALL containers on your
       # system, but will only allow updating containers whose compose

@@ -3,6 +3,8 @@ package engine
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"dockgo/api"
@@ -105,6 +107,23 @@ func PerformUpdate(ctx context.Context, discovery *DiscoveryEngine, upd *api.Con
 
 	// 4. Fallback verification for failed Compose executions
 	if isManaged && !composeHandled {
+		// Check if this is a Compose container with a working directory
+		if hasWorkingDir && len(opts.AllowedPaths) > 0 {
+			// Validate that the working directory is within allowed paths
+			allowed := false
+			for _, allowedBase := range opts.AllowedPaths {
+				if workingDir == allowedBase || strings.HasPrefix(workingDir, allowedBase+string(filepath.Separator)) {
+					allowed = true
+					break
+				}
+			}
+			if !allowed {
+				err := fmt.Errorf("container %s is managed by Compose with working directory '%s' which is not within allowed paths: %v", upd.Name, workingDir, opts.AllowedPaths)
+				upd.Error = err.Error()
+				return err
+			}
+		}
+
 		logCb(api.ProgressEvent{
 			Type:      "progress",
 			Status:    fmt.Sprintf("⚠️  Container %s is managed by Compose/Swarm but native orchestrator failed or lacks context. Falling back to standalone API update.", upd.Name),
