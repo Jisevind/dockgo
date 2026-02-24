@@ -203,7 +203,7 @@ func (a *AppriseNotifier) send(client *http.Client, n Notification) {
 			}
 
 			if resp.StatusCode >= 300 {
-				resp.Body.Close()
+				_ = resp.Body.Close()
 				if i == maxRetries-1 {
 					notifyLog.Errorf("Apprise: Send failed to %s after %d retries: status %d", targetURL, maxRetries, resp.StatusCode)
 				} else {
@@ -215,7 +215,7 @@ func (a *AppriseNotifier) send(client *http.Client, n Notification) {
 				continue
 			}
 
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			break // Success
 		}
 	}

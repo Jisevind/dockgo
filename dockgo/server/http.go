@@ -198,7 +198,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/debug/cache", func(w http.ResponseWriter, r *http.Request) {
 		s.mu.RLock()
 		defer s.mu.RUnlock()
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"cache":      s.updatesCache,
 			"last_check": s.lastCheckTime,
 			"stat":       s.lastCheckStat,
@@ -352,7 +352,7 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 func (s *Server) generateSessionToken() string {
 	// Format: sessionUUID|user|issuedAt|expiration|signature
 	uuidBytes := make([]byte, 16)
-	cryptorand.Read(uuidBytes)
+	_, _ = cryptorand.Read(uuidBytes)
 	uuidHex := hex.EncodeToString(uuidBytes)
 
 	issuedAt := time.Now().Unix()
@@ -365,7 +365,7 @@ func (s *Server) generateSessionToken() string {
 
 func (s *Server) generateCSRFToken() string {
 	b := make([]byte, 32)
-	cryptorand.Read(b)
+	_, _ = cryptorand.Read(b)
 	return hex.EncodeToString(b)
 }
 
@@ -546,7 +546,7 @@ func (s *Server) saveAuthState() {
 	tmpPath := s.sessionStorePath + ".tmp"
 	// Ensure directory exists
 	if dir := filepath.Dir(s.sessionStorePath); dir != "" {
-		os.MkdirAll(dir, 0700)
+		_ = os.MkdirAll(dir, 0700)
 	}
 
 	// Write to tmp safely using 0600
@@ -650,7 +650,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteStrictMode,
 	})
 
-	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+	_ = json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
@@ -686,7 +686,7 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 		HttpOnly: false,
 		MaxAge:   -1,
 	})
-	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+	_ = json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
 
 func (s *Server) handleLogoutAll(w http.ResponseWriter, r *http.Request) {
@@ -714,7 +714,7 @@ func (s *Server) handleLogoutAll(w http.ResponseWriter, r *http.Request) {
 		HttpOnly: false,
 		MaxAge:   -1,
 	})
-	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+	_ = json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
 
 func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
@@ -730,7 +730,7 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"logged_in":         loggedIn,
 		"auth_method":       method,
 		"user_auth_enabled": s.AuthUsername != "",
@@ -744,7 +744,7 @@ func (s *Server) handleTestNotify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.Notifier.Notify("DockGo Test", "Test notification sent successfully.", notify.TypeSuccess)
-	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+	_ = json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
 
 // /api/health
@@ -813,7 +813,7 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}
 
-	json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 func formatUptime(d time.Duration) string {
@@ -935,7 +935,7 @@ func (s *Server) handleContainers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
+	_ = json.NewEncoder(w).Encode(result)
 }
 
 // /api/stream/check
