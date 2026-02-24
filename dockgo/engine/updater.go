@@ -12,6 +12,7 @@ import (
 type UpdateOptions struct {
 	Safe            bool
 	PreserveNetwork bool
+	AllowedPaths    []string // Allowed base paths for Compose working directories
 	// LogCallback is used to emit structured progress events synchronously.
 	// Callers must ensure their own stream thread-safety bounded inside this callback.
 	LogCallback func(api.ProgressEvent)
@@ -68,7 +69,7 @@ func PerformUpdate(ctx context.Context, discovery *DiscoveryEngine, upd *api.Con
 		}
 
 		if opts.Safe && isRunning {
-			err = ComposePull(ctxCompose, workingDir, serviceName, composeLogger)
+			err = ComposePull(ctxCompose, workingDir, serviceName, opts.AllowedPaths, composeLogger)
 			if err == nil {
 				upd.Status = "pulled_safe"
 				logCb(api.ProgressEvent{
@@ -78,7 +79,7 @@ func PerformUpdate(ctx context.Context, discovery *DiscoveryEngine, upd *api.Con
 				})
 			}
 		} else {
-			err = ComposeUpdate(ctxCompose, workingDir, serviceName, composeLogger)
+			err = ComposeUpdate(ctxCompose, workingDir, serviceName, opts.AllowedPaths, composeLogger)
 			if err == nil {
 				upd.Status = "updated"
 				logCb(api.ProgressEvent{
