@@ -19,5 +19,18 @@ else
     addgroup dockgo $GROUP_NAME
 fi
 
+# Ensure the data directory exists and is writable by dockgo user
+if [ -d /app/data ]; then
+    # Take ownership of the data directory
+    chown -R dockgo:dockgo /app/data
+    # Ensure write permissions
+    chmod -R u+w /app/data
+else
+    # Create the data directory with correct ownership
+    mkdir -p /app/data
+    chown dockgo:dockgo /app/data
+    chmod u+w /app/data
+fi
+
 # Drop privileges and execute the command
 exec su-exec dockgo "$@"
