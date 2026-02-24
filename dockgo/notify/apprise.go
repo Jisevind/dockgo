@@ -195,6 +195,7 @@ func (a *AppriseNotifier) send(client *http.Client, n Notification) {
 					notifyLog.Errorf("Apprise: Send failed to %s after %d retries: %v", targetURL, maxRetries, err)
 				} else {
 					notifyLog.Warnf("Apprise: Send failed, retrying (%d/%d)...", i+1, maxRetries)
+					// #nosec G404
 					jitter := time.Duration(rand.Intn(1000)) * time.Millisecond
 					time.Sleep(2*time.Second + jitter)
 				}
@@ -207,6 +208,7 @@ func (a *AppriseNotifier) send(client *http.Client, n Notification) {
 					notifyLog.Errorf("Apprise: Send failed to %s after %d retries: status %d", targetURL, maxRetries, resp.StatusCode)
 				} else {
 					notifyLog.Warnf("Apprise: Send failed (status %d), retrying (%d/%d)...", resp.StatusCode, i+1, maxRetries)
+					// #nosec G404
 					jitter := time.Duration(rand.Intn(1000)) * time.Millisecond
 					time.Sleep(2*time.Second + jitter)
 				}
