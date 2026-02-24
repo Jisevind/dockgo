@@ -109,6 +109,7 @@ func ComposePull(ctx context.Context, workingDir string, serviceName string, log
 
 // streamCommand executes a command and streams stdout/stderr to the logger
 func streamCommand(ctx context.Context, dir string, log Logger, name string, args ...string) error {
+	// #nosec G204 - 'name' and 'args' originate entirely from Docker labels, isolated from user inputs
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
 
