@@ -230,7 +230,18 @@ func (s *Server) Start() error {
 		}
 	}()
 
-	return http.ListenAndServe(":"+s.Port, mux)
+	srv := &http.Server{
+		Addr:              ":" + s.Port,
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		// Explicitly omitting WriteTimeout because the application utilizes
+		// long-running Server-Sent Events (SSE) for its /api/containers stream,
+		// and WriteTimeout rigidly limits the maximum duration of the entire connection.
+	}
+
+	return srv.ListenAndServe()
 }
 
 // Middleware: CORS
