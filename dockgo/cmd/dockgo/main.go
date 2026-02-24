@@ -24,13 +24,17 @@ func main() {
 		logger.SetLevel(logLevel)
 	}
 
-	if len(os.Args) < 2 {
-		help()
-		os.Exit(1)
-	}
+	// Default to 'serve' if no command provided
+	var cmd string
+	var args []string
 
-	cmd := os.Args[1]
-	args := os.Args[2:]
+	if len(os.Args) < 2 {
+		cmd = "serve"
+		args = []string{}
+	} else {
+		cmd = os.Args[1]
+		args = os.Args[2:]
+	}
 
 	switch cmd {
 	case "serve":
@@ -41,6 +45,8 @@ func main() {
 		handleUpdate(args)
 	case "hash-password":
 		handleHashPassword(args)
+	case "help", "-h", "--help":
+		help()
 	default:
 		fmt.Printf("Unknown command: %s\n", cmd)
 		help()
@@ -49,9 +55,10 @@ func main() {
 }
 
 func help() {
-	fmt.Println("Usage: dockgo <command> [flags]")
+	fmt.Println("Usage: dockgo [command] [flags]")
+	fmt.Println("\nIf no command is specified, defaults to 'serve'")
 	fmt.Println("\nCommands:")
-	fmt.Println("  serve          Start the web server")
+	fmt.Println("  serve          Start the web server (default)")
 	fmt.Println("  check          Check for updates (dry-run)")
 	fmt.Println("  update         Update containers")
 	fmt.Println("  hash-password  Generate a bcrypt hash for AUTH_PASSWORD_HASH")
