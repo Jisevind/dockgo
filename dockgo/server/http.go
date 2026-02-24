@@ -272,7 +272,7 @@ func (s *Server) enableCors(next http.HandlerFunc) http.HandlerFunc {
 					uAlloc, err1 := url.Parse(a)
 					uOrigin, err2 := url.Parse(b)
 					if err1 == nil && err2 == nil {
-						if uAlloc.Hostname() != "" && uAlloc.Hostname() == uOrigin.Hostname() {
+						if uAlloc.Host != "" && uAlloc.Scheme == uOrigin.Scheme && uAlloc.Host == uOrigin.Host {
 							allowed = true
 						}
 					}
