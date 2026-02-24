@@ -3,51 +3,98 @@ services:
   dockgo:
     build: .
     container_name: dockgo
-    # Optional: If using Apprise API container for sending notifications
-    # depends_on:
-    #   - apprise
     restart: unless-stopped
+
     ports:
       - "3131:3131"
+
     volumes:
+      # Required: Docker socket access for container discovery and updates.
+      # WARNING: This effectively gives DockGo Docker-level privileges.
       - /var/run/docker.sock:/var/run/docker.sock
-      # Mount .env if you want to use file-based config, 
-      # or you can set environment variables here directly.
-      - ./.env:/app/.env
-      # Required for persistent session invalidation across restarts
+
+      # Optional: File-based configuration
+      # Recommended for production instead of inline env vars.
+      - ./.env:/app/.env:ro
+
+      # Required: Persistent data (sessions, cache, etc.)
       - ./data:/app/data
+
     environment:
-      - LOG_LEVEL=info # debug, info, warn, error
+      ####################################
+      # Logging
+      ####################################
+      - LOG_LEVEL=info   # debug, info, warn, error
+      # - LOG_FORMAT=json
+
+      ####################################
+      # CORS Configuration
+      ####################################
+      # Change in production to your UI origin.
+      # Avoid '*' unless you understand the risk.
       - CORS_ORIGIN=http://localhost:3131
-      # Option 1: Legacy Token
-      # - API_TOKEN=your_secure_token_here
-      # Option 2: User Login
+
+      ####################################
+      # Authentication
+      ####################################
+
+      # --- Option 1: Legacy API Token ---
+      # Must be long and random (32+ chars).
+      # - API_TOKEN=replace_with_secure_token
+
+      # --- Option 2: User Login (Recommended) ---
+      # Username:
       # - AUTH_USERNAME=admin
-      # Recommended (Production): Pre-hashed bcrypt string (generate with `dockgo hash-password secret`)
-      # Double the '$' character to escape it in docker-compose.yml files (e.g., $$2a$$10$$...)
-      # - AUTH_PASSWORD_HASH=$$2a$$10$$w...
-      # Convenience (Testing): Plaintext password (not recommended for production)
+
+      # Production recommendation:
+      # Pre-hash password using:
+      #   dockgo hash-password yourpassword
+      #
+      # NOTE: Escape '$' as '$$' in docker-compose.
+      # - AUTH_PASSWORD_HASH=$$2a$$10$$examplehash...
+
+      # Testing convenience only:
       # - AUTH_PASSWORD=supersecurepassword
-      # - AUTH_SECRET=random_string_for_signing_cookies
-      # - AUTH_BCRYPT_COST=10 # Optional: Set hashing complexity (min 4, max 31, default 10)
 
-      # Compose Security
-      # Restrict Compose working directories to specific base paths (optional but recommended)
-      # Comma-separated list of allowed base paths. If empty, any valid directory is allowed.
-      # Example: ALLOWED_COMPOSE_PATHS=/opt/docker,/home/user/docker,/data/compose
-      # - ALLOWED_COMPOSE_PATHS=
+      # Required for session signing:
+      # - AUTH_SECRET=replace_with_random_secret
 
-      # Optional: Apprise API Endpoint for notifications
+      # Optional bcrypt cost tuning:
+      # - AUTH_BCRYPT_COST=10
+
+
+      ####################################
+      # Compose Security (Recommended)
+      ####################################
+      # Restrict directories DockGo can manage.
+      # Helps prevent accidental or malicious updates
+      # outside intended container environments.
+      #
+      # Example:
+      # - ALLOWED_COMPOSE_PATHS=/opt/docker,/srv/compose
+
+
+      ####################################
+      # Notifications (Optional)
+      ####################################
+      # - APPRISE_URL=gotify://host/token
+      # - APPRISE_URL=ntfy://user:pass@host/topic
       # - APPRISE_QUEUE_SIZE=200
-      # - APPRISE_URL=gotify://gotify.example.com/myprivatetopic
-      # - APPRISE_URL=ntfys://user:pass@ntfy.example.com/myprivatetopic
 
-      # Background Update Polling Schedule for notifications (Default: 24h)
-      # Valid units: 's' (seconds), 'm' (minutes), 'h' (hours)
-      # Examples: '12h' (12 hours), '30m' (30 minutes)
+
+      ####################################
+      # Background Update Scanning
+      ####################################
+      # Default: 24h
+      # Avoid very short intervals to prevent
+      # registry rate limiting.
+      #
       # - SCAN_INTERVAL=24h
 
-  # Optional: Apprise API container for sending notifications
+
+  ########################################
+  # Optional: Apprise API Container
+  ########################################
   # apprise:
   #   image: caronc/apprise
   #   container_name: apprise
