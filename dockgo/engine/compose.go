@@ -101,7 +101,7 @@ func ComposeUpdate(ctx context.Context, workingDir string, serviceName string, a
 	cmdConfig.Dir = validatedDir
 	output, err := cmdConfig.Output()
 	if err != nil {
-		log(fmt.Sprintf("⚠️ Failed to parse compose config: %v. Defaulting to 'pull'.", err))
+		log(fmt.Sprintf("⚠️ Could not inspect compose config (%v). Assuming image-based service and proceeding with pull.", err))
 	} else {
 		var config ComposeConfig
 		if err := json.Unmarshal(output, &config); err != nil {
