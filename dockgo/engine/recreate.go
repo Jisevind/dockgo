@@ -16,9 +16,9 @@ import (
 var engineLog = logger.WithSubsystem("engine")
 
 // RecreateContainer handles the stop, rename, create, start flow
-func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID string, imageName string, preserveNetwork bool, logCb func(string)) error {
-	if logCb == nil {
-		logCb = func(string) {}
+func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID string, imageName string, preserveNetwork bool, emitLog func(string)) error {
+	if emitLog == nil {
+		emitLog = func(string) {}
 	}
 	// 1. Inspect the container to get config
 	json, err := d.Client.ContainerInspect(ctx, containerID)
@@ -38,7 +38,7 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 			logger.String("container", name),
 			logger.String("project", project),
 		)
-		logCb(msg)
+		emitLog(msg)
 	}
 
 	startMsg := fmt.Sprintf("Recreating standalone container %s with image %s...", name, imageName)
@@ -46,7 +46,7 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 		logger.String("container", name),
 		logger.String("image", imageName),
 	)
-	logCb(startMsg)
+	emitLog(startMsg)
 
 	// --- Config Sanitization ---
 
@@ -146,7 +146,7 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 		engineLog.WarnContext(ctx, failMsg,
 			logger.String("container", name),
 		)
-		logCb("⚠️ " + failMsg)
+		emitLog("⚠️ " + failMsg)
 		_ = d.Client.ContainerRemove(ctx, newContainer.ID, container.RemoveOptions{Force: true})
 		_ = d.Client.ContainerRename(ctx, containerID, name)
 		_ = d.Client.ContainerStart(ctx, containerID, container.StartOptions{})
@@ -158,7 +158,7 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 	engineLog.InfoContext(ctx, waitMsg,
 		logger.String("container", name),
 	)
-	logCb("⏳ " + waitMsg)
+	emitLog("⏳ " + waitMsg)
 
 	verifyCtx, cancelVerify := context.WithTimeout(ctx, 60*time.Second)
 	defer cancelVerify()
@@ -225,7 +225,7 @@ EndVerify:
 		engineLog.InfoContext(ctx, stableMsg,
 			logger.String("container", name),
 		)
-		logCb("✅ " + stableMsg)
+		emitLog("✅ " + stableMsg)
 		select {
 		case <-ctx.Done():
 			verificationSuccess = false
@@ -253,7 +253,7 @@ EndVerify:
 				engineLog.InfoContext(ctx, "Container is stable",
 					logger.String("container", name),
 				)
-				logCb("✅ Container is stable.")
+				emitLog("✅ Container is stable.")
 			}
 		}
 	}
@@ -263,7 +263,7 @@ EndVerify:
 		engineLog.WarnContext(ctx, "Verification failed. Rolling back",
 			logger.String("container", name),
 		)
-		logCb("❌ Verification failed. Rolling back...")
+		emitLog("❌ Verification failed. Rolling back...")
 		// Stop/Remove New
 		if err := d.Client.ContainerStop(ctx, newContainer.ID, container.StopOptions{}); err != nil {
 			engineLog.WarnContext(ctx, "Failed to stop new container during rollback", logger.Any("error", err))
@@ -299,7 +299,7 @@ EndVerify:
 	engineLog.InfoContext(ctx, cleanupMsg,
 		logger.String("container", name),
 	)
-	logCb("🧹 " + cleanupMsg)
+	emitLog("🧹 " + cleanupMsg)
 	err = d.Client.ContainerRemove(ctx, containerID, container.RemoveOptions{Force: true})
 	if err != nil {
 		engineLog.WarnContext(ctx, "Failed to remove old container",
