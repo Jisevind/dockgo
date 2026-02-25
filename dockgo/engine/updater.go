@@ -23,7 +23,8 @@ type UpdateOptions struct {
 // PerformUpdate orchestrates the full lifecycle update of a Docker container.
 // It detects and handles Compose/Swarm fences, checks safe mode invariants,
 // and delegates to the appropriate underlying pull/recreate engine.
-// All progress and string data are emitted strictly via the opts.LogCallback closure.
+// Safe mode skips restart of running containers.
+// All progress and status data are emitted strictly via the opts.LogCallback closure.
 func PerformUpdate(ctx context.Context, discovery *DiscoveryEngine, upd *api.ContainerUpdate, opts UpdateOptions) error {
 	// Initialize callback guard
 	emitLog := opts.LogCallback

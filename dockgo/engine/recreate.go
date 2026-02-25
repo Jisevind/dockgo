@@ -16,6 +16,9 @@ import (
 var engineLog = logger.WithSubsystem("engine")
 
 // RecreateContainer handles the stop, rename, create, start flow
+// RecreateContainer performs a full standalone container recreation.
+// It stops the old container, renames it to a backup, creates a new one with the same
+// configuration (but new image), and validates stability before cleanup.
 func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID string, imageName string, preserveNetwork bool, emitLog func(string)) error {
 	if emitLog == nil {
 		emitLog = func(string) {}
@@ -153,7 +156,11 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 		return fmt.Errorf("failed to start new container: %w", err)
 	}
 
-	// 6. Verify Health / State
+	// 6. Verification Phase:
+	// 1. If no healthcheck -> ensure container stays running for 3 seconds.
+	// 2. If healthcheck exists -> wait up to 60 seconds for healthy status.
+	// 3. After initial success -> enforce additional 20s stability window.
+	// If any check fails -> rollback to old container.
 	waitMsg := "Waiting for container health/stability (up to 60s)..."
 	engineLog.InfoContext(ctx, waitMsg,
 		logger.String("container", name),

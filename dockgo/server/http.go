@@ -377,7 +377,7 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// Auth Helpers
+// generateSessionToken produces a secure, random UUID for session identification.
 func (s *Server) generateSessionToken() string {
 	// Format: sessionUUID|user|issuedAt|expiration|signature
 	uuidBytes := make([]byte, 16)
@@ -402,6 +402,8 @@ func (s *Server) generateCSRFToken() string {
 	return hex.EncodeToString(b)
 }
 
+// validateSessionToken verifies if a token is cryptographically valid, not revoked,
+// and correctly signed by the server's secret.
 func (s *Server) validateSessionToken(token string) bool {
 	decodedBytes, err := base64.URLEncoding.DecodeString(token)
 	if err != nil {
