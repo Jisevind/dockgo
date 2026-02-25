@@ -1233,7 +1233,7 @@ func (s *Server) runScheduledScan(ctx context.Context) {
 	s.mu.Unlock()
 }
 
-var validContainerName = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
+var validContainerName = regexp.MustCompile(`^[a-zA-Z0-9._-]{1,128}$`)
 
 // /api/update/:name
 func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
