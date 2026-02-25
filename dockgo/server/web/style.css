@@ -154,6 +154,11 @@ body {
     .container {
         padding: 1rem;
     }
+
+    #view-grid,
+    #view-list {
+        display: none !important;
+    }
 }
 
 header {
