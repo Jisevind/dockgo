@@ -101,6 +101,13 @@ services:
       # - SCAN_INTERVAL=24h
 
 
+      ####################################
+      # Orchestrator Settings
+      ####################################
+      # Default: 10s
+      # - DOCKGO_STOP_TIMEOUT=10
+
+
   ########################################
   # Optional: Apprise API Container
   ########################################
