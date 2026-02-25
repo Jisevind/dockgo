@@ -258,8 +258,12 @@ EndVerify:
 		)
 		logCb("❌ Verification failed. Rolling back...")
 		// Stop/Remove New
-		_ = d.Client.ContainerStop(ctx, newContainer.ID, container.StopOptions{})
-		_ = d.Client.ContainerRemove(ctx, newContainer.ID, container.RemoveOptions{Force: true})
+		if err := d.Client.ContainerStop(ctx, newContainer.ID, container.StopOptions{}); err != nil {
+			engineLog.WarnContext(ctx, "Failed to stop new container during rollback", logger.Any("error", err))
+		}
+		if err := d.Client.ContainerRemove(ctx, newContainer.ID, container.RemoveOptions{Force: true}); err != nil {
+			engineLog.WarnContext(ctx, "Failed to remove new container during rollback", logger.Any("error", err))
+		}
 
 		// Restore Old
 		renameErr := d.Client.ContainerRename(ctx, containerID, name)
