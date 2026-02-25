@@ -31,32 +31,12 @@
 <body>
     <div class="container">
         <header>
-            <h1>DockGo <span id="app-version" class="version-tag"></span></h1>
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <img src="/dockgo-logo-web.svg" width="125" alt="DockGo Logo">
+                <span id="app-version" class="version-tag"
+                    style="font-family: monospace; color: var(--text-secondary); font-size: 0.85rem;"></span>
+            </div>
             <div class="header-controls">
-                <span id="connection-status" class="status-indicator">Connecting...</span>
-
-                <div class="control-group">
-                    <button id="view-grid" class="btn-icon active" title="Grid View">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2">
-                            <rect x="3" y="3" width="7" height="7"></rect>
-                            <rect x="14" y="3" width="7" height="7"></rect>
-                            <rect x="14" y="14" width="7" height="7"></rect>
-                            <rect x="3" y="14" width="7" height="7"></rect>
-                        </svg>
-                    </button>
-                    <button id="view-list" class="btn-icon" title="List View">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2">
-                            <line x1="8" y1="6" x2="21" y2="6"></line>
-                            <line x1="8" y1="12" x2="21" y2="12"></line>
-                            <line x1="8" y1="18" x2="21" y2="18"></line>
-                            <line x1="3" y1="6" x2="3.01" y2="6"></line>
-                            <line x1="3" y1="12" x2="3.01" y2="12"></line>
-                            <line x1="3" y1="18" x2="3.01" y2="18"></line>
-                        </svg>
-                    </button>
-                </div>
                 <div class="control-group">
                     <button id="refresh-btn" class="btn-icon" title="Refresh Checks">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -74,7 +54,8 @@
                             <line x1="21" y1="12" x2="9" y2="12"></line>
                         </svg>
                     </button>
-                    <button id="logout-all-btn" class="btn-icon hidden" title="Logout All Devices" style="color: var(--danger);">
+                    <button id="logout-all-btn" class="btn-icon hidden" title="Logout All Devices"
+                        style="color: var(--danger);">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
@@ -84,6 +65,31 @@
                 </div>
             </div>
         </header>
+
+        <div class="sub-header">
+            <span id="connection-status" class="status-indicator">Connecting...</span>
+
+            <div class="control-group">
+                <button id="view-grid" class="btn-icon active" title="Grid View">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="14" width="7" height="7"></rect>
+                        <rect x="3" y="14" width="7" height="7"></rect>
+                    </svg>
+                </button>
+                <button id="view-list" class="btn-icon" title="List View">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="8" y1="6" x2="21" y2="6"></line>
+                        <line x1="8" y1="12" x2="21" y2="12"></line>
+                        <line x1="8" y1="18" x2="21" y2="18"></line>
+                        <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                        <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                        <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
 
         <div id="progress-container" class="progress-container hidden">
             <div class="progress-info">

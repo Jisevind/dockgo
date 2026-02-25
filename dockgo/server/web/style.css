@@ -284,6 +284,13 @@ h1 {
     border-bottom: 1px solid #334155;
 }
 
+.sub-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
 .header-controls {
     display: flex;
     align-items: center;
