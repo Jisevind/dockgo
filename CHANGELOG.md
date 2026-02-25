@@ -1,3 +1,10 @@
+# [0.5.0](https://github.com/Jisevind/dockgo/compare/v0.4.0...v0.5.0) (2026-02-25)
+
+
+### Features
+
+* **web:** add authentication requirement modal and checks ([cd78c1b](https://github.com/Jisevind/dockgo/commit/cd78c1b67c70e7a0df57fa07d0ed6602653ad45d))
+
 # [0.4.0](https://github.com/Jisevind/dockgo/compare/v0.3.0...v0.4.0) (2026-02-25)
 
 
