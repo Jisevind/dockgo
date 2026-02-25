@@ -130,6 +130,23 @@
                 </div>
             </div>
         </div>
+
+        <!-- No Auth Modal -->
+        <div id="no-auth-modal" class="modal-overlay hidden">
+            <div class="modal">
+                <div class="modal-header">
+                    <h2 style="color: var(--danger);">Authentication Required</h2>
+                </div>
+                <div class="modal-body" style="text-align: center;">
+                    <p style="margin-bottom: 1rem;">DockGo has been started without any authentication configured
+                        (Missing <code>AUTH_USERNAME</code> and <code>API_TOKEN</code>).</p>
+                    <p style="margin-bottom: 1rem;">To protect your server, the dashboard and API connection have been
+                        <strong>blocked</strong>.</p>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem;">Please restart the DockGo container with
+                        authentication environment variables set in order to access the dashboard.</p>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Template for container card -->
