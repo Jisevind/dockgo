@@ -2,6 +2,7 @@ updates.cache
 node_modules
 favicon
 plans
+data
 
 .contextignore
 
