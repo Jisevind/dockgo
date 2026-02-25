@@ -1,3 +1,25 @@
+# [0.4.0](https://github.com/Jisevind/dockgo/compare/v0.3.0...v0.4.0) (2026-02-25)
+
+
+### Bug Fixes
+
+* **engine:** correct error message in compose update ([4812d57](https://github.com/Jisevind/dockgo/commit/4812d579aa3b322f2a30eef81f5bcadfe8f5024b))
+* **engine:** handle errors in container rollback operations ([4dbac78](https://github.com/Jisevind/dockgo/commit/4dbac78459ad3c52c1aaa08ca838c626df4d9194))
+* **entrypoint:** ensure data directory exists with correct permissions ([b598e91](https://github.com/Jisevind/dockgo/commit/b598e91cc65f792b04922924e6f41b01bbcd68ef))
+* **security:** enforce path validation on fallback API updates ([6ed8b35](https://github.com/Jisevind/dockgo/commit/6ed8b35061a17a3873d50faca2369880365203e6))
+* **server:** add length limit to container name validation ([5165ff9](https://github.com/Jisevind/dockgo/commit/5165ff9e6416234f29eb095d20b6489edbf2a1d5))
+* **server:** add timeouts to HTTP handlers for operation cancellation ([964ba99](https://github.com/Jisevind/dockgo/commit/964ba9989441d6ec6950f4677a8f28f59162fff6))
+
+
+### Features
+
+* **engine:** add configurable stop timeout for container recreation ([34d4ae3](https://github.com/Jisevind/dockgo/commit/34d4ae31a03a6d0c801737178b6a345fe3b161d9))
+* **server:** add configurable debug endpoints ([62b95c0](https://github.com/Jisevind/dockgo/commit/62b95c0fdf59867df6364761f1aa9d156e03f347))
+* **web:** add favicon and PWA manifest support ([2ad2642](https://github.com/Jisevind/dockgo/commit/2ad26425d24c2571163e12c36d3e5e1e99617224))
+* **web:** add logo and restructure header layout ([9b8268d](https://github.com/Jisevind/dockgo/commit/9b8268db4f33cb5c7179bd34b243106e607fec2c))
+* **web:** force grid view on mobile ([6f844e3](https://github.com/Jisevind/dockgo/commit/6f844e38dee5f53d85af907d95d09c9fb9d26598))
+* **web:** update logo design and refine header alignment ([5350705](https://github.com/Jisevind/dockgo/commit/5350705f20e67b8bc4fc8181724fad2b23d87341))
+
 # [0.3.0](https://github.com/Jisevind/dockgo/compare/v0.2.1...v0.3.0) (2026-02-24)
 
 
