@@ -98,6 +98,7 @@ Configure DockGo using environment variables:
 | `PORT` | Web server port | `3131` |
 | `LOG_LEVEL` | Log verbosity (`debug`, `info`, `warn`, `error`) | `info` |
 | `LOG_FORMAT` | Log format (`json` or `text`) | `json` (Docker) / `text` (CLI) |
+| `DOCKGO_DEBUG` | Enable internal debug endpoints (e.g., `/api/debug/cache`) | `false` |
 | `AUTH_USERNAME` | Username for web login | *(empty)* |
 | `AUTH_PASSWORD_HASH`| Pre-hashed bcrypt string (Recommended for production) | *(empty)* |
 | `AUTH_PASSWORD` | Plaintext password (Convenience/Testing) | *(empty)* |

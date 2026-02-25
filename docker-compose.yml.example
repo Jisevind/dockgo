@@ -26,6 +26,7 @@ services:
       ####################################
       - LOG_LEVEL=info   # debug, info, warn, error
       # - LOG_FORMAT=json
+      # - DOCKGO_DEBUG=false
 
       ####################################
       # CORS Configuration

@@ -69,6 +69,7 @@ type Server struct {
 	sessionStorePath string      // Added sessionStorePath
 	sessionMu        sync.RWMutex
 	savePending      atomic.Bool // Debounce session persistence writes
+	DebugEnabled     bool        // Enable debug endpoints
 }
 
 type RateLimiter struct {
@@ -99,6 +100,7 @@ func NewServer(port string) (*Server, error) {
 	costStr := os.Getenv("AUTH_BCRYPT_COST")
 	sessionPath := os.Getenv("SESSION_STORE_PATH")
 	allowedPathsStr := os.Getenv("ALLOWED_COMPOSE_PATHS")
+	debugEnabled := os.Getenv("DOCKGO_DEBUG") == "true"
 
 	if sessionPath == "" {
 		sessionPath = "/app/data/sessions.json"
@@ -192,6 +194,7 @@ func NewServer(port string) (*Server, error) {
 		startTime:        time.Now(),
 		loginAttempts:    make(map[string]*RateLimiter),
 		revokedSessions:  make(map[string]time.Time),
+		DebugEnabled:     debugEnabled,
 	}
 
 	srv.loadAuthState()
@@ -216,15 +219,18 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/test-notify", s.enableCors(s.requireAuth(s.handleTestNotify)))
 
 	// DEBUG ROUTE
-	mux.HandleFunc("/api/debug/cache", func(w http.ResponseWriter, r *http.Request) {
-		s.mu.RLock()
-		defer s.mu.RUnlock()
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
-			"cache":      s.updatesCache,
-			"last_check": s.lastCheckTime,
-			"stat":       s.lastCheckStat,
+	if s.DebugEnabled {
+		serverLog.Warn("Security: Debug endpoints enabled (/api/debug/cache)")
+		mux.HandleFunc("/api/debug/cache", func(w http.ResponseWriter, r *http.Request) {
+			s.mu.RLock()
+			defer s.mu.RUnlock()
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"cache":      s.updatesCache,
+				"last_check": s.lastCheckTime,
+				"stat":       s.lastCheckStat,
+			})
 		})
-	})
+	}
 
 	webFS, err := fs.Sub(content, "web")
 	if err != nil {
