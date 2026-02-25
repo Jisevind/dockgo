@@ -34,8 +34,9 @@ docker run -d \
   --name dockgo \
   -p 3131:3131 \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  -e LOG_LEVEL=info \
-  dockgo/dockgo
+  -e AUTH_USERNAME=admin \
+  -e AUTH_PASSWORD=changeme \
+  ghcr.io/jisevind/dockgo:latest
 ```
 
 Visit **http://localhost:3131** to see your dashboard!
@@ -127,7 +128,7 @@ For deeper dives into specific integrations and features, check out our [Documen
 ```yaml
 services:
   dockgo:
-    image: dockgo/dockgo
+    image: ghcr.io/jisevind/dockgo:latest
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     ports:
@@ -190,7 +191,7 @@ dockgo update -a
 ### Building from Source
 
 ```bash
-git clone https://github.com/yourusername/dockgo.git
+git clone https://github.com/Jisevind/dockgo.git
 cd dockgo
 go build -o dockgo ./cmd/dockgo
 ```
