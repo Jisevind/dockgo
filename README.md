@@ -1,4 +1,4 @@
-# DockGo 🐳
+# DockGo
 
 > **A lightweight, secure Docker update agent — single binary, no fuss.**
 
