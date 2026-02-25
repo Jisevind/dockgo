@@ -1015,8 +1015,8 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "data: {\"type\":\"start\"}\n\n")
 	flusher.Flush()
 
-	// Use request context for cancellation
-	ctx, cancel := context.WithCancel(r.Context())
+	// Use request context with timeout for cancellation
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Minute)
 	defer cancel()
 
 	// 5. Heartbeat logic
@@ -1269,8 +1269,11 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "data: %s\n\n", string(startBytes))
 	flusher.Flush()
 
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Minute)
+	defer cancel()
+
 	// 1. Scan the specific container natively
-	updates, err := engine.Scan(context.Background(), s.Discovery, s.Registry, name, false, nil)
+	updates, err := engine.Scan(ctx, s.Discovery, s.Registry, name, false, nil)
 	if err != nil || len(updates) == 0 {
 		serverLog.Debug("Failed to scan container natively",
 			logger.String("container", name),
@@ -1319,7 +1322,7 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	serverLog.Debug("Beginning native engine update",
 		logger.String("container", name),
 	)
-	err = engine.PerformUpdate(r.Context(), s.Discovery, targetUpdate, opts)
+	err = engine.PerformUpdate(ctx, s.Discovery, targetUpdate, opts)
 
 	if err != nil {
 		serverLog.Debug("Update process failed",
