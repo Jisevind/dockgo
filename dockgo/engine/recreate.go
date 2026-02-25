@@ -4,6 +4,8 @@ import (
 	"context"
 	"dockgo/logger"
 	"fmt"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -108,7 +110,12 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 	}
 
 	// 2. Stop container
-	timeout := 10 // seconds
+	timeout := 10 // default seconds
+	if v := os.Getenv("DOCKGO_STOP_TIMEOUT"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
+			timeout = parsed
+		}
+	}
 	err = d.Client.ContainerStop(ctx, containerID, container.StopOptions{Timeout: &timeout})
 	if err != nil {
 		return fmt.Errorf("failed to stop container: %w", err)

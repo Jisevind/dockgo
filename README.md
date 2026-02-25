@@ -104,6 +104,7 @@ Configure DockGo using environment variables:
 | `AUTH_SECRET` | Secret for signing session cookies | *(random)* |
 | `AUTH_BCRYPT_COST` | Configurable bcrypt hashing cost (min 4, max 31) | `10` |
 | `API_TOKEN` | Legacy token for API updates | *(empty)* |
+| `DOCKGO_STOP_TIMEOUT` | Grace period in seconds when stopping a container before it is recreated. | `10` |
 | `CORS_ORIGIN` | Allowed Origin for CORS (e.g. `https://mydomain.com`) | *(disabled)* |
 | `ALLOWED_COMPOSE_PATHS` | Comma-separated list of allowed base paths for Compose working directories (e.g., `/opt/docker,/srv/compose`) | *(empty)* |
 | `SESSION_STORE_PATH` | Path to session persistence file | `/app/data/sessions.json` |
