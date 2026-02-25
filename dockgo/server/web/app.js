@@ -34,8 +34,11 @@ document.addEventListener('DOMContentLoaded', () => {
         currentView = 'grid';
         localStorage.setItem('dockgo_view', 'grid');
         updateViewUI();
-        // Re-render immediately using cached data if possible, or just fetch
-        fetchContainers();
+        if (cachedContainers.length > 0) {
+            renderContainers(cachedContainers);
+        } else {
+            fetchContainers();
+        }
     });
 
     viewListBtn.addEventListener('click', () => {
@@ -43,7 +46,24 @@ document.addEventListener('DOMContentLoaded', () => {
         currentView = 'list';
         localStorage.setItem('dockgo_view', 'list');
         updateViewUI();
-        fetchContainers();
+        if (cachedContainers.length > 0) {
+            renderContainers(cachedContainers);
+        } else {
+            fetchContainers();
+        }
+    });
+
+    let cachedContainers = [];
+    let isCurrentlyMobile = window.innerWidth <= 600;
+
+    window.addEventListener('resize', () => {
+        const isMobileNow = window.innerWidth <= 600;
+        if (isMobileNow !== isCurrentlyMobile) {
+            isCurrentlyMobile = isMobileNow;
+            if (cachedContainers.length > 0) {
+                renderContainers(cachedContainers);
+            }
+        }
     });
 
     // Auth State
@@ -262,7 +282,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!response.ok) throw new Error('Failed to fetch');
             const containers = await response.json();
-
+            cachedContainers = containers;
             renderContainers(containers);
             statusEl.textContent = 'Connected';
             statusEl.style.color = 'var(--success)';
@@ -296,7 +316,23 @@ document.addEventListener('DOMContentLoaded', () => {
         withUpdates.sort((a, b) => a.name.localeCompare(b.name));
         withoutUpdates.sort((a, b) => a.name.localeCompare(b.name));
 
-        const template = currentView === 'list' ? listTemplate : cardTemplate;
+        const isMobile = window.innerWidth <= 600;
+        const template = (currentView === 'list' && !isMobile) ? listTemplate : cardTemplate;
+
+        // Force grid classes on mobile even if currentView is list
+        if (isMobile) {
+            listEl.classList.add('grid-list');
+            listEl.classList.remove('list-view');
+        } else {
+            // Restore class based on state
+            if (currentView === 'list') {
+                listEl.classList.remove('grid-list');
+                listEl.classList.add('list-view');
+            } else {
+                listEl.classList.add('grid-list');
+                listEl.classList.remove('list-view');
+            }
+        }
 
         const renderBatch = (batch) => {
             batch.forEach(container => {
