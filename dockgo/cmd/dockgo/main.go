@@ -222,7 +222,7 @@ func runScan(checkOnly, jsonOutput, streamOutput bool, filter string, safe, forc
 				}
 
 				// Prepare callback for CLI formatting
-				logCb := func(evt api.ProgressEvent) {
+				emitLog := func(evt api.ProgressEvent) {
 					if streamOutput {
 						_ = json.NewEncoder(os.Stdout).Encode(evt)
 					} else if !jsonOutput {
@@ -243,7 +243,7 @@ func runScan(checkOnly, jsonOutput, streamOutput bool, filter string, safe, forc
 				opts := engine.UpdateOptions{
 					Safe:            safe,
 					PreserveNetwork: preserveNetwork,
-					LogCallback:     logCb,
+					LogCallback:     emitLog,
 				}
 
 				err = engine.PerformUpdate(updateCtx, discovery, upd, opts)

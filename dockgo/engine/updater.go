@@ -26,9 +26,9 @@ type UpdateOptions struct {
 // All progress and string data are emitted strictly via the opts.LogCallback closure.
 func PerformUpdate(ctx context.Context, discovery *DiscoveryEngine, upd *api.ContainerUpdate, opts UpdateOptions) error {
 	// Initialize callback guard
-	logCb := opts.LogCallback
-	if logCb == nil {
-		logCb = func(api.ProgressEvent) {}
+	emitLog := opts.LogCallback
+	if emitLog == nil {
+		emitLog = func(api.ProgressEvent) {}
 	}
 
 	// 1. Check Safe Mode Pre-conditions
@@ -39,7 +39,7 @@ func PerformUpdate(ctx context.Context, discovery *DiscoveryEngine, upd *api.Con
 	}
 
 	if opts.Safe && isRunning {
-		logCb(api.ProgressEvent{
+		emitLog(api.ProgressEvent{
 			Type:      "progress",
 			Status:    fmt.Sprintf("🛡️  Safe Mode: Skipping restart of running container '%s'. Pulling only.", upd.Name),
 			Container: upd.Name,
@@ -63,7 +63,7 @@ func PerformUpdate(ctx context.Context, discovery *DiscoveryEngine, upd *api.Con
 		defer cancel()
 
 		composeLogger := func(line string) {
-			logCb(api.ProgressEvent{
+			emitLog(api.ProgressEvent{
 				Type:      "progress",
 				Status:    line,
 				Container: upd.Name,
@@ -74,7 +74,7 @@ func PerformUpdate(ctx context.Context, discovery *DiscoveryEngine, upd *api.Con
 			err = ComposePull(ctxCompose, workingDir, serviceName, opts.AllowedPaths, composeLogger)
 			if err == nil {
 				upd.Status = "pulled_safe"
-				logCb(api.ProgressEvent{
+				emitLog(api.ProgressEvent{
 					Type:      "progress",
 					Status:    fmt.Sprintf("✅ %s image pulled (no restart)", upd.Name),
 					Container: upd.Name,
@@ -84,7 +84,7 @@ func PerformUpdate(ctx context.Context, discovery *DiscoveryEngine, upd *api.Con
 			err = ComposeUpdate(ctxCompose, workingDir, serviceName, opts.AllowedPaths, composeLogger)
 			if err == nil {
 				upd.Status = "updated"
-				logCb(api.ProgressEvent{
+				emitLog(api.ProgressEvent{
 					Type:      "progress",
 					Status:    fmt.Sprintf("✅ %s updated via Docker Compose", upd.Name),
 					Container: upd.Name,
@@ -97,7 +97,7 @@ func PerformUpdate(ctx context.Context, discovery *DiscoveryEngine, upd *api.Con
 			return nil
 		} else {
 			composeError = err
-			logCb(api.ProgressEvent{
+			emitLog(api.ProgressEvent{
 				Type:      "progress",
 				Status:    fmt.Sprintf("⚠️  Compose action failed: %v", err),
 				Container: upd.Name,
@@ -124,7 +124,7 @@ func PerformUpdate(ctx context.Context, discovery *DiscoveryEngine, upd *api.Con
 			}
 		}
 
-		logCb(api.ProgressEvent{
+		emitLog(api.ProgressEvent{
 			Type:      "progress",
 			Status:    fmt.Sprintf("⚠️  Container %s is managed by Compose/Swarm but native orchestrator failed or lacks context. Falling back to standalone API update.", upd.Name),
 			Container: upd.Name,
@@ -143,7 +143,7 @@ func PerformUpdate(ctx context.Context, discovery *DiscoveryEngine, upd *api.Con
 			progressStatus = fmt.Sprintf("\r%s: %.1f%%", evt.Status, evt.Percent)
 		}
 
-		logCb(api.ProgressEvent{
+		emitLog(api.ProgressEvent{
 			Type:      "progress",
 			Status:    progressStatus,
 			Container: evt.Container,
@@ -160,7 +160,7 @@ func PerformUpdate(ctx context.Context, discovery *DiscoveryEngine, upd *api.Con
 	}
 
 	if opts.Safe && isRunning {
-		logCb(api.ProgressEvent{
+		emitLog(api.ProgressEvent{
 			Type:      "progress",
 			Status:    fmt.Sprintf("✅ %s checked/pulled (safe mode active)", upd.Name),
 			Container: upd.Name,
@@ -171,7 +171,7 @@ func PerformUpdate(ctx context.Context, discovery *DiscoveryEngine, upd *api.Con
 
 	// 6. Standalone Recreate Container
 	err = discovery.RecreateContainer(ctx, upd.ID, upd.Image, opts.PreserveNetwork, func(msg string) {
-		logCb(api.ProgressEvent{
+		emitLog(api.ProgressEvent{
 			Type:      "progress",
 			Status:    msg,
 			Container: upd.Name,
@@ -182,7 +182,7 @@ func PerformUpdate(ctx context.Context, discovery *DiscoveryEngine, upd *api.Con
 		return fmt.Errorf("failed to recreate container: %w", err)
 	}
 
-	logCb(api.ProgressEvent{
+	emitLog(api.ProgressEvent{
 		Type:      "progress",
 		Status:    fmt.Sprintf("Successfully updated %s", upd.Name),
 		Container: upd.Name,
