@@ -105,6 +105,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Global flag for legacy token
                 window.apiTokenEnabled = data.api_token_enabled;
+
+                if (!authEnabled && !window.apiTokenEnabled) {
+                    const noAuthModal = document.getElementById('no-auth-modal');
+                    if (noAuthModal) {
+                        noAuthModal.classList.remove('hidden');
+                    }
+                    statusEl.textContent = 'Authentication Required';
+                    statusEl.style.color = 'var(--danger)';
+                }
             }
         } catch (e) {
             console.error('Auth check failed', e);
@@ -260,9 +269,17 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch('/api/containers', { headers });
 
-            if (response.status === 401) {
-                // Unauthorized
-                if (authEnabled && !isLoggedIn && !showProgress) {
+            if (response.status === 401 || response.status === 403) {
+                // Unauthorized or Forbidden
+                if (!authEnabled && !window.apiTokenEnabled) {
+                    const noAuthModal = document.getElementById('no-auth-modal');
+                    if (noAuthModal) {
+                        noAuthModal.classList.remove('hidden');
+                    }
+                    statusEl.textContent = 'Authentication Required';
+                    statusEl.style.color = 'var(--danger)';
+                    return;
+                } else if (authEnabled && !isLoggedIn && !showProgress) {
                     // Initial load or background poll failed
                     // If initial load (listEl has loading or empty), show login
                     if (listEl.querySelector('.loading')) {
