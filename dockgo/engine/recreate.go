@@ -36,7 +36,7 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 
 	// Check if it's a compose container
 	if project, ok := json.Config.Labels["com.docker.compose.project"]; ok {
-		msg := fmt.Sprintf("Container %s is managed by Compose project '%s'. Proceeding with API recreation (Watchtower-style).", name, project)
+		msg := fmt.Sprintf("Container %s is managed by Compose project '%s'. Proceeding with API recreation.", name, project)
 		engineLog.InfoContext(ctx, msg,
 			logger.String("container", name),
 			logger.String("project", project),
