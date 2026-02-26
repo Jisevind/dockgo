@@ -381,6 +381,41 @@ document.addEventListener('DOMContentLoaded', () => {
                     statusBadge.classList.add('status-other');
                 }
 
+                // Setup Action Menu
+                const menuBtn = clone.querySelector('.menu-btn');
+                const menuDropdown = clone.querySelector('.menu-dropdown');
+                if (menuBtn && menuDropdown) {
+                    menuBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        // Close any other open menus
+                        document.querySelectorAll('.menu-dropdown').forEach(d => {
+                            if (d !== menuDropdown) d.classList.add('hidden');
+                        });
+                        menuDropdown.classList.toggle('hidden');
+                    });
+
+                    // Disable invalid buttons based on state
+                    const startBtn = menuDropdown.querySelector('[data-action="start"]');
+                    const stopBtn = menuDropdown.querySelector('[data-action="stop"]');
+                    const restartBtn = menuDropdown.querySelector('[data-action="restart"]');
+
+                    if (container.state === 'running') {
+                        startBtn.disabled = true;
+                    } else if (container.state === 'exited' || container.state === 'created' || container.state === 'dead') {
+                        stopBtn.disabled = true;
+                        restartBtn.disabled = true;
+                    }
+
+                    menuDropdown.querySelectorAll('.menu-action-btn').forEach(btn => {
+                        btn.addEventListener('click', async (e) => {
+                            e.preventDefault();
+                            menuDropdown.classList.add('hidden');
+                            const action = e.target.dataset.action;
+                            await handleContainerAction(container.name, action, containerEl);
+                        });
+                    });
+                }
+
                 if (container.update_available) {
                     const updateSection = clone.querySelector('.update-section');
                     if (updateSection) {
@@ -575,6 +610,92 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (e) {
             console.error('Failed to fetch health/version', e);
+        }
+    };
+
+    // Global click listener to close dropdowns
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.menu')) {
+            document.querySelectorAll('.menu-dropdown').forEach(d => d.classList.add('hidden'));
+        }
+    });
+
+    const handleContainerAction = async (name, action, containerEl) => {
+        let token = null;
+
+        if (isLoggedIn) {
+            token = "";
+        } else {
+            token = sessionStorage.getItem('dockgo_token');
+            if (!token && window.apiTokenEnabled) {
+                token = prompt(`Please enter the API Token to authorize ${action}:`);
+                if (!token) return;
+                sessionStorage.setItem('dockgo_token', token);
+            }
+        }
+
+        const msgEl = containerEl.querySelector('.update-message') || document.createElement('div');
+        if (!msgEl.parentElement) {
+            msgEl.className = 'update-message';
+            containerEl.querySelector('.card-body, .list-col-actions').appendChild(msgEl);
+        }
+
+        msgEl.textContent = `Executing ${action}...`;
+        msgEl.classList.remove('hidden');
+        msgEl.style.color = 'var(--text-secondary)';
+
+        try {
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+            if (isLoggedIn) {
+                headers['X-CSRF-Token'] = getCsrfToken();
+            }
+
+            const response = await fetch(`/api/container/${name}/action`, {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify({ action: action })
+            });
+
+            if (response.status === 401 || response.status === 403) {
+                msgEl.textContent = 'Error: Unauthorized.';
+                msgEl.style.color = 'var(--danger)';
+                if (authEnabled && !isLoggedIn) {
+                    showLoginModal();
+                } else if (window.apiTokenEnabled) {
+                    sessionStorage.removeItem('dockgo_token');
+                }
+                setTimeout(() => msgEl.classList.add('hidden'), 3000);
+                return;
+            }
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                msgEl.textContent = `Error: ${data.error || 'Unknown error'}`;
+                msgEl.style.color = 'var(--danger)';
+            } else {
+                msgEl.textContent = `Successfully executed ${action}. Refreshing...`;
+                msgEl.style.color = 'var(--success)';
+                // Silently fetch the updated container list from the API
+                setTimeout(() => fetchContainers(false), 1000);
+            }
+
+        } catch (error) {
+            console.error(`[Action] Network error:`, error);
+            msgEl.textContent = `Network Error: ${error.message}`;
+            msgEl.style.color = 'var(--danger)';
+        } finally {
+            setTimeout(() => {
+                if (msgEl.textContent.includes('Error')) {
+                    msgEl.classList.add('hidden');
+                    msgEl.style.color = '';
+                }
+            }, 5000);
         }
     };
 

@@ -70,3 +70,20 @@ func (d *DiscoveryEngine) GetContainerState(ctx context.Context, containerID str
 	}
 	return cJSON.State.Status, nil
 }
+
+// StartContainer starts a container by ID
+func (d *DiscoveryEngine) StartContainer(ctx context.Context, containerID string) error {
+	return d.Client.ContainerStart(ctx, containerID, container.StartOptions{})
+}
+
+// StopContainer stops a container by ID
+func (d *DiscoveryEngine) StopContainer(ctx context.Context, containerID string) error {
+	// Use default stop timeout
+	return d.Client.ContainerStop(ctx, containerID, container.StopOptions{})
+}
+
+// RestartContainer restarts a container by ID
+func (d *DiscoveryEngine) RestartContainer(ctx context.Context, containerID string) error {
+	// Use default stop timeout
+	return d.Client.ContainerRestart(ctx, containerID, container.StopOptions{})
+}

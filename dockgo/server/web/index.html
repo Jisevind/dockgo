@@ -154,7 +154,17 @@
         <div class="card">
             <div class="card-header">
                 <h3 class="container-name"></h3>
-                <span class="status-badge"></span>
+                <div class="header-actions">
+                    <span class="status-badge"></span>
+                    <div class="menu">
+                        <button class="menu-btn" title="Container Actions">⋮</button>
+                        <div class="menu-dropdown hidden">
+                            <button class="menu-action-btn" data-action="start">Start</button>
+                            <button class="menu-action-btn" data-action="stop">Stop</button>
+                            <button class="menu-action-btn" data-action="restart">Restart</button>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="card-body">
                 <p class="image-name"></p>
@@ -185,6 +195,14 @@
                 <span class="status-badge"></span>
             </div>
             <div class="list-col-actions">
+                <div class="menu">
+                    <button class="menu-btn" title="Container Actions">⋮</button>
+                    <div class="menu-dropdown hidden">
+                        <button class="menu-action-btn" data-action="start">Start</button>
+                        <button class="menu-action-btn" data-action="stop">Stop</button>
+                        <button class="menu-action-btn" data-action="restart">Restart</button>
+                    </div>
+                </div>
                 <div class="update-section hidden">
                     <span class="update-badge">Update Available</span>
                     <button class="btn-update">Update Now</button>

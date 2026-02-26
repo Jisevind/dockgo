@@ -210,6 +210,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/containers", s.enableCors(s.requireAuth(s.handleContainers)))
 	mux.HandleFunc("/api/stream/check", s.enableCors(s.requireAuth(s.handleStreamCheck)))
 	mux.HandleFunc("/api/update/", s.enableCors(s.requireAuth(s.handleUpdate)))
+	mux.HandleFunc("/api/container/", s.enableCors(s.requireAuth(s.handleContainerAction)))
 
 	// Auth Routes
 	mux.HandleFunc("/api/login", s.enableCors(s.handleLogin))
@@ -1387,4 +1388,118 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	sseMu.Lock()
 	flusher.Flush()
 	sseMu.Unlock()
+}
+
+// /api/container/:name/action
+func (s *Server) handleContainerAction(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract everything after /api/container/
+	path := strings.TrimPrefix(r.URL.Path, "/api/container/")
+	parts := strings.SplitN(path, "/", 2)
+
+	if len(parts) != 2 || parts[1] != "action" {
+		http.Error(w, "Invalid route", http.StatusNotFound)
+		return
+	}
+
+	name := parts[0]
+	if name == "" || !validContainerName.MatchString(name) {
+		http.Error(w, "Invalid container name", http.StatusBadRequest)
+		return
+	}
+
+	var reqBody struct {
+		Action string `json:"action"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	action := strings.ToLower(reqBody.Action)
+	if action != "start" && action != "stop" && action != "restart" {
+		http.Error(w, "Invalid action. Must be 'start', 'stop', or 'restart'", http.StatusBadRequest)
+		return
+	}
+
+	serverLog.Debug("Received container action request",
+		logger.String("container", name),
+		logger.String("action", action),
+	)
+
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Minute)
+	defer cancel()
+
+	// 1. Resolve container name to ID natively to ensure it exists
+	// We use Scan just to find the container ID, we don't care about updates here.
+	updates, err := engine.Scan(ctx, s.Discovery, s.Registry, name, false, nil)
+	if err != nil || len(updates) == 0 {
+		// If native scan fails to find it by name, we might be dealing with a compose container.
+		// For safety, let's just use the name directly against the Docker client.
+		// The Docker API accepts names for start/stop/restart anyway.
+		serverLog.Debug("Native scan couldn't isolate container for action, proceeding with name",
+			logger.String("container", name),
+		)
+	}
+
+	// 2. Perform action
+	var actionErr error
+	switch action {
+	case "start":
+		actionErr = s.Discovery.StartContainer(ctx, name)
+	case "stop":
+		actionErr = s.Discovery.StopContainer(ctx, name)
+	case "restart":
+		actionErr = s.Discovery.RestartContainer(ctx, name)
+	}
+
+	if actionErr != nil {
+		serverLog.Error("Container action failed",
+			logger.String("container", name),
+			logger.String("action", action),
+			logger.Any("error", actionErr),
+		)
+
+		errBytes, _ := json.Marshal(map[string]interface{}{
+			"success": false,
+			"error":   fmt.Sprintf("Failed to %s container: %v", action, actionErr),
+		})
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write(errBytes)
+
+		s.Notifier.Notify(
+			"DockGo Action Failed",
+			fmt.Sprintf("Failed to %s container %s: %v", action, name, actionErr),
+			notify.TypeFailure,
+		)
+		return
+	}
+
+	// 3. Success
+	serverLog.Info("Container action completed successfully",
+		logger.String("container", name),
+		logger.String("action", action),
+	)
+
+	successBytes, _ := json.Marshal(map[string]interface{}{
+		"success": true,
+		"message": fmt.Sprintf("Successfully executed %s on %s", action, name),
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(successBytes)
+
+	// Send notification (Title Case the action)
+	s.Notifier.Notify(
+		"DockGo Container Action",
+		fmt.Sprintf("Successfully executed '%s' on container %s", action, name),
+		notify.TypeInfo,
+	)
 }
