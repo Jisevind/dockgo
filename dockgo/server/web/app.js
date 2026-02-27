@@ -159,6 +159,101 @@ document.addEventListener('DOMContentLoaded', () => {
         loginForm.reset();
     };
 
+    // --- Logs Modal Elements ---
+    const logsModal = document.getElementById('logs-modal');
+    const logsTitle = document.getElementById('logs-title');
+    const logsOutput = document.getElementById('logs-output');
+    const closeLogsBtn = document.getElementById('close-logs-btn');
+    const logsBody = document.querySelector('.logs-body');
+    let logsEventSource = null;
+    let userScrolledUp = false;
+
+    // Track manual scrolling to pause auto-scroll
+    if (logsBody) {
+        logsBody.addEventListener('scroll', () => {
+            // If we are within 50px of the bottom, resume auto-scroll
+            const isAtBottom = logsBody.scrollHeight - logsBody.scrollTop - logsBody.clientHeight < 50;
+            userScrolledUp = !isAtBottom;
+        });
+    }
+
+    const closeLogsModal = () => {
+        logsModal.classList.add('hidden');
+        if (logsEventSource) {
+            logsEventSource.close();
+            logsEventSource = null;
+        }
+        logsOutput.textContent = '';
+    };
+
+    if (closeLogsBtn) {
+        closeLogsBtn.addEventListener('click', closeLogsModal);
+    }
+
+    // Close logs modal on outside click
+    logsModal.addEventListener('click', (e) => {
+        if (e.target === logsModal) {
+            closeLogsModal();
+        }
+    });
+
+    const openLogsModal = (containerName) => {
+        logsTitle.textContent = `Logs: ${containerName}`;
+        logsOutput.textContent = 'Connecting to log stream...\n';
+        logsModal.classList.remove('hidden');
+        userScrolledUp = false;
+
+        let streamUrl = `/api/logs/${containerName}`;
+
+        const token = sessionStorage.getItem('dockgo_token');
+        if (token && !isLoggedIn) {
+            streamUrl += `?token=${encodeURIComponent(token)}`;
+        }
+
+        if (logsEventSource) {
+            logsEventSource.close();
+        }
+
+        logsEventSource = new EventSource(streamUrl);
+
+        logsEventSource.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.line) {
+                    const ansiUp = window.ansiUpInstance || (window.ansiUpInstance = new AnsiUp());
+
+                    const lineEl = document.createElement('div');
+                    lineEl.className = 'log-line';
+
+                    lineEl.innerHTML = ansiUp.ansi_to_html(data.line);
+
+                    logsOutput.appendChild(lineEl);
+
+                    if (!userScrolledUp && logsBody) {
+                        logsBody.scrollTop = logsBody.scrollHeight;
+                    }
+                }
+            } catch (e) {
+                console.error('SSE Log Parse Error', e);
+            }
+        };
+
+        logsEventSource.onerror = (err) => {
+            console.warn('Logs EventSource error:', err);
+
+            const lineEl = document.createElement('div');
+            lineEl.className = 'log-line';
+            lineEl.textContent = '\n--- Stream ended or connection lost. ---\n';
+            logsOutput.appendChild(lineEl);
+
+            if (!userScrolledUp && logsBody) {
+                logsBody.scrollTop = logsBody.scrollHeight;
+            }
+            logsEventSource.close();
+            logsEventSource = null;
+        };
+    };
+
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const username = loginUsernameInput.value;
@@ -410,8 +505,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         btn.addEventListener('click', async (e) => {
                             e.preventDefault();
                             menuDropdown.classList.add('hidden');
+
                             const action = e.target.dataset.action;
-                            await handleContainerAction(container.name, action, containerEl);
+                            if (action === 'logs') {
+                                openLogsModal(container.name);
+                            } else {
+                                await handleContainerAction(container.name, action, containerEl);
+                            }
                         });
                     });
                 }
