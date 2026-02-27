@@ -118,12 +118,12 @@ func ComposeUpdate(ctx context.Context, workingDir string, serviceName string, a
 
 	// 3. Execute Build or Pull
 	if shouldBuild {
-		err = streamCommand(ctx, validatedDir, log, "docker", "compose", "--ansi", "never", "build", "--progress", "plain", serviceName)
+		err = streamCommand(ctx, validatedDir, log, "docker", "compose", "--ansi", "always", "build", "--progress", "plain", serviceName)
 		if err != nil {
 			return fmt.Errorf("compose build failed: %w", err)
 		}
 	} else {
-		err = streamCommand(ctx, validatedDir, log, "docker", "compose", "--ansi", "never", "pull", serviceName)
+		err = streamCommand(ctx, validatedDir, log, "docker", "compose", "--ansi", "always", "pull", serviceName)
 		if err != nil {
 			return fmt.Errorf("compose pull failed: %w", err)
 		}
@@ -131,7 +131,7 @@ func ComposeUpdate(ctx context.Context, workingDir string, serviceName string, a
 
 	// 4. Run 'docker compose up -d [service]'
 	// This recreates the container if the image/build changed
-	err = streamCommand(ctx, validatedDir, log, "docker", "compose", "--ansi", "never", "up", "-d", serviceName)
+	err = streamCommand(ctx, validatedDir, log, "docker", "compose", "--ansi", "always", "up", "-d", serviceName)
 	if err != nil {
 		return fmt.Errorf("compose up failed: %w", err)
 	}
@@ -156,7 +156,7 @@ func ComposePull(ctx context.Context, workingDir string, serviceName string, all
 
 	// In Safe Mode, we only pull the image to prepare for an update.
 	// We do not build or restart the service.
-	err = streamCommand(ctx, validatedDir, log, "docker", "compose", "--ansi", "never", "pull", serviceName)
+	err = streamCommand(ctx, validatedDir, log, "docker", "compose", "--ansi", "always", "pull", serviceName)
 	if err != nil {
 		return fmt.Errorf("compose pull failed: %w", err)
 	}

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"crypto/hmac"
 	cryptorand "crypto/rand"
@@ -15,6 +16,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
+	"io"
 	"io/fs"
 	"net"
 	"net/http"
@@ -28,6 +30,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -211,6 +215,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/stream/check", s.enableCors(s.requireAuth(s.handleStreamCheck)))
 	mux.HandleFunc("/api/update/", s.enableCors(s.requireAuth(s.handleUpdate)))
 	mux.HandleFunc("/api/container/", s.enableCors(s.requireAuth(s.handleContainerAction)))
+	mux.HandleFunc("/api/logs/", s.enableCors(s.requireAuth(s.handleContainerLogs)))
 
 	// Auth Routes
 	mux.HandleFunc("/api/login", s.enableCors(s.handleLogin))
@@ -1502,4 +1507,129 @@ func (s *Server) handleContainerAction(w http.ResponseWriter, r *http.Request) {
 		fmt.Sprintf("Successfully executed '%s' on container %s", action, name),
 		notify.TypeInfo,
 	)
+}
+
+// /api/logs/:name
+func (s *Server) handleContainerLogs(w http.ResponseWriter, r *http.Request) {
+	name := strings.TrimPrefix(r.URL.Path, "/api/logs/")
+	serverLog.Debug("Received logs request",
+		logger.String("container", name),
+	)
+
+	if name == "" || !validContainerName.MatchString(name) {
+		http.Error(w, "Invalid container name", http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("X-Accel-Buffering", "no")
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+
+	// 10 minute timeout for streaming logs
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Minute)
+	defer cancel()
+
+	// 1. Resolve to ID (just to be safe that it's a real container)
+	updates, err := engine.Scan(ctx, s.Discovery, s.Registry, name, false, nil)
+	if err != nil || len(updates) == 0 {
+		serverLog.Debug("Failed to resolve container natively for logs, proceeding with name",
+			logger.String("container", name),
+			logger.Any("error", err),
+		)
+	}
+
+	options := container.LogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+		Follow:     true,
+		Tail:       "200",
+	}
+
+	// 2. Call Docker SDK
+	logsReader, err := s.Discovery.Client.ContainerLogs(ctx, name, options)
+	if err != nil {
+		serverLog.Error("Failed to fetch container logs",
+			logger.String("container", name),
+			logger.Any("error", err),
+		)
+		errBytes, _ := json.Marshal(map[string]interface{}{
+			"line": fmt.Sprintf("Error fetching logs: %v", err),
+		})
+		fmt.Fprintf(w, "data: %s\n\n", string(errBytes))
+		flusher.Flush()
+		return
+	}
+	defer logsReader.Close()
+
+	// 3. Setup stdcopy pipes
+	var sseMu sync.Mutex
+	writeLine := func(line string) {
+		sseMu.Lock()
+		defer sseMu.Unlock()
+		bytes, _ := json.Marshal(map[string]interface{}{
+			"line": line,
+		})
+		fmt.Fprintf(w, "data: %s\n\n", string(bytes))
+		flusher.Flush()
+	}
+
+	// Docker logs are multiplexed. stdcopy splits them cleanly.
+	// We'll pipe both stdout and stderr to our writeLine func via custom io.Writers
+	stdoutWriter := &streamWriter{cb: writeLine}
+	stderrWriter := &streamWriter{cb: writeLine}
+
+	// Write initial connection line
+	writeLine("--- Connected to container logs ---")
+
+	// Start demultiplexing
+	_, err = stdcopy.StdCopy(stdoutWriter, stderrWriter, logsReader)
+	if err != nil && err != io.EOF && ctx.Err() == nil {
+		serverLog.Error("Log stream interrupted",
+			logger.String("container", name),
+			logger.Any("error", err),
+		)
+		writeLine(fmt.Sprintf("--- Stream interrupted: %v ---", err))
+	} else {
+		writeLine("--- Stream disconnected ---")
+	}
+}
+
+// streamWriter allows us to capture stdcopy output line-by-line
+type streamWriter struct {
+	cb  func(string)
+	buf []byte
+}
+
+func (sw *streamWriter) Write(p []byte) (n int, err error) {
+	// Combine with any previously buffered bytes
+	sw.buf = append(sw.buf, p...)
+
+	// Process all complete lines
+	for {
+		idx := bytes.IndexByte(sw.buf, '\n')
+		if idx == -1 {
+			// No complete line yet, wait for more data
+			break
+		}
+
+		// Extract line (without newline)
+		line := sw.buf[:idx]
+		// Handle \r\n
+		if len(line) > 0 && line[len(line)-1] == '\r' {
+			line = line[:len(line)-1]
+		}
+
+		sw.cb(string(line))
+
+		// Advance buffer past the newline
+		sw.buf = sw.buf[idx+1:]
+	}
+
+	return len(p), nil
 }

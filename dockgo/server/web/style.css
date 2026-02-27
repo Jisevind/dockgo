@@ -545,6 +545,9 @@ h1 {
 .modal-header {
     padding: 1.5rem;
     border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .modal-header h2 {
@@ -597,4 +600,50 @@ h1 {
     padding: 0.5rem;
     background: rgba(239, 68, 68, 0.1);
     border-radius: 4px;
+}
+
+/* --- Logs Modal Specifics --- */
+.logs-modal-content {
+    min-width: 90%;
+    margin-top: 2vh;
+}
+
+.logs-body {
+    padding: 0;
+    max-height: 85vh;
+    overflow: auto;
+    background-color: #0f172a;
+    /* darker background for logs */
+}
+
+#logs-output {
+    margin: 0;
+    padding: 1rem;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.85rem;
+    color: #e2e8f0;
+    white-space: pre;
+    word-break: normal;
+    line-height: 1.4;
+}
+
+.log-line {
+    white-space: pre;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 1.25rem;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0.25rem;
+    border-radius: 4px;
+    transition: color 0.2s, background-color 0.2s;
+}
+
+.close-btn:hover {
+    color: var(--text-primary);
+    background-color: var(--bg-hover);
 }

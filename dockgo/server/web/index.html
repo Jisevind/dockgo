@@ -9,6 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css?v=1.0.0">
+    <script src="https://cdn.jsdelivr.net/npm/ansi_up@5.1.0/ansi_up.min.js"></script>
     <script src="app.js?v=1.0.0" defer></script>
 
     <!-- Favicon -->
@@ -141,9 +142,23 @@
                     <p style="margin-bottom: 1rem;">DockGo has been started without any authentication configured
                         (Missing <code>AUTH_USERNAME</code> and <code>API_TOKEN</code>).</p>
                     <p style="margin-bottom: 1rem;">To protect your server, the dashboard and API connection have been
-                        <strong>blocked</strong>.</p>
+                        <strong>blocked</strong>.
+                    </p>
                     <p style="color: var(--text-secondary); font-size: 0.9rem;">Please restart the DockGo container with
                         authentication environment variables set in order to access the dashboard.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logs Modal -->
+        <div id="logs-modal" class="modal-overlay hidden">
+            <div class="modal logs-modal-content">
+                <div class="modal-header">
+                    <h2 id="logs-title">Container Logs</h2>
+                    <button id="close-logs-btn" class="close-btn" title="Close">✕</button>
+                </div>
+                <div class="modal-body logs-body">
+                    <div id="logs-output"></div>
                 </div>
             </div>
         </div>
@@ -162,6 +177,8 @@
                             <button class="menu-action-btn" data-action="start">Start</button>
                             <button class="menu-action-btn" data-action="stop">Stop</button>
                             <button class="menu-action-btn" data-action="restart">Restart</button>
+                            <hr style="margin: 4px 0; border: 0; border-top: 1px solid var(--border);">
+                            <button class="menu-action-btn" data-action="logs">View Logs</button>
                         </div>
                     </div>
                 </div>
@@ -201,6 +218,8 @@
                         <button class="menu-action-btn" data-action="start">Start</button>
                         <button class="menu-action-btn" data-action="stop">Stop</button>
                         <button class="menu-action-btn" data-action="restart">Restart</button>
+                        <hr style="margin: 4px 0; border: 0; border-top: 1px solid var(--border);">
+                        <button class="menu-action-btn" data-action="logs">View Logs</button>
                     </div>
                 </div>
                 <div class="update-section hidden">
