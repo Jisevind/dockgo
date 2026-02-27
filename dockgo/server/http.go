@@ -1156,8 +1156,8 @@ func (s *Server) StartScheduler(ctx context.Context) {
 		interval = 24 * time.Hour
 	}
 
-	logger.Info("Starting autonomous background update scheduler",
-		logger.String("interval", interval.String()),
+	serverLog.Info("Starting autonomous background update scheduler",
+		"interval", interval.String(),
 	)
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
