@@ -5,110 +5,24 @@ services:
     container_name: dockgo
     restart: unless-stopped
 
+    # Expose DockGo on the host
+    # Left side = host port
+    # Right side = container port (must match PORT in .env)
     ports:
-      - "3131:3131"
+      - "${PORT:-3131}:${PORT:-3131}"
+
+    # Load environment variables from .env file
+    env_file:
+      - .env
 
     volumes:
       # Required: Docker socket access for container discovery and updates.
-      # WARNING: This effectively gives DockGo Docker-level privileges.
+      # WARNING: Grants Docker-level privileges to DockGo.
       - /var/run/docker.sock:/var/run/docker.sock
-
-      # Optional: File-based configuration
-      # Recommended for production instead of inline env vars.
-      - ./.env:/app/.env:ro
 
       # Required: Persistent data (sessions, cache, etc.)
       - ./data:/app/data
-
-    environment:
-      ####################################
-      # Logging
-      ####################################
-      - LOG_LEVEL=info   # debug, info, warn, error
-      # - LOG_FORMAT=json
-      # - DOCKGO_DEBUG=false
-
-      ####################################
-      # CORS Configuration
-      ####################################
-      # Change in production to your UI origin.
-      # Avoid '*' unless you understand the risk.
-      - CORS_ORIGIN=http://localhost:3131
-
-      ####################################
-      # Authentication
-      ####################################
-
-      # --- Option 1: Legacy API Token ---
-      # Must be long and random (32+ chars).
-      # - API_TOKEN=replace_with_secure_token
-
-      # --- Option 2: User Login (Recommended) ---
-      # Username:
-      # - AUTH_USERNAME=admin
-
-      # Production recommendation:
-      # Pre-hash password using:
-      #   dockgo hash-password yourpassword
-      #
-      # NOTE: Escape '$' as '$$' in docker-compose.
-      # - AUTH_PASSWORD_HASH=$$2a$$10$$examplehash...
-
-      # Testing convenience only:
-      # - AUTH_PASSWORD=supersecurepassword
-
-      # Required for session signing:
-      # - AUTH_SECRET=replace_with_random_secret
-
-      # Optional bcrypt cost tuning:
-      # - AUTH_BCRYPT_COST=10
-
-
-      ####################################
-      # Compose Security (Recommended)
-      ####################################
-      # Restrict directories DockGo can update.
-      # Helps prevent accidental or malicious updates
-      # outside intended container environments.
-      #
-      # This restriction applies to both native Compose updates
-      # AND fallback to standalone API recreation for Compose-managed
-      # containers (when Compose orchestration fails or lacks context).
-      #
-      # NOTE: This restriction only applies to UPDATES, not discovery.
-      # DockGo will still discover and monitor ALL containers on your
-      # system, but will only allow updating containers whose compose
-      # working directories are within these allowed paths.
-      #
-      # Example:
-      # - ALLOWED_COMPOSE_PATHS=/opt/docker,/srv/compose
-
-
-      ####################################
-      # Notifications (Optional)
-      ####################################
-      # - APPRISE_URL=gotify://host/token
-      # - APPRISE_URL=ntfy://user:pass@host/topic
-      # - APPRISE_QUEUE_SIZE=200
-
-
-      ####################################
-      # Background Update Scanning
-      ####################################
-      # Default: 24h
-      # Avoid very short intervals to prevent
-      # registry rate limiting.
-      #
-      # - SCAN_INTERVAL=24h
-
-
-      ####################################
-      # Orchestrator Settings
-      ####################################
-      # Default: 10s
-      # - DOCKGO_STOP_TIMEOUT=10
-
-
+      
   ########################################
   # Optional: Apprise API Container
   ########################################
@@ -117,4 +31,6 @@ services:
   #   container_name: apprise
   #   restart: unless-stopped
   #   ports:
-  #     - "8000:8000"
+  #     - "4747:8000"
+  #   environment:
+  #     - APPRISE_WORKER_COUNT=2
