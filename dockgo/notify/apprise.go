@@ -117,7 +117,7 @@ func (a *AppriseNotifier) WaitUntilReady(timeout time.Duration) bool {
 
 			// Ping apprise host (like "http://apprise:8000") directly to verify readiness,
 			// instead of trying to ping the specific notification payload URL
-			if err := a.ping(targetURL + "/notify"); err == nil {
+			if err := a.ping(targetURL); err == nil {
 				return true
 			}
 		}
@@ -128,7 +128,7 @@ func (a *AppriseNotifier) WaitUntilReady(timeout time.Duration) bool {
 
 func (a *AppriseNotifier) ping(url string) error {
 	client := &http.Client{Timeout: 2 * time.Second}
-	// Try a simple GET against the /notify endpoint, we just want to know if it's alive,
+	// Try a simple GET against the base URL, we just want to know if it's alive,
 	// even if it returns a 405 Method Not Allowed, that means the server is there!
 	resp, err := client.Get(url)
 	if err != nil {
