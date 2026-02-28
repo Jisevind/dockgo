@@ -77,6 +77,8 @@ DockGo takes security seriously.
 ## Features
 
 *   **Web Dashboard**: Real-time status, "Update" buttons, and progress tracking.
+*   **Container Actions**: Start, stop, and restart directly from the UI.
+*   **Real-time Logs**: View container logs with ANSI color support inline seamlessly.
 *   **Smart Discovery**:
     *   Checks standard Docker Hub images.
     *   Supports **Private Registries** (using your host's credentials).
@@ -198,7 +200,15 @@ go build -o dockgo ./cmd/dockgo
 
 ### Building for Windows
 
+If you want to run the DockGo binary natively on Windows (e.g. as a background service or CLI tool), you can build the `.exe` directly:
 
+```powershell
+git clone https://github.com/Jisevind/dockgo.git
+cd dockgo
+$env:GOOS="windows"
+$env:GOARCH="amd64"
+go build -o dockgo.exe ./cmd/dockgo
+```
 ### Troubleshooting
 
 #### Windows Connection Issues
