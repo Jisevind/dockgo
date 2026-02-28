@@ -177,6 +177,7 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 					platformDigest, platformErr = registry.GetRemoteDigest(imageToCheck, platform, force)
 					if platformErr == nil {
 						remoteDigest = platformDigest // Fallback to platform remote digest for the UI
+						err = nil                     // Clear the original index error since platform matched
 						for _, rd := range repoDigests {
 							parts := strings.Split(rd, "@")
 							if len(parts) == 2 && parts[1] == platformDigest {
@@ -184,6 +185,11 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 								break
 							}
 						}
+					} else {
+						scannerLog.DebugContext(ctx, "platform-specific remote digest check failed",
+							logger.String("container", name),
+							logger.Any("error", platformErr),
+						)
 					}
 				}
 

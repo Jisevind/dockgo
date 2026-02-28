@@ -203,56 +203,36 @@ func runScan(checkOnly, jsonOutput, streamOutput bool, filter string, safe, forc
 
 	// EXECUTE UPDATES
 	if filter != "" {
-		for i := range updates {
-			upd := &updates[i]
-
-			if upd.UpdateAvailable {
-				// Safety: The 'Scan' function returns all available updates if no filter is provided.
-				// However, for the 'update' command, we require an explicit target
-				// ('-a' for all or '-y' for specific) to prevent accidental bulk updates.
-				// If no target was specified (filter is empty), we abort here.
-
-				if filter == "" {
-					fmt.Println("No target specified. Use -a for all or -y <name>.")
-					return
-				}
-
-				if !jsonOutput {
-					fmt.Printf("Updating %s...\n", upd.Name)
-				}
-
-				// Prepare callback for CLI formatting
-				emitLog := func(evt api.ProgressEvent) {
-					if streamOutput {
-						_ = json.NewEncoder(os.Stdout).Encode(evt)
-					} else if !jsonOutput {
-						// Format for terminal
-						if evt.Type == "progress" {
-							if evt.Percent > 0 {
-								// \r is handled intrinsically or explicitly by the event if it's meant to overwrite
-								fmt.Printf("%s\n", evt.Status)
-							} else {
-								fmt.Printf("%s\n", evt.Status)
-							}
-						} else if evt.Type == "error" {
-							fmt.Printf("❌ %s\n", evt.Error)
-						}
+		// Prepare callback for CLI formatting
+		emitLog := func(evt api.ProgressEvent) {
+			if streamOutput {
+				_ = json.NewEncoder(os.Stdout).Encode(evt)
+			} else if !jsonOutput {
+				// Format for terminal
+				if evt.Type == "progress" {
+					if evt.Percent > 0 {
+						fmt.Printf("%s\n", evt.Status)
+					} else {
+						fmt.Printf("%s\n", evt.Status)
 					}
-				}
-
-				opts := engine.UpdateOptions{
-					Safe:            safe,
-					PreserveNetwork: preserveNetwork,
-					LogCallback:     emitLog,
-				}
-
-				err = engine.PerformUpdate(updateCtx, discovery, upd, opts)
-				if err != nil {
-					if !jsonOutput && !streamOutput {
-						fmt.Printf("Failed to update %s: %v\n", upd.Name, err)
-					}
+				} else if evt.Type == "error" {
+					fmt.Printf("❌ %s\n", evt.Error)
+				} else if evt.Type == "start" {
+					fmt.Printf("%s\n", evt.Status)
 				}
 			}
+		}
+
+		opts := engine.UpdateOptions{
+			Safe:            safe,
+			PreserveNetwork: preserveNetwork,
+			LogCallback:     emitLog,
+		}
+
+		plan := engine.BuildUpdatePlan(updates)
+		err = engine.ExecutePlan(updateCtx, discovery, plan, opts)
+		if err != nil {
+			fatal("Update execution finished with errors: %v", err)
 		}
 	}
 
