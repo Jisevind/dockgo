@@ -1,3 +1,16 @@
+# [0.6.0](https://github.com/Jisevind/dockgo/compare/v0.5.0...v0.6.0) (2026-02-27)
+
+
+### Bug Fixes
+
+* correct apprise readiness check and server logging ([8fddd4a](https://github.com/Jisevind/dockgo/commit/8fddd4a15bdbf09bf1b3bcd4bffcff746d4430fb))
+
+
+### Features
+
+* **web:** add container action controls ([6987153](https://github.com/Jisevind/dockgo/commit/6987153bab2fd1571a75318e4ed426907b87e349))
+* **web:** add container logs streaming and viewing ([ff6742c](https://github.com/Jisevind/dockgo/commit/ff6742c0e80edc5b889a2277606503b4d276513a))
+
 # [0.5.0](https://github.com/Jisevind/dockgo/compare/v0.4.0...v0.5.0) (2026-02-25)
 
 
