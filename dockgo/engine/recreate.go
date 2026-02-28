@@ -35,13 +35,12 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 	}
 
 	// Check if it's a compose container
-	if project, ok := json.Config.Labels["com.docker.compose.project"]; ok {
-		msg := fmt.Sprintf("Container %s is managed by Compose project '%s'. Proceeding with API recreation.", name, project)
-		engineLog.InfoContext(ctx, msg,
+	if _, ok := json.Config.Labels["com.docker.compose.project"]; ok {
+		err := fmt.Errorf("refusing to recreate Compose-managed container via standalone API")
+		engineLog.ErrorContext(ctx, err.Error(),
 			logger.String("container", name),
-			logger.String("project", project),
 		)
-		emitLog(msg)
+		return err
 	}
 
 	startMsg := fmt.Sprintf("Recreating standalone container %s with image %s...", name, imageName)
@@ -157,17 +156,30 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 	}
 
 	// 6. Verification Phase:
-	// 1. If no healthcheck -> ensure container stays running for 3 seconds.
-	// 2. If healthcheck exists -> wait up to 60 seconds for healthy status.
-	// 3. After initial success -> enforce additional 20s stability window.
+	// 1. If no healthcheck -> ensure container stays running for initialCheck seconds (default 10s).
+	// 2. If healthcheck exists -> wait up to healthTimeout for healthy status.
+	// 3. After initial success -> enforce additional stabilityWindow.
 	// If any check fails -> rollback to old container.
-	waitMsg := "Waiting for container health/stability (up to 60s)..."
+	healthTimeout := 60
+	if v := os.Getenv("DOCKGO_HEALTH_TIMEOUT"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
+			healthTimeout = parsed
+		}
+	}
+
+	initialCheck := 10
+	if v := os.Getenv("DOCKGO_INITIAL_RUNTIME_CHECK"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
+			initialCheck = parsed
+		}
+	}
+	waitMsg := fmt.Sprintf("Waiting for container health/stability (up to %ds)...", healthTimeout)
 	engineLog.InfoContext(ctx, waitMsg,
 		logger.String("container", name),
 	)
 	emitLog("⏳ " + waitMsg)
 
-	verifyCtx, cancelVerify := context.WithTimeout(ctx, 60*time.Second)
+	verifyCtx, cancelVerify := context.WithTimeout(ctx, time.Duration(healthTimeout)*time.Second)
 	defer cancelVerify()
 
 	checkTicker := time.NewTicker(time.Second)
@@ -178,17 +190,33 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 
 	// Inspect once to see if healthcheck exists
 	startInspect, err := d.Client.ContainerInspect(ctx, newContainer.ID)
-	if err == nil && startInspect.State.Health == nil {
-		// No healthcheck: Wait 3 seconds, check if running
-		time.Sleep(3 * time.Second)
-		finalInspect, err := d.Client.ContainerInspect(ctx, newContainer.ID)
-		if err == nil && finalInspect.State.Running {
-			verificationSuccess = true
-		} else {
-			if err == nil {
-				engineLog.WarnContext(ctx, "Container stopped running within 3 seconds.",
+	if err != nil {
+		engineLog.WarnContext(ctx, "Failed to inspect container for healthcheck status",
+			logger.String("container", name),
+			logger.Any("error", err),
+		)
+		goto EndVerify
+	}
+
+	if startInspect.State.Health == nil {
+		// No healthcheck: Poll for initialCheck seconds to catch fast crash loops
+		verificationSuccess = true
+		for i := 0; i < initialCheck; i++ {
+			if ctx.Err() != nil {
+				verificationSuccess = false
+				engineLog.WarnContext(ctx, "Context cancelled during initial runtime check",
 					logger.String("container", name),
 				)
+				break
+			}
+			time.Sleep(1 * time.Second)
+			finalInspect, err := d.Client.ContainerInspect(ctx, newContainer.ID)
+			if err != nil || !finalInspect.State.Running {
+				verificationSuccess = false
+				engineLog.WarnContext(ctx, fmt.Sprintf("Container stopped running within the first %d seconds.", initialCheck),
+					logger.String("container", name),
+				)
+				break
 			}
 		}
 	} else if err == nil {
@@ -228,7 +256,13 @@ EndVerify:
 
 	// 7. Stability Wait (Post-Verification)
 	if verificationSuccess {
-		stableMsg := "Initial verification passed. Monitoring for 20s stability..."
+		stabilityWindow := 20
+		if v := os.Getenv("DOCKGO_STABILITY_WINDOW"); v != "" {
+			if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
+				stabilityWindow = parsed
+			}
+		}
+		stableMsg := fmt.Sprintf("Initial verification passed. Monitoring for %ds stability...", stabilityWindow)
 		engineLog.InfoContext(ctx, stableMsg,
 			logger.String("container", name),
 		)
@@ -236,7 +270,7 @@ EndVerify:
 		select {
 		case <-ctx.Done():
 			verificationSuccess = false
-		case <-time.After(20 * time.Second):
+		case <-time.After(time.Duration(stabilityWindow) * time.Second):
 			// Check one last time
 			finalInspect, err := d.Client.ContainerInspect(ctx, newContainer.ID)
 			if err != nil {

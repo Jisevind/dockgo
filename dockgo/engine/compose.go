@@ -93,6 +93,32 @@ func ComposeUpdate(ctx context.Context, workingDir string, serviceName string, a
 
 	log(fmt.Sprintf("✅ Validated working directory: %s", validatedDir))
 
+	// True project-level update: bypass specific service inspections
+	if serviceName == "" {
+		log(fmt.Sprintf("Executing Compose project-wide update in '%s'...", validatedDir))
+
+		// 1. Pull all images independently of build contexts
+		err = streamCommand(ctx, validatedDir, log, "docker", "compose", "--ansi", "always", "pull")
+		if err != nil {
+			return fmt.Errorf("compose project pull failed: %w", err)
+		}
+
+		// 2. Refresh any build contexts
+		err = streamCommand(ctx, validatedDir, log, "docker", "compose", "--ansi", "always", "build", "--progress", "plain")
+		if err != nil {
+			return fmt.Errorf("compose project build failed: %w", err)
+		}
+
+		// 3. Recreate and restart project graph
+		err = streamCommand(ctx, validatedDir, log, "docker", "compose", "--ansi", "always", "up", "-d")
+		if err != nil {
+			return fmt.Errorf("compose project up failed: %w", err)
+		}
+
+		log("✅ Compose project update completed successfully.")
+		return nil
+	}
+
 	log(fmt.Sprintf("Executing Compose update for service '%s' in '%s'...", serviceName, validatedDir))
 
 	// 2. Inspect service configuration to decide Build vs Pull
@@ -136,7 +162,7 @@ func ComposeUpdate(ctx context.Context, workingDir string, serviceName string, a
 		return fmt.Errorf("compose up failed: %w", err)
 	}
 
-	log("✅ Compose update completed successfully.")
+	log("✅ Compose service update completed successfully.")
 	return nil
 }
 
@@ -152,11 +178,16 @@ func ComposePull(ctx context.Context, workingDir string, serviceName string, all
 		return err
 	}
 
-	log(fmt.Sprintf("⬇️  Pulling images for service '%s' in '%s' (Safe Mode)...", serviceName, validatedDir))
-
 	// In Safe Mode, we only pull the image to prepare for an update.
 	// We do not build or restart the service.
-	err = streamCommand(ctx, validatedDir, log, "docker", "compose", "--ansi", "always", "pull", serviceName)
+	if serviceName == "" {
+		log(fmt.Sprintf("⬇️  Pulling images for Compose project in '%s' (Safe Mode)...", validatedDir))
+		err = streamCommand(ctx, validatedDir, log, "docker", "compose", "--ansi", "always", "pull")
+	} else {
+		log(fmt.Sprintf("⬇️  Pulling images for service '%s' in '%s' (Safe Mode)...", serviceName, validatedDir))
+		err = streamCommand(ctx, validatedDir, log, "docker", "compose", "--ansi", "always", "pull", serviceName)
+	}
+
 	if err != nil {
 		return fmt.Errorf("compose pull failed: %w", err)
 	}

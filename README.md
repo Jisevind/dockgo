@@ -109,6 +109,9 @@ Configure DockGo using environment variables:
 | `AUTH_BCRYPT_COST` | Configurable bcrypt hashing cost (min 4, max 31) | `10` |
 | `API_TOKEN` | Legacy token for API updates | *(empty)* |
 | `DOCKGO_STOP_TIMEOUT` | Grace period in seconds when stopping a container before it is recreated. | `10` |
+| `DOCKGO_INITIAL_RUNTIME_CHECK` | Initial verification wait in seconds for containers without healthchecks. | `10` |
+| `DOCKGO_HEALTH_TIMEOUT` | Max wait time in seconds for a container to become healthy after recreation. | `60` |
+| `DOCKGO_STABILITY_WINDOW` | Stability monitoring window in seconds post-healthcheck. | `20` |
 | `CORS_ORIGIN` | Allowed Origin for CORS (e.g. `https://mydomain.com`) | *(disabled)* |
 | `ALLOWED_COMPOSE_PATHS` | Comma-separated list of allowed base paths for Compose working directories (e.g., `/opt/docker,/srv/compose`) | *(empty)* |
 | `SESSION_STORE_PATH` | Path to session persistence file | `/app/data/sessions.json` |
