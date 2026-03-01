@@ -114,6 +114,7 @@ Configure DockGo using environment variables:
 | `DOCKGO_STABILITY_WINDOW` | Stability monitoring window in seconds post-healthcheck. | `20` |
 | `CORS_ORIGIN` | Allowed Origin for CORS (e.g. `https://mydomain.com`) | *(disabled)* |
 | `ALLOWED_COMPOSE_PATHS` | Comma-separated list of allowed base paths for Compose working directories (e.g., `/opt/docker,/srv/compose`) | *(empty)* |
+| `COMPOSE_PATH_MAPPING` | Comma-separated map of host paths to container paths (e.g. `D:\Docker:/compose`) for Windows users. | *(empty)* |
 | `SESSION_STORE_PATH` | Path to session persistence file | `/app/data/sessions.json` |
 | `APPRISE_URL` | Apprise notification endpoint (e.g., `discord://...`) | *(empty)* |
 | `APPRISE_QUEUE_SIZE` | Buffer size for outbound notification events | `200` |
@@ -145,6 +146,8 @@ services:
       - AUTH_PASSWORD_HASH=$$2a$$10$$YOUR_GENERATED_HASH_HERE
       # Optional: Restrict updates to specific Compose directories
       - ALLOWED_COMPOSE_PATHS=/opt/docker,/srv/compose
+      # Optional: Map Windows host paths to container paths for Compose
+      # - COMPOSE_PATH_MAPPING=D:\Docker:/compose
 ```
 
 ---

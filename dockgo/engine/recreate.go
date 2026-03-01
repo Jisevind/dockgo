@@ -90,20 +90,25 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 			if ep.MacAddress != "" {
 				newEp.MacAddress = ep.MacAddress
 			}
-			if ep.IPAddress != "" {
-				newEp.IPAddress = ep.IPAddress
-			}
-			if ep.GlobalIPv6Address != "" {
-				newEp.GlobalIPv6Address = ep.GlobalIPv6Address
-			}
 
-			// Ensure IPAMConfig enforces the static IP if we have one
-			if newEp.IPAddress != "" {
-				if newEp.IPAMConfig == nil {
-					newEp.IPAMConfig = &network.EndpointIPAMConfig{}
+			// Docker prohibits user-specified IPs on the default "bridge" network.
+			// Only preserve IP addresses for user-defined networks.
+			if netName != "bridge" {
+				if ep.IPAddress != "" {
+					newEp.IPAddress = ep.IPAddress
 				}
-				if newEp.IPAMConfig.IPv4Address == "" {
-					newEp.IPAMConfig.IPv4Address = newEp.IPAddress
+				if ep.GlobalIPv6Address != "" {
+					newEp.GlobalIPv6Address = ep.GlobalIPv6Address
+				}
+
+				// Ensure IPAMConfig enforces the static IP if we have one
+				if newEp.IPAddress != "" {
+					if newEp.IPAMConfig == nil {
+						newEp.IPAMConfig = &network.EndpointIPAMConfig{}
+					}
+					if newEp.IPAMConfig.IPv4Address == "" {
+						newEp.IPAMConfig.IPv4Address = newEp.IPAddress
+					}
 				}
 			}
 		}
