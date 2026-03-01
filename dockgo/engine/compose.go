@@ -26,11 +26,47 @@ type ServiceConfig struct {
 // Logger is a function that handles log lines
 type Logger func(string)
 
+// translateComposePath evaluates the COMPOSE_PATH_MAPPING environment variable
+// to map host filesystem paths (e.g., Windows paths) to their corresponding
+// volume-mounted paths within the DockGo container.
+func translateComposePath(workingDir string) string {
+	mappingEnv := os.Getenv("COMPOSE_PATH_MAPPING")
+	if mappingEnv == "" {
+		return workingDir
+	}
+
+	// Mappings are expected as HOST_PATH:CONTAINER_PATH, separated by commas
+	mappings := strings.Split(mappingEnv, ",")
+	for _, mapping := range mappings {
+		lastColon := strings.LastIndex(mapping, ":")
+		if lastColon > 0 {
+			hostPath := strings.TrimSpace(mapping[:lastColon])
+			containerPath := strings.TrimSpace(mapping[lastColon+1:])
+
+			// Normalizing slashes for Windows compatibility
+			normalizedWorkingDir := strings.ReplaceAll(workingDir, "\\", "/")
+			normalizedHostPath := strings.ReplaceAll(hostPath, "\\", "/")
+
+			// Windows paths are case-insensitive
+			if strings.HasPrefix(strings.ToLower(normalizedWorkingDir), strings.ToLower(normalizedHostPath)) {
+				// Use length replacement to preserve casing of the remainder
+				remainder := normalizedWorkingDir[len(normalizedHostPath):]
+				return containerPath + remainder
+			}
+		}
+	}
+
+	return workingDir
+}
+
 // validateWorkingDir performs security checks on the working directory path
 // to prevent path traversal and ensure it's within allowed paths.
 func validateWorkingDir(workingDir string, allowedPaths []string) (string, error) {
+	// 0. Translate host paths to container paths if mapped (e.g., Windows to Linux)
+	translatedDir := translateComposePath(workingDir)
+
 	// 1. Clean the path to remove any . or .. components
-	cleanDir := filepath.Clean(workingDir)
+	cleanDir := filepath.Clean(translatedDir)
 
 	// 2. Resolve symlinks to get the real path
 	realDir, err := filepath.EvalSymlinks(cleanDir)
@@ -104,7 +140,7 @@ func ComposeUpdate(ctx context.Context, workingDir string, serviceName string, a
 		}
 
 		// 2. Refresh any build contexts
-		err = streamCommand(ctx, validatedDir, log, "docker", "compose", "--ansi", "always", "build", "--progress", "plain")
+		err = streamCommand(ctx, validatedDir, log, "docker", "compose", "build", "--progress", "plain")
 		if err != nil {
 			return fmt.Errorf("compose project build failed: %w", err)
 		}
@@ -144,7 +180,7 @@ func ComposeUpdate(ctx context.Context, workingDir string, serviceName string, a
 
 	// 3. Execute Build or Pull
 	if shouldBuild {
-		err = streamCommand(ctx, validatedDir, log, "docker", "compose", "--ansi", "always", "build", "--progress", "plain", serviceName)
+		err = streamCommand(ctx, validatedDir, log, "docker", "compose", "build", "--progress", "plain", serviceName)
 		if err != nil {
 			return fmt.Errorf("compose build failed: %w", err)
 		}
