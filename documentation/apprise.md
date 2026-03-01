@@ -8,9 +8,11 @@ To enable Apprise notifications, you need to configure the `APPRISE_URL` environ
 
 ### Environment Variable
 
-*   **`APPRISE_URL`**: Your notification URL(s). Apprise natively supports over 100+ services including Gotify, Ntfy, Discord, and Telegram.
+*   **`APPRISE_URL`**: Your notification destination URL(s). Apprise natively supports over 100+ services including Gotify, Ntfy, Discord, and Telegram.
+*   **`APPRISE_API_HOST`**: The base URL where the Apprise API container is running (default: `http://apprise:8000`). Use this if you rename the Apprise sidecar container.
+*   **`APPRISE_QUEUE_SIZE`**: Buffer size for outbound notification events (default: `200`).
 
-**Examples:**
+**Examples (`APPRISE_URL`):**
 *   Gotify: `gotify://192.168.1.50/token`
 *   Ntfy (Self-hosted): `ntfys://user:password@ntfy.example.com/mytopic`
 *   Ntfy (Public): `ntfy://mytopic`

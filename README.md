@@ -116,7 +116,8 @@ Configure DockGo using environment variables:
 | `ALLOWED_COMPOSE_PATHS` | Comma-separated list of allowed base paths for Compose working directories (e.g., `/opt/docker,/srv/compose`) | *(empty)* |
 | `COMPOSE_PATH_MAPPING` | Comma-separated map of host paths to container paths (e.g. `D:\Docker:/compose`) for Windows users. | *(empty)* |
 | `SESSION_STORE_PATH` | Path to session persistence file | `/app/data/sessions.json` |
-| `APPRISE_URL` | Apprise notification endpoint (e.g., `discord://...`) | *(empty)* |
+| `APPRISE_API_HOST` | Custom Apprise API connection host (e.g. `http://my-notifier:8000`) | `http://apprise:8000` |
+| `APPRISE_URL` | Apprise notification endpoint (e.g., `ntfy://...`) | *(empty)* |
 | `APPRISE_QUEUE_SIZE` | Buffer size for outbound notification events | `200` |
 | `SCAN_INTERVAL` | Background update polling schedule (`s`, `m`, `h`) | `24h` |
 
