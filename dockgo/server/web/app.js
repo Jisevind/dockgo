@@ -395,7 +395,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) throw new Error('Failed to fetch');
             const containers = await response.json();
             cachedContainers = containers;
-            renderContainers(containers);
+
+            // Only rebuild the DOM if there are no active updates to prevent wiping out active progress streams
+            if (activeUpdates === 0) {
+                renderContainers(containers);
+            } else {
+                console.log(`Skipping full DOM re-render: ${activeUpdates} updates still active.`);
+            }
             statusEl.textContent = 'Connected';
             statusEl.style.color = 'var(--success)';
         } catch (error) {
