@@ -16,8 +16,9 @@ services:
       - .env
 
     # environment:
-      # Optional: Map Windows host paths to container paths for Compose
-      # - COMPOSE_PATH_MAPPING=D:\Docker:/compose
+      # Required if DockGo's internal volume mount differs from the host path.
+      # Format: HOST_PATH:CONTAINER_PATH
+      # - COMPOSE_PATH_MAPPING=/home/user/docker:/compose
 
     volumes:
       # Required: Docker socket access for container discovery and updates.
@@ -27,8 +28,8 @@ services:
       # Required: Persistent data (sessions, cache, etc.)
       - ./data:/app/data
 
-      # Optional: Mount host compose directories for path mapping (Windows)
-      # - D:\Docker:/compose
+      # Required for Compose: Mount host compose directories for path mapping
+      # - /home/user/docker:/compose
       
   ########################################
   # Optional: Apprise API Container

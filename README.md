@@ -114,7 +114,7 @@ Configure DockGo using environment variables:
 | `DOCKGO_STABILITY_WINDOW` | Stability monitoring window in seconds post-healthcheck. | `20` |
 | `CORS_ORIGIN` | Allowed Origin for CORS (e.g. `https://mydomain.com`) | *(disabled)* |
 | `ALLOWED_COMPOSE_PATHS` | Comma-separated list of allowed base paths for Compose working directories (e.g., `/opt/docker,/srv/compose`) | *(empty)* |
-| `COMPOSE_PATH_MAPPING` | Comma-separated map of host paths to container paths (e.g. `D:\Docker:/compose`) for Windows users. | *(empty)* |
+| `COMPOSE_PATH_MAPPING` | Comma-separated map of host paths to container paths (e.g. `/home/user/docker:/compose`) to resolve mount isolation. | *(empty)* |
 | `SESSION_STORE_PATH` | Path to session persistence file | `/app/data/sessions.json` |
 | `APPRISE_API_HOST` | Custom Apprise API connection host (e.g. `http://my-notifier:8000`) | `http://apprise:8000` |
 | `APPRISE_URL` | Apprise notification endpoint (e.g., `ntfy://...`) | *(empty)* |
