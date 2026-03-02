@@ -1,3 +1,21 @@
+# [1.0.0](https://github.com/Jisevind/dockgo/compare/v0.6.0...v1.0.0) (2026-03-02)
+
+
+### Bug Fixes
+
+* **web:** prevent DOM re-render during active updates ([979e175](https://github.com/Jisevind/dockgo/commit/979e1759c6c10bfb449fb7a98398aa0983f3f5cc))
+
+
+### Features
+
+* **engine:** add path mapping support for Windows Compose projects ([216bd53](https://github.com/Jisevind/dockgo/commit/216bd53dd0323df734f1216be7da6561783c7329))
+* **engine:** implement orchestration-aware updates with safety enhancements ([ffb80b7](https://github.com/Jisevind/dockgo/commit/ffb80b72c04191405deaaebdeef0554969f2be07))
+
+
+### BREAKING CHANGES
+
+* **engine:** Removal of --ansi always flag from docker compose commands may affect output formatting in some environments.
+
 # [0.6.0](https://github.com/Jisevind/dockgo/compare/v0.5.0...v0.6.0) (2026-02-27)
 
 
