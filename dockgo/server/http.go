@@ -364,6 +364,11 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 		if s.APIToken != "" && token != "" {
 			// Use Constant-Time Comparison to prevent timing attacks
 			if hmac.Equal([]byte(token), []byte(s.APIToken)) {
+				serverLog.InfoContext(r.Context(), "Authentication successful via legacy API_TOKEN",
+					logger.String("ip", r.RemoteAddr),
+					logger.String("method", r.Method),
+					logger.String("path", r.URL.Path),
+				)
 				next(w, r)
 				return
 			}
@@ -492,7 +497,15 @@ func (s *Server) checkRateLimit(remoteAddr string) bool {
 	limiter.lastSeen = time.Now()
 
 	// Max 5 attempts per minute
-	return limiter.count <= 5
+	allowed := limiter.count <= 5
+	if !allowed {
+		serverLog.Warn("Rate limit exceeded for IP",
+			logger.String("ip", ip),
+			logger.Int("attempts", limiter.count),
+		)
+	}
+
+	return allowed
 }
 
 // cleanupRateLimiters periodically prunes stale IP tracking data to prevent OOMs
@@ -681,12 +694,19 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	// Verify Password Hash
 	if err := bcrypt.CompareHashAndPassword(s.AuthPasswordHash, []byte(creds.Password)); err != nil {
-		serverLog.Debug("Login failed (credentials redacted)")
+		serverLog.WarnContext(r.Context(), "Login failed (credentials invalid)",
+			logger.String("username", creds.Username),
+			logger.String("ip", r.RemoteAddr),
+		)
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
 
 	// Success
+	serverLog.InfoContext(r.Context(), "Login successful",
+		logger.String("username", creds.Username),
+		logger.String("ip", r.RemoteAddr),
+	)
 	token := s.generateSessionToken()
 	csrfToken := s.generateCSRFToken()
 
@@ -728,6 +748,11 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 				s.revokedSessions[sessionUUID] = time.Now()
 				s.sessionMu.Unlock()
 				s.queueSaveAuthState()
+
+				serverLog.InfoContext(r.Context(), "Session logged out",
+					logger.String("ip", r.RemoteAddr),
+					logger.String("session", sessionUUID[:8]), // Only log prefix of UUID
+				)
 			}
 		}
 	}

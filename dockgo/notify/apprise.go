@@ -76,6 +76,11 @@ func NewAppriseNotifier(ctx context.Context) *AppriseNotifier {
 
 	notifier.queue = make(chan Notification, queueSize)
 
+	notifyLog.Info("Apprise: Notification engine initialized",
+		logger.Int("url_count", len(cleanUrls)),
+		logger.Int("queue_size", queueSize),
+	)
+
 	go notifier.worker(ctx)
 	return notifier
 }
@@ -242,6 +247,10 @@ func (a *AppriseNotifier) send(client *http.Client, n Notification) {
 			}
 
 			_ = resp.Body.Close()
+			notifyLog.Info("Apprise: Notification delivered successfully",
+				logger.String("target_url", targetURL),
+				logger.String("type", appriseType),
+			)
 			break // Success
 		}
 	}

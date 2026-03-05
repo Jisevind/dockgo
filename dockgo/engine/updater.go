@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"dockgo/api"
+	"dockgo/logger"
 )
 
 type OrchestratorType int
@@ -137,6 +138,12 @@ func updateCompose(ctx context.Context, discovery *DiscoveryEngine, upd *api.Con
 				Container: upd.Name,
 			})
 		}
+
+		engineLog.ErrorContext(ctx, "Compose project update failed natively",
+			logger.String("container", upd.Name),
+			logger.Any("error", err),
+		)
+
 		upd.Error = extendedErr.Error()
 		return extendedErr
 	}
@@ -171,6 +178,12 @@ func PerformComposeProjectUpdate(ctx context.Context, projData ComposeProjectUpd
 
 	ctxCompose, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
+
+	engineLog.InfoContext(ctx, "Starting Compose project update",
+		logger.String("project", projData.Project),
+		logger.String("dir", projData.WorkingDir),
+		logger.Bool("safe_mode", opts.Safe),
+	)
 
 	targetContainer := ""
 	if len(projData.Containers) > 0 {
@@ -211,11 +224,23 @@ func PerformComposeProjectUpdate(ctx context.Context, projData ComposeProjectUpd
 		}
 	}
 
+	if err == nil {
+		engineLog.InfoContext(ctx, "Compose project update completed successfully",
+			logger.String("project", projData.Project),
+		)
+	}
+
 	return err
 }
 
 func updateStandalone(ctx context.Context, discovery *DiscoveryEngine, upd *api.ContainerUpdate, opts UpdateOptions) error {
 	emitLog := opts.LogCallback
+
+	engineLog.InfoContext(ctx, "Starting standalone container update",
+		logger.String("container", upd.Name),
+		logger.String("image", upd.Image),
+		logger.Bool("safe_mode", opts.Safe),
+	)
 
 	inspectState, err := discovery.GetContainerState(ctx, upd.ID)
 	isRunning := err == nil && inspectState == "running"
@@ -244,6 +269,13 @@ func updateStandalone(ctx context.Context, discovery *DiscoveryEngine, upd *api.
 	})
 	if err != nil {
 		extendedErr := fmt.Errorf("failed to pull image: %w", err)
+
+		engineLog.ErrorContext(ctx, "Failed to pull image during standalone update",
+			logger.String("container", upd.Name),
+			logger.String("image", upd.Image),
+			logger.Any("error", err),
+		)
+
 		upd.Error = extendedErr.Error()
 		return extendedErr
 	}
@@ -267,6 +299,13 @@ func updateStandalone(ctx context.Context, discovery *DiscoveryEngine, upd *api.
 		})
 	})
 	if err != nil {
+
+		engineLog.ErrorContext(ctx, "Failed to recreate container during standalone update",
+			logger.String("container", upd.Name),
+			logger.String("image", upd.Image),
+			logger.Any("error", err),
+		)
+
 		upd.Error = err.Error()
 		return fmt.Errorf("failed to recreate container: %w", err)
 	}
@@ -276,6 +315,11 @@ func updateStandalone(ctx context.Context, discovery *DiscoveryEngine, upd *api.
 		Status:    fmt.Sprintf("Successfully updated %s", upd.Name),
 		Container: upd.Name,
 	})
+
+	engineLog.InfoContext(ctx, "Standalone container update completed successfully",
+		logger.String("container", upd.Name),
+	)
+
 	upd.Status = "updated"
 
 	return nil
