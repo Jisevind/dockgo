@@ -24,7 +24,7 @@ const (
 	TypeInfo    NotificationType = "info"
 	TypeSuccess NotificationType = "success"
 	TypeWarning NotificationType = "warning"
-	TypeFailure NotificationType = "failure" // Will be mapped to "error" for Apprise
+	TypeFailure NotificationType = "failure"
 )
 
 type Notification struct {
@@ -40,6 +40,7 @@ type AppriseNotifier struct {
 	mu     sync.Mutex
 }
 
+// NewAppriseNotifier creates an async Apprise notifier from environment config.
 func NewAppriseNotifier(ctx context.Context) *AppriseNotifier {
 	notifier := &AppriseNotifier{}
 
@@ -93,11 +94,9 @@ func getAppriseHost() string {
 	return strings.TrimSuffix(host, "/")
 }
 
-// normalizeAppriseTarget determines the absolute base HTTP URL to reach the Apprise sidecar
 func normalizeAppriseTarget(url string) string {
 	targetURL := getAppriseHost()
 
-	// If the user specified a full custom apprise host remotely via an http prefix, use its base
 	if !strings.Contains(url, "gotify://") && (strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://")) {
 		targetURL = strings.TrimSuffix(url, "/all")
 		parts := strings.Split(targetURL, "/notify")
@@ -109,7 +108,7 @@ func normalizeAppriseTarget(url string) string {
 	return targetURL
 }
 
-// WaitUntilReady blocks until at least one Apprise URL is reachable or timeout occurs
+// WaitUntilReady blocks until an Apprise URL is reachable or timeout.
 func (a *AppriseNotifier) WaitUntilReady(timeout time.Duration) bool {
 	if a == nil || len(a.urls) == 0 {
 		return true
@@ -120,8 +119,6 @@ func (a *AppriseNotifier) WaitUntilReady(timeout time.Duration) bool {
 		for _, url := range a.urls {
 			targetURL := normalizeAppriseTarget(url)
 
-			// Ping apprise host (like "http://apprise:8000") directly to verify readiness,
-			// instead of trying to ping the specific notification payload URL
 			if err := a.ping(targetURL); err == nil {
 				return true
 			}
@@ -133,14 +130,11 @@ func (a *AppriseNotifier) WaitUntilReady(timeout time.Duration) bool {
 
 func (a *AppriseNotifier) ping(url string) error {
 	client := &http.Client{Timeout: 2 * time.Second}
-	// Try a simple GET against the base URL, we just want to know if it's alive,
-	// even if it returns a 405 Method Not Allowed, that means the server is there!
 	resp, err := client.Get(url)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
-	// Just verify the server is responding to HTTP, any code < 500 means the server handles requests
 	if resp.StatusCode >= 500 {
 		return fmt.Errorf("server error status %d", resp.StatusCode)
 	}
@@ -157,7 +151,6 @@ func (a *AppriseNotifier) worker(ctx context.Context) {
 			a.closed = true
 			a.mu.Unlock()
 
-			// Drain remaining messages directly
 			for {
 				select {
 				case n := <-a.queue:
@@ -194,7 +187,6 @@ func (a *AppriseNotifier) send(client *http.Client, n Notification) {
 			targetURL += "/notify"
 		}
 
-		// Simple 3-attempt retry loop
 		maxRetries := 3
 		for i := 0; i < maxRetries; i++ {
 			resp, err := client.Post(targetURL, "application/json", bytes.NewBuffer(b))
@@ -251,11 +243,12 @@ func (a *AppriseNotifier) send(client *http.Client, n Notification) {
 				logger.String("target_url", targetURL),
 				logger.String("type", appriseType),
 			)
-			break // Success
+			break
 		}
 	}
 }
 
+// Notify enqueues a notification for async delivery.
 func (a *AppriseNotifier) Notify(title, body string, notifType NotificationType) {
 	if a == nil || a.queue == nil {
 		return
@@ -272,16 +265,14 @@ func (a *AppriseNotifier) Notify(title, body string, notifType NotificationType)
 		select {
 		case a.queue <- n:
 			a.mu.Unlock()
-			return // Successfully queued
+			return
 		default:
-			// Queue is full, drop the oldest message to make room
 			select {
 			case dropped := <-a.queue:
 				notifyLog.Warn("Apprise: Queue full, dropping oldest notification",
 					logger.String("title", dropped.Title),
 				)
 			default:
-				// The worker grabbed it in the microsecond between selects, loop again
 			}
 			a.mu.Unlock()
 		}

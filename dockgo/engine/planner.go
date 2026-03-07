@@ -20,8 +20,7 @@ type UpdatePlan struct {
 	ComposeProjects map[string]ComposeProjectUpdate
 }
 
-// BuildUpdatePlan parses raw scan results into a strictly organized
-// orchestration plan that de-duplicates Compose project containers.
+// BuildUpdatePlan groups updates by orchestrator and Compose project.
 func BuildUpdatePlan(updates []api.ContainerUpdate) UpdatePlan {
 	plan := UpdatePlan{
 		Standalone:      make([]api.ContainerUpdate, 0),
@@ -65,7 +64,6 @@ func BuildUpdatePlan(updates []api.ContainerUpdate) UpdatePlan {
 func ExecutePlan(ctx context.Context, discovery *DiscoveryEngine, plan UpdatePlan, opts UpdateOptions) error {
 	var errs []error
 
-	// Execute Standalone Containers iteration
 	for _, upd := range plan.Standalone {
 		if opts.LogCallback != nil {
 			opts.LogCallback(api.ProgressEvent{
@@ -88,7 +86,6 @@ func ExecutePlan(ctx context.Context, discovery *DiscoveryEngine, plan UpdatePla
 		}
 	}
 
-	// Execute Compose Projects iteration
 	for project, projData := range plan.ComposeProjects {
 		if len(projData.Containers) == 0 {
 			continue

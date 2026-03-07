@@ -18,14 +18,12 @@ import (
 )
 
 func main() {
-	// Setup Logger
 	logLevel := os.Getenv("LOG_LEVEL")
 	if logLevel != "" {
 		logger.SetLevel(logLevel)
 	}
 
-	// Default to 'serve' if no command provided
-	var cmd string
+		var cmd string
 	var args []string
 
 	if len(os.Args) < 2 {
@@ -158,7 +156,6 @@ func runScan(checkOnly, jsonOutput, streamOutput bool, filter string, safe, forc
 
 	var mu sync.Mutex
 
-	// Scan containers
 	onProgress := func(u api.ContainerUpdate, current, total int) {
 		if streamOutput {
 			evt := api.ProgressEvent{
@@ -191,7 +188,6 @@ func runScan(checkOnly, jsonOutput, streamOutput bool, filter string, safe, forc
 		fatal("Scan error: %v", err)
 	}
 
-	// Update Phase
 	if checkOnly {
 		if jsonOutput {
 			enc := json.NewEncoder(os.Stdout)
@@ -201,14 +197,11 @@ func runScan(checkOnly, jsonOutput, streamOutput bool, filter string, safe, forc
 		return
 	}
 
-	// EXECUTE UPDATES
 	if filter != "" {
-		// Prepare callback for CLI formatting
 		emitLog := func(evt api.ProgressEvent) {
 			if streamOutput {
 				_ = json.NewEncoder(os.Stdout).Encode(evt)
 			} else if !jsonOutput {
-				// Format for terminal
 				if evt.Type == "progress" {
 					if evt.Percent > 0 {
 						fmt.Printf("%s\n", evt.Status)

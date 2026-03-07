@@ -47,12 +47,11 @@ func setupLogger() {
 	var handler slog.Handler
 	logFormat := strings.ToLower(os.Getenv("LOG_FORMAT"))
 
-	// Build the Log Output Writer (Stdout + Optional persistent File)
 	var logOutput io.Writer = os.Stdout
 
 	logFilePath := os.Getenv("LOG_FILE_PATH")
 	if logFilePath != "" {
-		maxSize := 10 // MB
+		maxSize := 10
 		if val, err := strconv.Atoi(os.Getenv("LOG_MAX_SIZE")); err == nil && val > 0 {
 			maxSize = val
 		}
@@ -68,9 +67,8 @@ func setupLogger() {
 		}
 
 		compressStr := strings.ToLower(os.Getenv("LOG_COMPRESS"))
-		compress := compressStr != "false" && compressStr != "0" // Default true
+		compress := compressStr != "false" && compressStr != "0"
 
-		// Lumberjack v3 uses functional options instead of a struct
 		fileLogger, err := lumberjack.NewRoller(
 			logFilePath,
 			int64(maxSize)*1024*1024,
@@ -82,15 +80,12 @@ func setupLogger() {
 		)
 
 		if err == nil {
-			// Write to both standard out (for Docker) and the file
 			logOutput = io.MultiWriter(os.Stdout, fileLogger)
 		} else {
-			// Fallback to exactly what it was doing before if permissions fail
 			slog.Warn("Failed to initialize rolling file logger", slog.Any("error", err), slog.String("path", logFilePath))
 		}
 	}
 
-	// Default to JSON in Docker containers, or if explicitly set to "json"
 	if logFormat == "json" || (logFormat == "" && isRunningInDocker()) {
 		handler = slog.NewJSONHandler(logOutput, opts)
 	} else {
@@ -101,20 +96,17 @@ func setupLogger() {
 	slog.SetDefault(globalLogger)
 }
 
-// isRunningInDocker checks if we're running inside a Docker container
 func isRunningInDocker() bool {
-	// Check for .dockerenv file (standard for containers)
 	if _, err := os.Stat("/.dockerenv"); err == nil {
 		return true
 	}
-	// Check for Docker in cgroup (another common method)
 	if data, err := os.ReadFile("/proc/1/cgroup"); err == nil {
 		return strings.Contains(string(data), "docker") || strings.Contains(string(data), "containerd")
 	}
 	return false
 }
 
-// SetLevel dynamically adjusts the global logging level
+// SetLevel sets the global logging level.
 func SetLevel(levelStr string) {
 	switch strings.ToLower(levelStr) {
 	case "debug":
@@ -130,58 +122,61 @@ func SetLevel(levelStr string) {
 	}
 }
 
-// SubsystemLogger wraps slog.Logger to provide structured logging methods
+// SubsystemLogger wraps slog.Logger with subsystem context.
 type SubsystemLogger struct {
 	sl *slog.Logger
 }
 
-// Structured logging methods - PREFERRED for new code
-// These methods pass structured attributes directly to slog for machine-readable logs
-// Example: scannerLog.Info("scan completed", logger.Int("containers", 42))
+// Info logs a message at Info level.
 func (s *SubsystemLogger) Info(msg string, args ...any) {
 	s.sl.Info(msg, args...)
 }
 
+// Debug logs a message at Debug level.
 func (s *SubsystemLogger) Debug(msg string, args ...any) {
 	s.sl.Debug(msg, args...)
 }
 
+// Warn logs a message at Warn level.
 func (s *SubsystemLogger) Warn(msg string, args ...any) {
 	s.sl.Warn(msg, args...)
 }
 
+// Error logs a message at Error level.
 func (s *SubsystemLogger) Error(msg string, args ...any) {
 	s.sl.Error(msg, args...)
 }
 
-// Structured logging with context - preferred for new code
+// InfoContext logs a message at Info level with context attributes.
 func (s *SubsystemLogger) InfoContext(ctx context.Context, msg string, args ...any) {
 	s.sl.InfoContext(ctx, msg, append(args, extractAttrs(ctx)...)...)
 }
 
+// DebugContext logs a message at Debug level with context attributes.
 func (s *SubsystemLogger) DebugContext(ctx context.Context, msg string, args ...any) {
 	s.sl.DebugContext(ctx, msg, append(args, extractAttrs(ctx)...)...)
 }
 
+// WarnContext logs a message at Warn level with context attributes.
 func (s *SubsystemLogger) WarnContext(ctx context.Context, msg string, args ...any) {
 	s.sl.WarnContext(ctx, msg, append(args, extractAttrs(ctx)...)...)
 }
 
+// ErrorContext logs a message at Error level with context attributes.
 func (s *SubsystemLogger) ErrorContext(ctx context.Context, msg string, args ...any) {
 	s.sl.ErrorContext(ctx, msg, append(args, extractAttrs(ctx)...)...)
 }
 
-// WithSubsystem returns a bound logger with a component tag
+// WithSubsystem returns a logger bound to a component name.
 func WithSubsystem(name string) *SubsystemLogger {
 	return &SubsystemLogger{sl: globalLogger.With(slog.String("component", name))}
 }
 
-// WithUpdateID injects a correlation ID into a context
+// WithUpdateID injects an update correlation ID into context.
 func WithUpdateID(ctx context.Context, id string) context.Context {
 	return context.WithValue(ctx, UpdateIDKey, id)
 }
 
-// extractAttrs pulls tracing IDs from the context
 func extractAttrs(ctx context.Context) []any {
 	if ctx == nil {
 		return nil
@@ -192,46 +187,47 @@ func extractAttrs(ctx context.Context) []any {
 	return nil
 }
 
-// Structured logging helpers - convenience functions for creating slog attributes
+// String creates a string attribute.
 func String(key, value string) slog.Attr {
 	return slog.String(key, value)
 }
 
+// Int creates an int attribute.
 func Int(key string, value int) slog.Attr {
 	return slog.Int(key, value)
 }
 
+// Int64 creates an int64 attribute.
 func Int64(key string, value int64) slog.Attr {
 	return slog.Int64(key, value)
 }
 
+// Bool creates a bool attribute.
 func Bool(key string, value bool) slog.Attr {
 	return slog.Bool(key, value)
 }
 
+// Any creates a generic attribute.
 func Any(key string, value any) slog.Attr {
 	return slog.Any(key, value)
 }
 
-// Package-level structured logging convenience methods
-// These are useful when you don't need a SubsystemLogger
-
-// Info logs at Info level with structured attributes
+// Info logs at Info level with structured attributes.
 func Info(msg string, args ...any) {
 	globalLogger.Info(msg, args...)
 }
 
-// Debug logs at Debug level with structured attributes
+// Debug logs at Debug level with structured attributes.
 func Debug(msg string, args ...any) {
 	globalLogger.Debug(msg, args...)
 }
 
-// Warn logs at Warn level with structured attributes
+// Warn logs at Warn level with structured attributes.
 func Warn(msg string, args ...any) {
 	globalLogger.Warn(msg, args...)
 }
 
-// Error logs at Error level with structured attributes
+// Error logs at Error level with structured attributes.
 func Error(msg string, args ...any) {
 	globalLogger.Error(msg, args...)
 }

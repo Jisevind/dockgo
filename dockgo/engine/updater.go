@@ -22,13 +22,10 @@ const (
 type UpdateOptions struct {
 	Safe            bool
 	PreserveNetwork bool
-	AllowedPaths    []string // Allowed base paths for Compose working directories
-	// LogCallback is used to emit structured progress events synchronously.
-	// Callers must ensure their own stream thread-safety bounded inside this callback.
-	LogCallback func(api.ProgressEvent)
+	AllowedPaths    []string
+	LogCallback     func(api.ProgressEvent)
 }
 
-// Global update locks to prevent concurrent updates of the same entity
 type lockEntry struct {
 	sync.Mutex
 	refs int
@@ -39,6 +36,7 @@ type LockManager struct {
 	locks map[string]*lockEntry
 }
 
+// Lock acquires a keyed lock and returns an unlock function.
 func (lm *LockManager) Lock(id string) func() {
 	lm.mu.Lock()
 	if lm.locks == nil {
@@ -67,8 +65,6 @@ func (lm *LockManager) Lock(id string) func() {
 
 var globalLocks LockManager
 
-// lockContainer acquires a lock for a given identifier (container ID or compose project)
-// and returns an unlock closure to be deferred.
 func lockContainer(id string) func() {
 	return globalLocks.Lock(id)
 }
@@ -84,11 +80,8 @@ func DetectOrchestrator(labels map[string]string) OrchestratorType {
 	return OrchestratorStandalone
 }
 
-// PerformUpdate orchestrates the full lifecycle update of a Docker container.
-// It detects the orchestration context and delegates to the appropriate strategy.
-// Safe mode skips restart of running containers.
+// PerformUpdate updates a container according to its orchestrator labels.
 func PerformUpdate(ctx context.Context, discovery *DiscoveryEngine, upd *api.ContainerUpdate, opts UpdateOptions) error {
-	// Initialize callback guard
 	if opts.LogCallback == nil {
 		opts.LogCallback = func(api.ProgressEvent) {}
 	}
@@ -167,7 +160,6 @@ func PerformComposeProjectUpdate(ctx context.Context, projData ComposeProjectUpd
 	unlock := lockContainer("compose:" + projData.Project)
 	defer unlock()
 
-	// Validate allowed compose paths
 	if len(opts.AllowedPaths) > 0 {
 		validatedDir, err := validateWorkingDir(projData.WorkingDir, opts.AllowedPaths)
 		if err != nil {
@@ -254,7 +246,6 @@ func updateStandalone(ctx context.Context, discovery *DiscoveryEngine, upd *api.
 	}
 
 	err = discovery.PullImage(ctx, upd.Image, func(evt api.PullProgressEvent) {
-		// Map generic pull progress event strings back to strict ProgressEvent API contract
 		progressStatus := evt.Status
 		if (evt.Status == "Downloading" || evt.Status == "Extracting") && evt.Percent > 0 {
 			progressStatus = fmt.Sprintf("\r%s: %.1f%%", evt.Status, evt.Percent)
@@ -290,7 +281,6 @@ func updateStandalone(ctx context.Context, discovery *DiscoveryEngine, upd *api.
 		return nil
 	}
 
-	// 6. Standalone Recreate Container
 	err = discovery.RecreateContainer(ctx, upd.ID, upd.Image, opts.PreserveNetwork, func(msg string) {
 		emitLog(api.ProgressEvent{
 			Type:      "progress",
