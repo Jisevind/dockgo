@@ -206,12 +206,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const openLogsModal = (containerName) => {
+        const safeName = getSafeContainerPathSegment(containerName);
+        if (!safeName) {
+            console.error('Invalid container name for logs stream');
+            return;
+        }
+
         logsTitle.textContent = `Logs: ${containerName}`;
         logsOutput.textContent = 'Connecting to log stream...\n';
         logsModal.classList.remove('hidden');
         userScrolledUp = false;
 
-        let streamUrl = `/api/logs/${containerName}`;
+        let streamUrl = `/api/logs/${safeName}`;
 
         const token = sessionStorage.getItem('dockgo_token');
         if (token && !isLoggedIn) {
