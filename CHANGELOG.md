@@ -1,3 +1,16 @@
+# [1.1.0](https://github.com/Jisevind/dockgo/compare/v1.0.0...v1.1.0) (2026-03-07)
+
+
+### Bug Fixes
+
+* **web:** validate container name for logs stream URL ([7a6e029](https://github.com/Jisevind/dockgo/commit/7a6e029cf985df1cef93cea095bcd0cbf473a265))
+* **web:** validate container names before API requests ([7832c54](https://github.com/Jisevind/dockgo/commit/7832c54f335a8e93fd70b1c1713035bc61ccea82))
+
+
+### Features
+
+* **logger:** add persistent rotating file logging ([81151e8](https://github.com/Jisevind/dockgo/commit/81151e81c5db0540d4651c161632b3e66699eb39))
+
 # [1.0.0](https://github.com/Jisevind/dockgo/compare/v0.6.0...v1.0.0) (2026-03-02)
 
 
