@@ -41,21 +41,21 @@ var serverLog = logger.WithSubsystem("server")
 //go:embed web
 var content embed.FS
 
-// Define version (injected via ldflags: -X 'dockgo/server.Version=1.0.0')
+// Version is set at build time via ldflags.
 var Version = "dev"
 
 type Server struct {
 	Port             string
-	CorsOrigin       string   // Allowed Origin for CORS
-	APIToken         string   `json:"-"` // Legacy Token
-	AuthUsername     string   // Optional: User Login
-	AuthPasswordHash []byte   `json:"-"` // Bcrypt hash
-	AuthSecret       string   `json:"-"` // For signing sessions
-	AllowedPaths     []string // Allowed base paths for Compose working directories
+	CorsOrigin       string
+	APIToken         string   `json:"-"`
+	AuthUsername     string
+	AuthPasswordHash []byte   `json:"-"`
+	AuthSecret       string   `json:"-"`
+	AllowedPaths     []string
 	Discovery        *engine.DiscoveryEngine
 	Registry         *engine.RegistryClient
 	Notifier         *notify.AppriseNotifier
-	updatesCache     map[string]bool // key: Container ID
+	updatesCache     map[string]bool
 	cacheUnix        int64
 	mu               sync.RWMutex
 	lastCheckTime    time.Time
@@ -69,11 +69,11 @@ type Server struct {
 	lastRegStatus    string
 	revokedSessions  map[string]time.Time
 	globalReauthTime time.Time
-	UpdatesChan      chan string // Added UpdatesChan
-	sessionStorePath string      // Added sessionStorePath
+	UpdatesChan      chan string
+	sessionStorePath string
 	sessionMu        sync.RWMutex
-	savePending      atomic.Bool // Debounce session persistence writes
-	DebugEnabled     bool        // Enable debug endpoints
+	savePending      atomic.Bool
+	DebugEnabled     bool
 }
 
 type RateLimiter struct {
@@ -81,12 +81,13 @@ type RateLimiter struct {
 	lastSeen time.Time
 }
 
-// AuthState is used to serialize and deserialize the session persistence store
+// AuthState stores persisted authentication state.
 type AuthState struct {
 	GlobalReauthTime int64             `json:"global_reauth_time"`
-	RevokedSessions  map[string]string `json:"revoked_sessions"` // map[UUID]RFC3339
+	RevokedSessions  map[string]string `json:"revoked_sessions"`
 }
 
+// NewServer creates a server instance from environment configuration.
 func NewServer(port string) (*Server, error) {
 	disc, err := engine.NewDiscoveryEngine()
 	if err != nil {
@@ -111,7 +112,6 @@ func NewServer(port string) (*Server, error) {
 	}
 
 	if authSecret == "" {
-		// Generate random secret if not provided, restarts invalidate sessions
 		b := make([]byte, 32)
 		if _, err := cryptorand.Read(b); err != nil {
 			return nil, fmt.Errorf("failed to generate auth secret: %w", err)
@@ -130,7 +130,6 @@ func NewServer(port string) (*Server, error) {
 		}
 	}
 
-	// Parse allowed Compose paths (comma-separated list)
 	var allowedPaths []string
 	if allowedPathsStr != "" {
 		paths := strings.Split(allowedPathsStr, ",")
@@ -154,13 +153,11 @@ func NewServer(port string) (*Server, error) {
 
 		if authPass != "" && authPassHash != "" {
 			serverLog.Warn("Both AUTH_PASSWORD_HASH and AUTH_PASSWORD provided. Using AUTH_PASSWORD_HASH.")
-			// Let it go out of scope ASAP since hash takes precedence
 			authPass = ""
 		}
 
 		if authPassHash != "" {
 			passHash = []byte(authPassHash)
-			// Validate that it's actually a valid bcrypt hash
 			_, err := bcrypt.Cost(passHash)
 			if err != nil {
 				return nil, fmt.Errorf("AUTH_PASSWORD_HASH provided but is not a valid bcrypt hash: %v", err)
@@ -171,7 +168,6 @@ func NewServer(port string) (*Server, error) {
 			if err != nil {
 				return nil, fmt.Errorf("failed to hash password: %v", err)
 			}
-			// Clear plain text password from memory
 			authPass = ""
 		}
 	}
@@ -206,10 +202,10 @@ func NewServer(port string) (*Server, error) {
 	return srv, nil
 }
 
+// Start starts the HTTP server.
 func (s *Server) Start() error {
 	mux := http.NewServeMux()
 
-	// API Routes
 	mux.HandleFunc("/api/health", s.handleHealth)
 	mux.HandleFunc("/api/containers", s.enableCors(s.requireAuth(s.handleContainers)))
 	mux.HandleFunc("/api/stream/check", s.enableCors(s.requireAuth(s.handleStreamCheck)))
@@ -217,14 +213,12 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/container/", s.enableCors(s.requireAuth(s.handleContainerAction)))
 	mux.HandleFunc("/api/logs/", s.enableCors(s.requireAuth(s.handleContainerLogs)))
 
-	// Auth Routes
 	mux.HandleFunc("/api/login", s.enableCors(s.handleLogin))
 	mux.HandleFunc("/api/logout", s.enableCors(s.handleLogout))
 	mux.HandleFunc("/api/logout-all", s.enableCors(s.requireAuth(s.handleLogoutAll)))
 	mux.HandleFunc("/api/me", s.enableCors(s.handleMe))
 	mux.HandleFunc("/api/test-notify", s.enableCors(s.requireAuth(s.handleTestNotify)))
 
-	// DEBUG ROUTE
 	if s.DebugEnabled {
 		serverLog.Warn("Security: Debug endpoints enabled (/api/debug/cache)")
 		mux.HandleFunc("/api/debug/cache", func(w http.ResponseWriter, r *http.Request) {
@@ -248,13 +242,10 @@ func (s *Server) Start() error {
 		logger.String("address", "localhost:"+s.Port),
 	)
 
-	// Start background update scheduler
 	go s.StartScheduler(context.Background())
 	go s.cleanupRateLimiters(context.Background())
 
-	// Send startup notification in a goroutine so it doesn't block the server
 	go func() {
-		// Give Apprise up to 15 seconds to wake up
 		if s.Notifier.WaitUntilReady(15 * time.Second) {
 			s.Notifier.Notify(
 				"DockGo Started",
@@ -272,18 +263,13 @@ func (s *Server) Start() error {
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		IdleTimeout:       60 * time.Second,
-		// Explicitly omitting WriteTimeout because the application utilizes
-		// long-running Server-Sent Events (SSE) for its /api/containers stream,
-		// and WriteTimeout rigidly limits the maximum duration of the entire connection.
 	}
 
 	return srv.ListenAndServe()
 }
 
-// Middleware: CORS
 func (s *Server) enableCors(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// 1. If CORS is not enabled/configured, do nothing (Strict Default)
 		if s.CorsOrigin == "" {
 			next(w, r)
 			return
@@ -296,14 +282,12 @@ func (s *Server) enableCors(next http.HandlerFunc) http.HandlerFunc {
 			if s.CorsOrigin == "*" {
 				allowed = true
 			} else {
-				// Clean slashes and case
 				a := strings.TrimRight(strings.ToLower(s.CorsOrigin), "/")
 				b := strings.TrimRight(strings.ToLower(origin), "/")
 
 				if a == b {
 					allowed = true
 				} else {
-					// Fallback to hostname comparison using net/url
 					uAlloc, err1 := url.Parse(a)
 					uOrigin, err2 := url.Parse(b)
 					if err1 == nil && err2 == nil {
@@ -315,7 +299,6 @@ func (s *Server) enableCors(next http.HandlerFunc) http.HandlerFunc {
 			}
 		}
 
-		// 2. If Origin matches loosely, set headers using the exact request origin
 		if allowed {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
@@ -323,7 +306,6 @@ func (s *Server) enableCors(next http.HandlerFunc) http.HandlerFunc {
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-CSRF-Token")
 		}
 
-		// 3. Handle Preflight OPTIONS
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
 			return
@@ -333,14 +315,11 @@ func (s *Server) enableCors(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// Middleware: Auth
 func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// 1. Check Session Cookie (User Login) - PRIORITIZE
 		if s.AuthUsername != "" {
 			cookie, err := r.Cookie("dockgo_session")
 			if err == nil && s.validateSessionToken(cookie.Value) {
-				// CSRF Protection for state-changing methods
 				if r.Method != "GET" && r.Method != "OPTIONS" && r.Method != "HEAD" {
 					csrfCookie, err1 := r.Cookie("dockgo_csrf")
 					csrfHeader := r.Header.Get("X-CSRF-Token")
@@ -354,7 +333,6 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 			}
 		}
 
-		// 2. Check Legacy Token, Header Only
 		auth := r.Header.Get("Authorization")
 		token := ""
 		if auth != "" && strings.HasPrefix(auth, "Bearer ") {
@@ -362,7 +340,6 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		if s.APIToken != "" && token != "" {
-			// Use Constant-Time Comparison to prevent timing attacks
 			if hmac.Equal([]byte(token), []byte(s.APIToken)) {
 				serverLog.InfoContext(r.Context(), "Authentication successful via legacy API_TOKEN",
 					logger.String("ip", r.RemoteAddr),
@@ -374,8 +351,6 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 			}
 		}
 
-		// 3. Fallback: Fail
-		// If neither configured, fail.
 		if s.APIToken == "" && s.AuthUsername == "" {
 			logger.Debug("Auth failed: no auth configured")
 			http.Error(w, "Updates disabled (No Auth Configured)", http.StatusForbidden)
@@ -388,9 +363,7 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// generateSessionToken produces a secure, random UUID for session identification.
 func (s *Server) generateSessionToken() string {
-	// Format: sessionUUID|user|issuedAt|expiration|signature
 	uuidBytes := make([]byte, 16)
 	if _, err := cryptorand.Read(uuidBytes); err != nil {
 		panic(fmt.Sprintf("crypto/rand failed to generate session UUID: %v", err))
@@ -413,8 +386,6 @@ func (s *Server) generateCSRFToken() string {
 	return hex.EncodeToString(b)
 }
 
-// validateSessionToken verifies if a token is cryptographically valid, not revoked,
-// and correctly signed by the server's secret.
 func (s *Server) validateSessionToken(token string) bool {
 	decodedBytes, err := base64.URLEncoding.DecodeString(token)
 	if err != nil {
@@ -445,14 +416,12 @@ func (s *Server) validateSessionToken(token string) bool {
 		return false
 	}
 
-	// 1. Global Revocation Check
 	s.sessionMu.RLock()
 	if issuedAt < s.globalReauthTime.Unix() {
 		s.sessionMu.RUnlock()
 		return false
 	}
 
-	// 2. Individual Revocation Check
 	if _, exists := s.revokedSessions[sessionUUID]; exists {
 		s.sessionMu.RUnlock()
 		return false
@@ -469,12 +438,9 @@ func (s *Server) sign(data string) string {
 	return base64.URLEncoding.EncodeToString(h.Sum(nil))
 }
 
-// Rate Limiting
 func (s *Server) checkRateLimit(remoteAddr string) bool {
-	// IP parsing
 	ip, _, err := net.SplitHostPort(remoteAddr)
 	if err != nil {
-		// Fallback if no port or other format issue
 		ip = remoteAddr
 	}
 
@@ -487,7 +453,6 @@ func (s *Server) checkRateLimit(remoteAddr string) bool {
 		s.loginAttempts[ip] = limiter
 	}
 
-	// Reset if more than 1 minute passed
 	if time.Since(limiter.lastSeen) > time.Minute {
 		limiter.count = 0
 		limiter.lastSeen = time.Now()
@@ -496,7 +461,6 @@ func (s *Server) checkRateLimit(remoteAddr string) bool {
 	limiter.count++
 	limiter.lastSeen = time.Now()
 
-	// Max 5 attempts per minute
 	allowed := limiter.count <= 5
 	if !allowed {
 		serverLog.Warn("Rate limit exceeded for IP",
@@ -508,7 +472,6 @@ func (s *Server) checkRateLimit(remoteAddr string) bool {
 	return allowed
 }
 
-// cleanupRateLimiters periodically prunes stale IP tracking data to prevent OOMs
 func (s *Server) cleanupRateLimiters(ctx context.Context) {
 	ticker := time.NewTicker(10 * time.Minute)
 	defer ticker.Stop()
@@ -529,8 +492,6 @@ func (s *Server) cleanupRateLimiters(ctx context.Context) {
 	}
 }
 
-// loadAuthState hydrates session revocations from the JSON persistence layer.
-// Handles missing files gracefully and detects/recovers uniformly from corruption.
 func (s *Server) loadAuthState() {
 	if s.sessionStorePath == "" {
 		return
@@ -544,7 +505,7 @@ func (s *Server) loadAuthState() {
 				logger.Any("error", err),
 			)
 		}
-		return // Start fresh
+		return
 	}
 
 	var state AuthState
@@ -563,7 +524,7 @@ func (s *Server) loadAuthState() {
 				logger.String("backup_path", corruptPath),
 			)
 		}
-		return // Start fresh
+		return
 	}
 
 	s.sessionMu.Lock()
@@ -585,15 +546,12 @@ func (s *Server) loadAuthState() {
 	)
 }
 
-// saveAuthState safely commits session invariants to disk without holding hot locks during I/O.
-// Uses an atomic .tmp file swap structure to prevent corruption on crash.
 func (s *Server) saveAuthState() {
 	if s.sessionStorePath == "" {
 		return
 	}
 
 	s.sessionMu.RLock()
-	// State copy
 	state := AuthState{
 		GlobalReauthTime: s.globalReauthTime.Unix(),
 		RevokedSessions:  make(map[string]string, len(s.revokedSessions)),
@@ -601,7 +559,7 @@ func (s *Server) saveAuthState() {
 	for id, t := range s.revokedSessions {
 		state.RevokedSessions[id] = t.Format(time.RFC3339)
 	}
-	s.sessionMu.RUnlock() // Complete lock before doing expensive marshal and IO
+	s.sessionMu.RUnlock()
 
 	data, err := json.MarshalIndent(state, "", "  ")
 	if err != nil {
@@ -612,12 +570,10 @@ func (s *Server) saveAuthState() {
 	}
 
 	tmpPath := s.sessionStorePath + ".tmp"
-	// Ensure directory exists
 	if dir := filepath.Dir(s.sessionStorePath); dir != "" {
 		_ = os.MkdirAll(dir, 0700)
 	}
 
-	// Write to tmp safely using 0600
 	if err := os.WriteFile(tmpPath, data, 0600); err != nil {
 		serverLog.Error("AuthStore: Failed to write temporary state file",
 			logger.String("tmp_path", tmpPath),
@@ -626,7 +582,6 @@ func (s *Server) saveAuthState() {
 		return
 	}
 
-	// Atomic commit
 	if err := os.Rename(tmpPath, s.sessionStorePath); err != nil {
 		serverLog.Error("AuthStore: Failed to commit atomic auth store rename",
 			logger.String("tmp_path", tmpPath),
@@ -636,27 +591,21 @@ func (s *Server) saveAuthState() {
 	}
 }
 
-// queueSaveAuthState debounces disk writes for high-frequency session revocations (storms)
 func (s *Server) queueSaveAuthState() {
 	if s.sessionStorePath == "" {
 		return
 	}
 
-	// Only trigger background save if one isn't already sleeping/pending
 	if s.savePending.CompareAndSwap(false, true) {
 		go func() {
-			// Debounce window
 			time.Sleep(5 * time.Second)
 
-			// Unset flag immediately before writing.
-			// Any rapid events that happen *during* the disk I/O will correctly queue a fresh save.
 			s.savePending.Store(false)
 			s.saveAuthState()
 		}()
 	}
 }
 
-// Auth Handlers
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if s.AuthUsername == "" {
 		http.Error(w, "User authentication not configured", http.StatusNotImplemented)
@@ -664,7 +613,6 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !s.checkRateLimit(r.RemoteAddr) {
-		// 429 Too Many Requests
 		http.Error(w, "Too many login attempts", http.StatusTooManyRequests)
 		return
 	}
@@ -684,7 +632,6 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Slow down response slightly to prevent timing attacks
 	defer time.Sleep(200 * time.Millisecond)
 
 	if creds.Username != s.AuthUsername {
@@ -692,7 +639,6 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Verify Password Hash
 	if err := bcrypt.CompareHashAndPassword(s.AuthPasswordHash, []byte(creds.Password)); err != nil {
 		serverLog.WarnContext(r.Context(), "Login failed (credentials invalid)",
 			logger.String("username", creds.Username),
@@ -702,7 +648,6 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Success
 	serverLog.InfoContext(r.Context(), "Login successful",
 		logger.String("username", creds.Username),
 		logger.String("ip", r.RemoteAddr),
@@ -710,7 +655,6 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	token := s.generateSessionToken()
 	csrfToken := s.generateCSRFToken()
 
-	// Determine if Secure flag should be set
 	isSecure := r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
 
 	http.SetCookie(w, &http.Cookie{
@@ -719,7 +663,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		Expires:  time.Now().Add(24 * time.Hour),
 		HttpOnly: true,
-		Secure:   isSecure, // Strict secure flag
+		Secure:   isSecure,
 		SameSite: http.SameSiteStrictMode,
 	})
 	http.SetCookie(w, &http.Cookie{
@@ -727,7 +671,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		Value:    csrfToken,
 		Path:     "/",
 		Expires:  time.Now().Add(24 * time.Hour),
-		HttpOnly: false, // Must be accessible to JS
+		HttpOnly: false,
 		Secure:   isSecure,
 		SameSite: http.SameSiteStrictMode,
 	})
@@ -736,7 +680,6 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
-	// Revoke the session UUID
 	cookie, err := r.Cookie("dockgo_session")
 	if err == nil {
 		decodedBytes, err := base64.URLEncoding.DecodeString(cookie.Value)
@@ -751,7 +694,7 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 
 				serverLog.InfoContext(r.Context(), "Session logged out",
 					logger.String("ip", r.RemoteAddr),
-					logger.String("session", sessionUUID[:8]), // Only log prefix of UUID
+					logger.String("session", sessionUUID[:8]),
 				)
 			}
 		}
@@ -779,7 +722,6 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleLogoutAll(w http.ResponseWriter, r *http.Request) {
 	s.sessionMu.Lock()
 	s.globalReauthTime = time.Now()
-	// Clear all individually revoked sessions to free memory
 	s.revokedSessions = make(map[string]time.Time)
 	s.sessionMu.Unlock()
 
@@ -808,7 +750,6 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	loggedIn := false
 	method := "none"
 
-	// Check Cookie
 	if s.AuthUsername != "" {
 		cookie, err := r.Cookie("dockgo_session")
 		if err == nil && s.validateSessionToken(cookie.Value) {
@@ -834,9 +775,7 @@ func (s *Server) handleTestNotify(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
 
-// /api/health
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
-	// Ping Docker
 	_, err := s.Discovery.Client.Ping(context.Background())
 	dockerStatus := "connected"
 	if err != nil {
@@ -847,7 +786,6 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	// Create map for response to handle optional fields cleanly
 	resp := map[string]interface{}{
 		"status":         "ok",
 		"version":        Version,
@@ -857,7 +795,6 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 		"registry":       s.getRegistryStatus(),
 	}
 
-	// Notify on state change (Docker)
 	s.mu.Lock()
 	if s.lastDockerStatus != "" && s.lastDockerStatus != dockerStatus {
 		if dockerStatus == "disconnected" {
@@ -869,7 +806,6 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	s.lastDockerStatus = dockerStatus
 	s.mu.Unlock()
 
-	// Notify on state change (Registry)
 	regStatus := resp["registry"].(string)
 	s.mu.Lock()
 	if s.lastRegStatus != "" && s.lastRegStatus != regStatus {
@@ -932,7 +868,6 @@ func (s *Server) getRegistryStatus() string {
 	lastStat := s.lastCheckStat
 	s.mu.RUnlock()
 
-	// Use recent successful scan as proof of connectivity
 	if lastStat == "success" && time.Since(lastCheck) < 15*time.Minute {
 		return "reachable"
 	}
@@ -941,7 +876,6 @@ func (s *Server) getRegistryStatus() string {
 		return status
 	}
 
-	// Ping (synchronous fallback)
 	err := s.Registry.Ping()
 
 	newStatus := "reachable"
@@ -957,7 +891,6 @@ func (s *Server) getRegistryStatus() string {
 	return newStatus
 }
 
-// /api/containers
 func (s *Server) handleContainers(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache")
 
@@ -975,7 +908,6 @@ func (s *Server) handleContainers(w http.ResponseWriter, r *http.Request) {
 	for _, c := range containers {
 		name := strings.TrimPrefix(c.Names[0], "/")
 
-		// Hide temporary update containers from the UI
 		if strings.Contains(name, "_old_") {
 			continue
 		}
@@ -992,22 +924,16 @@ func (s *Server) handleContainers(w http.ResponseWriter, r *http.Request) {
 			updateAvail = true
 		}
 
-		// Parse Image:Tag
 		var tagName string
 		if idx := strings.LastIndex(image, ":"); idx > -1 && !strings.Contains(image[idx:], "/") {
 			tagName = image[idx+1:]
-			// If it's a digest (e.g. some-image@sha256:...), the tag might be implicit or mapped.
-			// If it's "ubuntu:latest", tag is "latest".
-			// If it's "ubuntu:latest@sha256:...", tag is "latest".
-			// If it's "ubuntu@sha256:...", tag is empty/unknown.
 			if idxAt := strings.LastIndex(tagName, "@"); idxAt > -1 {
 				tagName = tagName[:idxAt]
 			}
 		} else if strings.Contains(image, "@") {
-			// Digest only, no tag
 			tagName = "(digest)"
 		} else {
-			tagName = "latest" // Assume latest if no tag? Or unknown? Docker defaults to latest.
+			tagName = "latest"
 		}
 
 		result = append(result, map[string]interface{}{
@@ -1025,22 +951,18 @@ func (s *Server) handleContainers(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(result)
 }
 
-// /api/stream/check
 func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 	serverLog.Debug("Stream request started")
-	// 1. Set headers
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("X-Accel-Buffering", "no") // Disable Nginx buffering
+	w.Header().Set("X-Accel-Buffering", "no")
 
-	// 2. Check flusher
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
 		return
 	}
 
-	// 3. Panic recovery
 	defer func() {
 		if r := recover(); r != nil {
 			serverLog.Error("PANIC in handleStreamCheck",
@@ -1050,15 +972,12 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 		serverLog.Debug("Stream request ended")
 	}()
 
-	// 4. Send initial "start" event
 	fmt.Fprintf(w, "data: {\"type\":\"start\"}\n\n")
 	flusher.Flush()
 
-	// Use request context with timeout for cancellation
 	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Minute)
 	defer cancel()
 
-	// 5. Heartbeat logic
 	doneChan := make(chan struct{})
 	var heartbeatWg sync.WaitGroup
 	heartbeatWg.Add(1)
@@ -1092,7 +1011,6 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	// 6. Callback for progress
 	onProgress := func(u api.ContainerUpdate, current, total int) {
 		if ctx.Err() != nil {
 			return
@@ -1122,7 +1040,6 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 		flusher.Flush()
 	}
 
-	// 7. Run Scan
 	serverLog.Debug("Starting engine scan")
 	force := r.URL.Query().Get("force") == "true"
 	updates, err := engine.Scan(ctx, s.Discovery, s.Registry, "", force, onProgress)
@@ -1131,21 +1048,17 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 		logger.Any("error", err),
 	)
 
-	// 8. Handle result
 	if ctx.Err() == nil {
 		writeMu.Lock()
 		defer writeMu.Unlock()
 
 		if err != nil {
-			// Safely marshal the error object
 			errBytes, _ := json.Marshal(map[string]interface{}{
 				"type":  "error",
 				"error": err.Error(),
 			})
 			fmt.Fprintf(w, "data: %s\n\n", string(errBytes))
 		} else {
-			// Update the cache explicitly so the UI's subsequent fetch to /api/containers sees it.
-			// However, explicitly do NOT fire a notification. The background scheduler handles that.
 			newCache := make(map[string]bool)
 			for _, u := range updates {
 				if u.UpdateAvailable {
@@ -1165,9 +1078,7 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// StartScheduler is an autonomous background daemon that polls the Docker registries
-// on a set interval and issues Apprise notifications. It acts as the single source of truth
-// for update alerts, cleanly decoupled from the UI.
+// StartScheduler runs periodic background update scans.
 func (s *Server) StartScheduler(ctx context.Context) {
 	intervalStr := os.Getenv("SCAN_INTERVAL")
 	if intervalStr == "" {
@@ -1187,7 +1098,6 @@ func (s *Server) StartScheduler(ctx context.Context) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	// Optionally do an immediate invisible scan on startup (after a slight delay so Docker API is ready)
 	go func() {
 		time.Sleep(30 * time.Second)
 		s.runScheduledScan(ctx)
@@ -1207,7 +1117,7 @@ func (s *Server) StartScheduler(ctx context.Context) {
 func (s *Server) runScheduledScan(ctx context.Context) {
 	updateCtx := logger.WithUpdateID(ctx, uuid.New().String())
 	serverLog.DebugContext(updateCtx, "Scheduler: Running background engine scan")
-	updates, err := engine.Scan(updateCtx, s.Discovery, s.Registry, "", true, nil) // nil progress callback since this is headless
+	updates, err := engine.Scan(updateCtx, s.Discovery, s.Registry, "", true, nil)
 	if err != nil {
 		serverLog.ErrorContext(updateCtx, "Scheduler: Engine scan failed",
 			logger.Any("error", err),
@@ -1219,20 +1129,17 @@ func (s *Server) runScheduledScan(ctx context.Context) {
 		return
 	}
 
-	// Update cache
 	newCache := make(map[string]bool)
 	var newUpdates []string
 
 	for _, u := range updates {
 		if u.UpdateAvailable {
-			// Ensure we check the map thread-safely
 			s.mu.RLock()
 			isNew := !s.updatesCache[u.ID]
 			s.mu.RUnlock()
 
 			name := strings.TrimPrefix(u.Name, "/")
 			if isNew {
-				// Hide temporary update containers from the UI and Alerts
 				if !strings.Contains(name, "_old_") {
 					newUpdates = append(newUpdates, name)
 				}
@@ -1274,7 +1181,6 @@ func (s *Server) runScheduledScan(ctx context.Context) {
 
 var validContainerName = regexp.MustCompile(`^[a-zA-Z0-9._-]{1,128}$`)
 
-// /api/update/:name
 func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimPrefix(r.URL.Path, "/api/update/")
 	serverLog.Debug("Received update request",
@@ -1311,7 +1217,6 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Minute)
 	defer cancel()
 
-	// 1. Scan the specific container natively
 	updates, err := engine.Scan(ctx, s.Discovery, s.Registry, name, false, nil)
 	if err != nil || len(updates) == 0 {
 		serverLog.Debug("Failed to scan container natively",
@@ -1338,8 +1243,7 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		logger.String("container_id", targetID),
 	)
 
-	// 2. Wrap SSE Writes inside a local lock
-	// The HTTP ResponseWriter is inherently NOT thread-safe for concurrent SSE pushes when flushed.
+	// ResponseWriter writes are serialized to keep SSE frames consistent.
 	var sseMu sync.Mutex
 	emitSSE := func(evt api.ProgressEvent) {
 		sseMu.Lock()
@@ -1350,9 +1254,8 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// 3. Delegate to native engine update
 	opts := engine.UpdateOptions{
-		Safe:            false, // GUI updates are explicit commands (typically bypassing safe mode limits unless instructed otherwise)
+		Safe:            false,
 		PreserveNetwork: true,
 		AllowedPaths:    s.AllowedPaths,
 		LogCallback:     emitSSE,
@@ -1383,13 +1286,11 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 			notify.TypeFailure,
 		)
 	} else {
-		// Success
 		s.Notifier.Notify(
 			"DockGo Update Success",
 			fmt.Sprintf("Container %s updated successfully", name),
 			notify.TypeSuccess,
 		)
-		// Invalidate cache ONLY for this container
 		if targetID != "" {
 			s.mu.Lock()
 			lenBefore := len(s.updatesCache)
@@ -1420,14 +1321,12 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	sseMu.Unlock()
 }
 
-// /api/container/:name/action
 func (s *Server) handleContainerAction(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Extract everything after /api/container/
 	path := strings.TrimPrefix(r.URL.Path, "/api/container/")
 	parts := strings.SplitN(path, "/", 2)
 
@@ -1465,19 +1364,13 @@ func (s *Server) handleContainerAction(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Minute)
 	defer cancel()
 
-	// 1. Resolve container name to ID natively to ensure it exists
-	// We use Scan just to find the container ID, we don't care about updates here.
 	updates, err := engine.Scan(ctx, s.Discovery, s.Registry, name, false, nil)
 	if err != nil || len(updates) == 0 {
-		// If native scan fails to find it by name, we might be dealing with a compose container.
-		// For safety, let's just use the name directly against the Docker client.
-		// The Docker API accepts names for start/stop/restart anyway.
 		serverLog.Debug("Native scan couldn't isolate container for action, proceeding with name",
 			logger.String("container", name),
 		)
 	}
 
-	// 2. Perform action
 	var actionErr error
 	switch action {
 	case "start":
@@ -1511,7 +1404,6 @@ func (s *Server) handleContainerAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 3. Success
 	serverLog.Info("Container action completed successfully",
 		logger.String("container", name),
 		logger.String("action", action),
@@ -1526,7 +1418,6 @@ func (s *Server) handleContainerAction(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write(successBytes)
 
-	// Send notification (Title Case the action)
 	s.Notifier.Notify(
 		"DockGo Container Action",
 		fmt.Sprintf("Successfully executed '%s' on container %s", action, name),
@@ -1534,7 +1425,6 @@ func (s *Server) handleContainerAction(w http.ResponseWriter, r *http.Request) {
 	)
 }
 
-// /api/logs/:name
 func (s *Server) handleContainerLogs(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimPrefix(r.URL.Path, "/api/logs/")
 	serverLog.Debug("Received logs request",
@@ -1556,11 +1446,9 @@ func (s *Server) handleContainerLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 10 minute timeout for streaming logs
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Minute)
 	defer cancel()
 
-	// 1. Resolve to ID (just to be safe that it's a real container)
 	updates, err := engine.Scan(ctx, s.Discovery, s.Registry, name, false, nil)
 	if err != nil || len(updates) == 0 {
 		serverLog.Debug("Failed to resolve container natively for logs, proceeding with name",
@@ -1576,7 +1464,6 @@ func (s *Server) handleContainerLogs(w http.ResponseWriter, r *http.Request) {
 		Tail:       "200",
 	}
 
-	// 2. Call Docker SDK
 	logsReader, err := s.Discovery.Client.ContainerLogs(ctx, name, options)
 	if err != nil {
 		serverLog.Error("Failed to fetch container logs",
@@ -1592,7 +1479,6 @@ func (s *Server) handleContainerLogs(w http.ResponseWriter, r *http.Request) {
 	}
 	defer logsReader.Close()
 
-	// 3. Setup stdcopy pipes
 	var sseMu sync.Mutex
 	writeLine := func(line string) {
 		sseMu.Lock()
@@ -1604,15 +1490,11 @@ func (s *Server) handleContainerLogs(w http.ResponseWriter, r *http.Request) {
 		flusher.Flush()
 	}
 
-	// Docker logs are multiplexed. stdcopy splits them cleanly.
-	// We'll pipe both stdout and stderr to our writeLine func via custom io.Writers
 	stdoutWriter := &streamWriter{cb: writeLine}
 	stderrWriter := &streamWriter{cb: writeLine}
 
-	// Write initial connection line
 	writeLine("--- Connected to container logs ---")
 
-	// Start demultiplexing
 	_, err = stdcopy.StdCopy(stdoutWriter, stderrWriter, logsReader)
 	if err != nil && err != io.EOF && ctx.Err() == nil {
 		serverLog.Error("Log stream interrupted",
@@ -1625,34 +1507,28 @@ func (s *Server) handleContainerLogs(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// streamWriter allows us to capture stdcopy output line-by-line
 type streamWriter struct {
 	cb  func(string)
 	buf []byte
 }
 
+// Write buffers bytes and emits complete lines to the callback.
 func (sw *streamWriter) Write(p []byte) (n int, err error) {
-	// Combine with any previously buffered bytes
 	sw.buf = append(sw.buf, p...)
 
-	// Process all complete lines
 	for {
 		idx := bytes.IndexByte(sw.buf, '\n')
 		if idx == -1 {
-			// No complete line yet, wait for more data
 			break
 		}
 
-		// Extract line (without newline)
 		line := sw.buf[:idx]
-		// Handle \r\n
 		if len(line) > 0 && line[len(line)-1] == '\r' {
 			line = line[:len(line)-1]
 		}
 
 		sw.cb(string(line))
 
-		// Advance buffer past the newline
 		sw.buf = sw.buf[idx+1:]
 	}
 

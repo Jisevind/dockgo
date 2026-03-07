@@ -13,29 +13,25 @@ import (
 	"sync"
 )
 
-// ComposeConfig structure for parsing 'docker compose config --format json'
+// ComposeConfig stores `docker compose config --format json` output.
 type ComposeConfig struct {
 	Services map[string]ServiceConfig `json:"services"`
 }
 
 type ServiceConfig struct {
 	Image string      `json:"image"`
-	Build interface{} `json:"build"` // Can be string or object
+	Build interface{} `json:"build"`
 }
 
-// Logger is a function that handles log lines
+// Logger handles streamed command output lines.
 type Logger func(string)
 
-// translateComposePath evaluates the COMPOSE_PATH_MAPPING environment variable
-// to map host filesystem paths (e.g., Windows paths) to their corresponding
-// volume-mounted paths within the DockGo container.
 func translateComposePath(workingDir string) string {
 	mappingEnv := os.Getenv("COMPOSE_PATH_MAPPING")
 	if mappingEnv == "" {
 		return workingDir
 	}
 
-	// Mappings are expected as HOST_PATH:CONTAINER_PATH, separated by commas
 	mappings := strings.Split(mappingEnv, ",")
 	for _, mapping := range mappings {
 		lastColon := strings.LastIndex(mapping, ":")
@@ -43,13 +39,10 @@ func translateComposePath(workingDir string) string {
 			hostPath := strings.TrimSpace(mapping[:lastColon])
 			containerPath := strings.TrimSpace(mapping[lastColon+1:])
 
-			// Normalizing slashes for Windows compatibility
 			normalizedWorkingDir := strings.ReplaceAll(workingDir, "\\", "/")
 			normalizedHostPath := strings.ReplaceAll(hostPath, "\\", "/")
 
-			// Windows paths are case-insensitive
 			if strings.HasPrefix(strings.ToLower(normalizedWorkingDir), strings.ToLower(normalizedHostPath)) {
-				// Use length replacement to preserve casing of the remainder
 				remainder := normalizedWorkingDir[len(normalizedHostPath):]
 				return containerPath + remainder
 			}
@@ -59,27 +52,20 @@ func translateComposePath(workingDir string) string {
 	return workingDir
 }
 
-// validateWorkingDir performs security checks on the working directory path
-// to prevent path traversal and ensure it's within allowed paths.
 func validateWorkingDir(workingDir string, allowedPaths []string) (string, error) {
-	// 0. Translate host paths to container paths if mapped (e.g., Windows to Linux)
 	translatedDir := translateComposePath(workingDir)
 
-	// 1. Clean the path to remove any . or .. components
 	cleanDir := filepath.Clean(translatedDir)
 
-	// 2. Resolve symlinks to get the real path
 	realDir, err := filepath.EvalSymlinks(cleanDir)
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve working directory: %w", err)
 	}
 
-	// 3. Ensure it's an absolute path (prevent relative path tricks)
 	if !filepath.IsAbs(realDir) {
 		return "", fmt.Errorf("working directory must be an absolute path: %s", realDir)
 	}
 
-	// 4. Verify it's actually a directory
 	info, err := os.Stat(realDir)
 	if err != nil {
 		return "", fmt.Errorf("compose working directory does not exist: %s", realDir)
@@ -88,18 +74,15 @@ func validateWorkingDir(workingDir string, allowedPaths []string) (string, error
 		return "", fmt.Errorf("compose working directory is not a directory: %s", realDir)
 	}
 
-	// 5. If allowed paths are configured, ensure the working dir is within them
 	if len(allowedPaths) > 0 {
 		allowed := false
 		for _, allowedBase := range allowedPaths {
-			// Clean and resolve the allowed base path
 			cleanBase := filepath.Clean(allowedBase)
 			realBase, err := filepath.EvalSymlinks(cleanBase)
 			if err != nil {
-				continue // Skip invalid allowed paths
+				continue
 			}
 
-			// Check if realDir is within realBase or is realBase
 			if realDir == realBase || strings.HasPrefix(realDir, realBase+string(filepath.Separator)) {
 				allowed = true
 				break
@@ -114,14 +97,12 @@ func validateWorkingDir(workingDir string, allowedPaths []string) (string, error
 	return realDir, nil
 }
 
-// ComposeUpdate handles updates using standard docker compose commands
-// It detects whether to build or pull based on the service configuration.
+// ComposeUpdate updates a Compose project or service.
 func ComposeUpdate(ctx context.Context, workingDir string, serviceName string, allowedPaths []string, log Logger) error {
 	if log == nil {
 		log = func(s string) { fmt.Println(s) }
 	}
 
-	// 1. Validate and sanitize working directory
 	validatedDir, err := validateWorkingDir(workingDir, allowedPaths)
 	if err != nil {
 		return err
@@ -129,23 +110,19 @@ func ComposeUpdate(ctx context.Context, workingDir string, serviceName string, a
 
 	log(fmt.Sprintf("✅ Validated working directory: %s", validatedDir))
 
-	// True project-level update: bypass specific service inspections
 	if serviceName == "" {
 		log(fmt.Sprintf("Executing Compose project-wide update in '%s'...", validatedDir))
 
-		// 1. Pull all images independently of build contexts
 		err = streamCommand(ctx, validatedDir, log, "docker", "compose", "--ansi", "always", "pull")
 		if err != nil {
 			return fmt.Errorf("compose project pull failed: %w", err)
 		}
 
-		// 2. Refresh any build contexts
 		err = streamCommand(ctx, validatedDir, log, "docker", "compose", "build", "--progress", "plain")
 		if err != nil {
 			return fmt.Errorf("compose project build failed: %w", err)
 		}
 
-		// 3. Recreate and restart project graph
 		err = streamCommand(ctx, validatedDir, log, "docker", "compose", "--ansi", "always", "up", "-d")
 		if err != nil {
 			return fmt.Errorf("compose project up failed: %w", err)
@@ -157,7 +134,6 @@ func ComposeUpdate(ctx context.Context, workingDir string, serviceName string, a
 
 	log(fmt.Sprintf("Executing Compose update for service '%s' in '%s'...", serviceName, validatedDir))
 
-	// 2. Inspect service configuration to decide Build vs Pull
 	shouldBuild := false
 	cmdConfig := exec.CommandContext(ctx, "docker", "compose", "config", "--format", "json")
 	cmdConfig.Dir = validatedDir
@@ -178,7 +154,6 @@ func ComposeUpdate(ctx context.Context, workingDir string, serviceName string, a
 		}
 	}
 
-	// 3. Execute Build or Pull
 	if shouldBuild {
 		err = streamCommand(ctx, validatedDir, log, "docker", "compose", "build", "--progress", "plain", serviceName)
 		if err != nil {
@@ -191,8 +166,6 @@ func ComposeUpdate(ctx context.Context, workingDir string, serviceName string, a
 		}
 	}
 
-	// 4. Run 'docker compose up -d [service]'
-	// This recreates the container if the image/build changed
 	err = streamCommand(ctx, validatedDir, log, "docker", "compose", "--ansi", "always", "up", "-d", serviceName)
 	if err != nil {
 		return fmt.Errorf("compose up failed: %w", err)
@@ -202,20 +175,17 @@ func ComposeUpdate(ctx context.Context, workingDir string, serviceName string, a
 	return nil
 }
 
-// ComposePull handles 'docker compose pull' only
+// ComposePull runs `docker compose pull`.
 func ComposePull(ctx context.Context, workingDir string, serviceName string, allowedPaths []string, log Logger) error {
 	if log == nil {
 		log = func(s string) { fmt.Println(s) }
 	}
 
-	// 1. Validate and sanitize working directory
 	validatedDir, err := validateWorkingDir(workingDir, allowedPaths)
 	if err != nil {
 		return err
 	}
 
-	// In Safe Mode, we only pull the image to prepare for an update.
-	// We do not build or restart the service.
 	if serviceName == "" {
 		log(fmt.Sprintf("⬇️  Pulling images for Compose project in '%s' (Safe Mode)...", validatedDir))
 		err = streamCommand(ctx, validatedDir, log, "docker", "compose", "--ansi", "always", "pull")
@@ -232,7 +202,6 @@ func ComposePull(ctx context.Context, workingDir string, serviceName string, all
 	return nil
 }
 
-// streamCommand executes a command and streams stdout/stderr to the logger
 func streamCommand(ctx context.Context, dir string, log Logger, name string, args ...string) error {
 	// #nosec G204 - 'name' and 'args' originate entirely from Docker labels, isolated from user inputs
 	cmd := exec.CommandContext(ctx, name, args...)
@@ -245,11 +214,9 @@ func streamCommand(ctx context.Context, dir string, log Logger, name string, arg
 		return err
 	}
 
-	// Use WaitGroup to wait for both scanners to finish
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	// Custom split function to handle both \n and \r as line delimiters
 	splitFunc := func(data []byte, atEOF bool) (advance int, token []byte, err error) {
 		if atEOF && len(data) == 0 {
 			return 0, nil, nil
@@ -263,7 +230,6 @@ func streamCommand(ctx context.Context, dir string, log Logger, name string, arg
 		return 0, nil, nil
 	}
 
-	// Stream stdout
 	go func() {
 		defer wg.Done()
 		scanner := bufio.NewScanner(stdout)
@@ -276,7 +242,6 @@ func streamCommand(ctx context.Context, dir string, log Logger, name string, arg
 		}
 	}()
 
-	// Stream stderr (docker compose often outputs progress here)
 	go func() {
 		defer wg.Done()
 		scanner := bufio.NewScanner(stderr)

@@ -10,7 +10,7 @@ import (
 	"github.com/docker/docker/api/types/image"
 )
 
-// PullEvent represents a single progress update from the Docker daemon
+// PullEvent represents a Docker pull progress event.
 type PullEvent struct {
 	Status         string `json:"status"`
 	Error          string `json:"error,omitempty"`
@@ -22,6 +22,7 @@ type PullEvent struct {
 	Id string `json:"id,omitempty"`
 }
 
+// PullImage pulls an image and emits progress events when provided.
 func (d *DiscoveryEngine) PullImage(ctx context.Context, imageName string, onProgress func(api.PullProgressEvent)) error {
 	reader, err := d.Client.ImagePull(ctx, imageName, image.PullOptions{})
 	if err != nil {

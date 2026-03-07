@@ -15,26 +15,21 @@ import (
 
 var engineLog = logger.WithSubsystem("engine")
 
-// RecreateContainer handles the stop, rename, create, start flow
-// RecreateContainer performs a full standalone container recreation.
-// It stops the old container, renames it to a backup, creates a new one with the same
-// configuration (but new image), and validates stability before cleanup.
+// RecreateContainer recreates a standalone container with its current config.
 func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID string, imageName string, preserveNetwork bool, emitLog func(string)) error {
 	if emitLog == nil {
 		emitLog = func(string) {}
 	}
-	// 1. Inspect the container to get config
 	json, err := d.Client.ContainerInspect(ctx, containerID)
 	if err != nil {
 		return fmt.Errorf("failed to inspect container: %w", err)
 	}
 
-	name := json.Name // Name comes with slash, e.g. "/my-container"
+	name := json.Name
 	if len(name) > 0 && name[0] == '/' {
 		name = name[1:]
 	}
 
-	// Check if it's a compose container
 	if _, ok := json.Config.Labels["com.docker.compose.project"]; ok {
 		err := fmt.Errorf("refusing to recreate Compose-managed container via standalone API")
 		engineLog.ErrorContext(ctx, err.Error(),
@@ -50,49 +45,39 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 	)
 	emitLog(startMsg)
 
-	// --- Config Sanitization ---
 
-	// Override the image in the config to ensure we use the new tag/digest
 	json.Config.Image = imageName
 
-	// Reset Hostname if it matches the short ID (indicating it was auto-generated).
 	if strings.HasPrefix(json.ID, json.Config.Hostname) || json.Config.Hostname == json.ID[:12] {
-		json.Config.Hostname = "" // Let Docker generate a new one
+		json.Config.Hostname = ""
 	}
 
-	// Prepare NetworkingConfig
-	// We must not pass read-only fields back to Create.
-	// We essentially want coverage of user-defined endpoints settings.
 	networkingConfig := &network.NetworkingConfig{
 		EndpointsConfig: make(map[string]*network.EndpointSettings),
 	}
 
 	for netName, ep := range json.NetworkSettings.Networks {
-		// Create a clean EndpointSettings with only input fields
 		newEp := &network.EndpointSettings{
 			IPAMConfig:          ep.IPAMConfig,
 			Links:               ep.Links,
 			Aliases:             ep.Aliases,
-			NetworkID:           "", // Docker finds it by name, or we can pass it. Name is usually safer/sufficient.
-			EndpointID:          "", // Read-only
-			Gateway:             "", // Read-only
-			IPAddress:           "", // Reset IP to let Docker assign new one, UNLESS we want to enforce static. Valid choice: reset.
-			IPPrefixLen:         0,  // Read-only
-			IPv6Gateway:         "", // Read-only
-			GlobalIPv6Address:   "", // Reset
-			GlobalIPv6PrefixLen: 0,  // Read-only
-			MacAddress:          "", // Reset MAC to avoid conflict (unless manually set?)
+			NetworkID:           "",
+			EndpointID:          "",
+			Gateway:             "",
+			IPAddress:           "",
+			IPPrefixLen:         0,
+			IPv6Gateway:         "",
+			GlobalIPv6Address:   "",
+			GlobalIPv6PrefixLen: 0,
+			MacAddress:          "",
 			DriverOpts:          ep.DriverOpts,
 		}
 
 		if preserveNetwork {
-			// Explicitly preserve MAC and IP
 			if ep.MacAddress != "" {
 				newEp.MacAddress = ep.MacAddress
 			}
 
-			// Docker prohibits user-specified IPs on the default "bridge" network.
-			// Only preserve IP addresses for user-defined networks.
 			if netName != "bridge" {
 				if ep.IPAddress != "" {
 					newEp.IPAddress = ep.IPAddress
@@ -101,7 +86,6 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 					newEp.GlobalIPv6Address = ep.GlobalIPv6Address
 				}
 
-				// Ensure IPAMConfig enforces the static IP if we have one
 				if newEp.IPAddress != "" {
 					if newEp.IPAMConfig == nil {
 						newEp.IPAMConfig = &network.EndpointIPAMConfig{}
@@ -116,8 +100,7 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 		networkingConfig.EndpointsConfig[netName] = newEp
 	}
 
-	// 2. Stop container
-	timeout := 10 // default seconds
+	timeout := 10
 	if v := os.Getenv("DOCKGO_STOP_TIMEOUT"); v != "" {
 		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
 			timeout = parsed
@@ -128,27 +111,21 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 		return fmt.Errorf("failed to stop container: %w", err)
 	}
 
-	// 3. Rename old container
 	backupName := fmt.Sprintf("%s_old_%d", name, time.Now().Unix())
 	err = d.Client.ContainerRename(ctx, containerID, backupName)
 	if err != nil {
 		return fmt.Errorf("failed to rename container: %w", err)
 	}
 
-	// 4. Create new container
-	// We need to copy Config, HostConfig, NetworkingConfig
 	newContainer, err := d.Client.ContainerCreate(ctx, json.Config, json.HostConfig, networkingConfig, nil, name)
 	if err != nil {
-		// Rollback: Rename old back
 		_ = d.Client.ContainerRename(ctx, containerID, name)
 		_ = d.Client.ContainerStart(ctx, containerID, container.StartOptions{})
 		return fmt.Errorf("failed to create new container: %w", err)
 	}
 
-	// 5. Start new container
 	err = d.Client.ContainerStart(ctx, newContainer.ID, container.StartOptions{})
 	if err != nil {
-		// Rollback: Remove new, rename old back, start old
 		failMsg := fmt.Sprintf("Failed to start new container %s. Rolling back...", name)
 		engineLog.WarnContext(ctx, failMsg,
 			logger.String("container", name),
@@ -160,11 +137,6 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 		return fmt.Errorf("failed to start new container: %w", err)
 	}
 
-	// 6. Verification Phase:
-	// 1. If no healthcheck -> ensure container stays running for initialCheck seconds (default 10s).
-	// 2. If healthcheck exists -> wait up to healthTimeout for healthy status.
-	// 3. After initial success -> enforce additional stabilityWindow.
-	// If any check fails -> rollback to old container.
 	healthTimeout := 60
 	if v := os.Getenv("DOCKGO_HEALTH_TIMEOUT"); v != "" {
 		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
@@ -190,10 +162,8 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 	checkTicker := time.NewTicker(time.Second)
 	defer checkTicker.Stop()
 
-	// Actual Implementation:
 	verificationSuccess := false
 
-	// Inspect once to see if healthcheck exists
 	startInspect, err := d.Client.ContainerInspect(ctx, newContainer.ID)
 	if err != nil {
 		engineLog.WarnContext(ctx, "Failed to inspect container for healthcheck status",
@@ -204,7 +174,6 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 	}
 
 	if startInspect.State.Health == nil {
-		// No healthcheck: Poll for initialCheck seconds to catch fast crash loops
 		verificationSuccess = true
 		for i := 0; i < initialCheck; i++ {
 			if ctx.Err() != nil {
@@ -225,7 +194,6 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 			}
 		}
 	} else if err == nil {
-		// Has healthcheck: Poll till healthy or timeout
 		for {
 			select {
 			case <-verifyCtx.Done():
@@ -259,7 +227,6 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 	}
 EndVerify:
 
-	// 7. Stability Wait (Post-Verification)
 	if verificationSuccess {
 		stabilityWindow := 20
 		if v := os.Getenv("DOCKGO_STABILITY_WINDOW"); v != "" {
@@ -276,7 +243,6 @@ EndVerify:
 		case <-ctx.Done():
 			verificationSuccess = false
 		case <-time.After(time.Duration(stabilityWindow) * time.Second):
-			// Check one last time
 			finalInspect, err := d.Client.ContainerInspect(ctx, newContainer.ID)
 			if err != nil {
 				engineLog.ErrorContext(ctx, "Failed to inspect container after stability wait",
@@ -305,12 +271,10 @@ EndVerify:
 	}
 
 	if !verificationSuccess {
-		// Rollback logic
 		engineLog.WarnContext(ctx, "Verification failed. Rolling back",
 			logger.String("container", name),
 		)
 		emitLog("❌ Verification failed. Rolling back...")
-		// Stop/Remove New
 		if err := d.Client.ContainerStop(ctx, newContainer.ID, container.StopOptions{}); err != nil {
 			engineLog.WarnContext(ctx, "Failed to stop new container during rollback", logger.Any("error", err))
 		}
@@ -318,7 +282,6 @@ EndVerify:
 			engineLog.WarnContext(ctx, "Failed to remove new container during rollback", logger.Any("error", err))
 		}
 
-		// Restore Old
 		renameErr := d.Client.ContainerRename(ctx, containerID, name)
 		if renameErr != nil {
 			engineLog.ErrorContext(ctx, "CRITICAL: Failed to rename old container back",
@@ -340,7 +303,6 @@ EndVerify:
 		return fmt.Errorf("new container failed verification (unhealthy or crashed)")
 	}
 
-	// 7. Remove old container (Success path)
 	cleanupMsg := "New container healthy/stable. Removing old container..."
 	engineLog.InfoContext(ctx, cleanupMsg,
 		logger.String("container", name),
