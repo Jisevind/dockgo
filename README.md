@@ -116,6 +116,11 @@ Configure DockGo using environment variables:
 | `ALLOWED_COMPOSE_PATHS` | Comma-separated list of allowed base paths for Compose working directories (e.g., `/opt/docker,/srv/compose`) | *(empty)* |
 | `COMPOSE_PATH_MAPPING` | Comma-separated map of host paths to container paths (e.g. `/home/user/docker:/compose`) to resolve mount isolation. | *(empty)* |
 | `SESSION_STORE_PATH` | Path to session persistence file | `/app/data/sessions.json` |
+| `LOG_FILE_PATH` | Path to write persistent rotating logs (e.g., `/app/data/logs/dockgo.log`) | *(Stdout only)* |
+| `LOG_MAX_SIZE` | Maximum size in MB before a log file is rotated | `10` |
+| `LOG_MAX_BACKUPS` | Maximum number of old rotated log files to retain | `5` |
+| `LOG_MAX_AGE` | Maximum number of days to retain old log files | `28` |
+| `LOG_COMPRESS` | Compress rotated log files using gzip (`true`/`false`) | `true` |
 | `APPRISE_API_HOST` | Custom Apprise API connection host (e.g. `http://my-notifier:8000`) | `http://apprise:8000` |
 | `APPRISE_URL` | Apprise notification endpoint (e.g., `ntfy://...`) | *(empty)* |
 | `APPRISE_QUEUE_SIZE` | Buffer size for outbound notification events | `200` |
