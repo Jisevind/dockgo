@@ -120,6 +120,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const containerNamePattern = /^[a-zA-Z0-9._-]{1,128}$/;
+    const getSafeContainerPathSegment = (name) => {
+        if (typeof name !== 'string' || !containerNamePattern.test(name)) {
+            return null;
+        }
+        return encodeURIComponent(name);
+    };
+
     logoutBtn.addEventListener('click', async () => {
         if (!confirm('Are you sure you want to logout?')) return;
         try {
@@ -553,6 +561,17 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeUpdates = 0;
 
     const handleUpdate = async (name, containerEl) => {
+        const safeName = getSafeContainerPathSegment(name);
+        if (!safeName) {
+            const msgEl = containerEl.querySelector('.update-message');
+            if (msgEl) {
+                msgEl.textContent = 'Invalid container name.';
+                msgEl.classList.remove('hidden');
+                msgEl.style.color = 'var(--danger)';
+            }
+            return;
+        }
+
         if (!confirm(`Are you sure you want to update ${name}?`)) {
             return;
         }
@@ -610,7 +629,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers['X-CSRF-Token'] = getCsrfToken();
             }
 
-            const response = await fetch(`/api/update/${name}`, {
+            const response = await fetch(`/api/update/${safeName}`, {
                 method: 'POST',
                 headers: headers
             });
@@ -727,6 +746,19 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const handleContainerAction = async (name, action, containerEl) => {
+        const safeName = getSafeContainerPathSegment(name);
+        if (!safeName) {
+            const msgEl = containerEl.querySelector('.update-message') || document.createElement('div');
+            if (!msgEl.parentElement) {
+                msgEl.className = 'update-message';
+                containerEl.querySelector('.card-body, .list-col-actions').appendChild(msgEl);
+            }
+            msgEl.textContent = 'Invalid container name.';
+            msgEl.classList.remove('hidden');
+            msgEl.style.color = 'var(--danger)';
+            return;
+        }
+
         let token = null;
 
         if (isLoggedIn) {
@@ -761,7 +793,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers['X-CSRF-Token'] = getCsrfToken();
             }
 
-            const response = await fetch(`/api/container/${name}/action`, {
+            const response = await fetch(`/api/container/${safeName}/action`, {
                 method: 'POST',
                 headers: headers,
                 body: JSON.stringify({ action: action })
