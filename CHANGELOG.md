@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/Jisevind/dockgo/compare/v1.1.0...v1.1.1) (2026-03-07)
+
+
+### Performance Improvements
+
+* **http:** optimize sse write operations ([14935f9](https://github.com/Jisevind/dockgo/commit/14935f9d8d4ec9910c808972afd1d82cc927a327))
+
 # [1.1.0](https://github.com/Jisevind/dockgo/compare/v1.0.0...v1.1.0) (2026-03-07)
 
 
