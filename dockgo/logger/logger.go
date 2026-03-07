@@ -2,10 +2,15 @@ package logger
 
 import (
 	"context"
+	"io"
 	"log/slog"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
+
+	"github.com/natefinch/lumberjack/v3"
 )
 
 type Level int
@@ -42,11 +47,54 @@ func setupLogger() {
 	var handler slog.Handler
 	logFormat := strings.ToLower(os.Getenv("LOG_FORMAT"))
 
+	// Build the Log Output Writer (Stdout + Optional persistent File)
+	var logOutput io.Writer = os.Stdout
+
+	logFilePath := os.Getenv("LOG_FILE_PATH")
+	if logFilePath != "" {
+		maxSize := 10 // MB
+		if val, err := strconv.Atoi(os.Getenv("LOG_MAX_SIZE")); err == nil && val > 0 {
+			maxSize = val
+		}
+
+		maxBackups := 5
+		if val, err := strconv.Atoi(os.Getenv("LOG_MAX_BACKUPS")); err == nil && val > 0 {
+			maxBackups = val
+		}
+
+		maxAgeDays := 28
+		if val, err := strconv.Atoi(os.Getenv("LOG_MAX_AGE")); err == nil && val > 0 {
+			maxAgeDays = val
+		}
+
+		compressStr := strings.ToLower(os.Getenv("LOG_COMPRESS"))
+		compress := compressStr != "false" && compressStr != "0" // Default true
+
+		// Lumberjack v3 uses functional options instead of a struct
+		fileLogger, err := lumberjack.NewRoller(
+			logFilePath,
+			int64(maxSize)*1024*1024,
+			&lumberjack.Options{
+				MaxBackups: maxBackups,
+				MaxAge:     time.Duration(maxAgeDays) * 24 * time.Hour,
+				Compress:   compress,
+			},
+		)
+
+		if err == nil {
+			// Write to both standard out (for Docker) and the file
+			logOutput = io.MultiWriter(os.Stdout, fileLogger)
+		} else {
+			// Fallback to exactly what it was doing before if permissions fail
+			slog.Warn("Failed to initialize rolling file logger", slog.Any("error", err), slog.String("path", logFilePath))
+		}
+	}
+
 	// Default to JSON in Docker containers, or if explicitly set to "json"
 	if logFormat == "json" || (logFormat == "" && isRunningInDocker()) {
-		handler = slog.NewJSONHandler(os.Stdout, opts)
+		handler = slog.NewJSONHandler(logOutput, opts)
 	} else {
-		handler = slog.NewTextHandler(os.Stdout, opts)
+		handler = slog.NewTextHandler(logOutput, opts)
 	}
 
 	globalLogger = slog.New(handler)

@@ -6,6 +6,7 @@ require (
 	github.com/docker/docker v28.5.2+incompatible
 	github.com/google/go-containerregistry v0.20.7
 	github.com/google/uuid v1.6.0
+	github.com/natefinch/lumberjack/v3 v3.0.0-alpha
 	golang.org/x/crypto v0.48.0
 )
 
