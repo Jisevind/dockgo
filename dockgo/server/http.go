@@ -972,7 +972,7 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 		serverLog.Debug("Stream request ended")
 	}()
 
-	fmt.Fprintf(w, "data: {\"type\":\"start\"}\n\n")
+	_, _ = w.Write([]byte("data: {\"type\":\"start\"}\n\n"))
 	flusher.Flush()
 
 	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Minute)
@@ -1000,7 +1000,7 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 				return
 			case <-ticker.C:
 				writeMu.Lock()
-				if _, err := fmt.Fprintf(w, ": ping\n\n"); err != nil {
+				if _, err := w.Write([]byte(": ping\n\n")); err != nil {
 					writeMu.Unlock()
 					cancel()
 					return
@@ -1029,7 +1029,7 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 		writeMu.Lock()
 		defer writeMu.Unlock()
 
-		if _, err := fmt.Fprintf(w, "data: %s\n\n", string(bytes)); err != nil {
+		if _, err := w.Write(append(append([]byte("data: "), bytes...), []byte("\n\n")...)); err != nil {
 			serverLog.Error("Write error for container",
 				logger.String("container", u.Name),
 				logger.Any("error", err),
@@ -1057,7 +1057,9 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 				"type":  "error",
 				"error": err.Error(),
 			})
-			fmt.Fprintf(w, "data: %s\n\n", string(errBytes))
+			_, _ = w.Write([]byte("data: "))
+			_, _ = w.Write(errBytes)
+			_, _ = w.Write([]byte("\n\n"))
 		} else {
 			newCache := make(map[string]bool)
 			for _, u := range updates {
@@ -1072,7 +1074,7 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 			s.lastCheckStat = "success"
 			s.mu.Unlock()
 
-			fmt.Fprintf(w, "data: {\"type\":\"done\", \"code\": 0}\n\n")
+			_, _ = w.Write([]byte("data: {\"type\":\"done\", \"code\": 0}\n\n"))
 		}
 		flusher.Flush()
 	}
@@ -1211,7 +1213,9 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		"type":    "start",
 		"message": fmt.Sprintf("Starting update for %s...", html.EscapeString(name)),
 	})
-	fmt.Fprintf(w, "data: %s\n\n", string(startBytes))
+	_, _ = w.Write([]byte("data: "))
+	_, _ = w.Write(startBytes)
+	_, _ = w.Write([]byte("\n\n"))
 	flusher.Flush()
 
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Minute)
@@ -1231,7 +1235,9 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 			"type":  "error",
 			"error": fmt.Sprintf("Failed to locate container: %v", err),
 		})
-		fmt.Fprintf(w, "data: %s\n\n", string(errBytes))
+		_, _ = w.Write([]byte("data: "))
+		_, _ = w.Write(errBytes)
+		_, _ = w.Write([]byte("\n\n"))
 		flusher.Flush()
 		return
 	}
@@ -1249,7 +1255,9 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		sseMu.Lock()
 		defer sseMu.Unlock()
 		if bytes, err := json.Marshal(evt); err == nil {
-			fmt.Fprintf(w, "data: %s\n\n", string(bytes))
+			_, _ = w.Write([]byte("data: "))
+			_, _ = w.Write(bytes)
+			_, _ = w.Write([]byte("\n\n"))
 			flusher.Flush()
 		}
 	}
@@ -1278,7 +1286,9 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		})
 
 		sseMu.Lock()
-		fmt.Fprintf(w, "data: %s\n\n", string(errBytes))
+		_, _ = w.Write([]byte("data: "))
+		_, _ = w.Write(errBytes)
+		_, _ = w.Write([]byte("\n\n"))
 		sseMu.Unlock()
 		s.Notifier.Notify(
 			"DockGo Update Failed",
@@ -1312,7 +1322,9 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		})
 
 		sseMu.Lock()
-		fmt.Fprintf(w, "data: %s\n\n", string(doneBytes))
+		_, _ = w.Write([]byte("data: "))
+		_, _ = w.Write(doneBytes)
+		_, _ = w.Write([]byte("\n\n"))
 		sseMu.Unlock()
 	}
 
@@ -1473,7 +1485,9 @@ func (s *Server) handleContainerLogs(w http.ResponseWriter, r *http.Request) {
 		errBytes, _ := json.Marshal(map[string]interface{}{
 			"line": fmt.Sprintf("Error fetching logs: %v", err),
 		})
-		fmt.Fprintf(w, "data: %s\n\n", string(errBytes))
+		_, _ = w.Write([]byte("data: "))
+		_, _ = w.Write(errBytes)
+		_, _ = w.Write([]byte("\n\n"))
 		flusher.Flush()
 		return
 	}
@@ -1486,7 +1500,9 @@ func (s *Server) handleContainerLogs(w http.ResponseWriter, r *http.Request) {
 		bytes, _ := json.Marshal(map[string]interface{}{
 			"line": line,
 		})
-		fmt.Fprintf(w, "data: %s\n\n", string(bytes))
+		_, _ = w.Write([]byte("data: "))
+		_, _ = w.Write(bytes)
+		_, _ = w.Write([]byte("\n\n"))
 		flusher.Flush()
 	}
 
