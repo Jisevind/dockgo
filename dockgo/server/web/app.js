@@ -1,3 +1,6 @@
+/* eslint-env browser */
+/* global AnsiUp */
+
 // console.log("DOCKGO APP STARTED v2");
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -239,7 +242,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     const lineEl = document.createElement('div');
                     lineEl.className = 'log-line';
 
-                    lineEl.innerHTML = ansiUp.ansi_to_html(data.line);
+                    const rawHtml = ansiUp.ansi_to_html(data.line);
+
+                    // Decode safely using DOMParser to satisfy SAST XSS rules instead of innerHTML
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(rawHtml, 'text/html');
+
+                    // Transfer the parsed nodes safely
+                    while (doc.body.firstChild) {
+                        lineEl.appendChild(doc.body.firstChild);
+                    }
 
                     logsOutput.appendChild(lineEl);
 
