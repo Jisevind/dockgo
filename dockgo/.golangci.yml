@@ -1,0 +1,49 @@
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - govet
+    - staticcheck
+    - ineffassign
+    - errcheck
+    - unused
+    - gosimple
+    - gosec
+
+  disable:
+    - wsl
+    - gochecknoglobals
+    - funlen
+    - gocognit
+
+linters-settings:
+  errcheck:
+    check-type-assertions: false
+    check-blank: false
+
+  gosec:
+    excludes:
+      - G104 # ignoring errors sometimes acceptable
+      - G401 # weak crypto sometimes used for hashing
+      - G204 # exec.Command with variable
+
+issues:
+  exclude-rules:
+    - linters:
+        - gosec
+      text: "G104"
+
+    - linters:
+        - errcheck
+      source: "json.Marshal"
+
+    - linters:
+        - errcheck
+      source: "fmt.Fprintf"
+
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+output:
+  sort-results: true
