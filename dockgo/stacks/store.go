@@ -60,6 +60,24 @@ func (s *Store) Get(id string) (Stack, bool) {
 	return stack, ok
 }
 
+func (s *Store) FindByComposeProject(project string) (Stack, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	project = strings.TrimSpace(project)
+	if project == "" {
+		return Stack{}, false
+	}
+
+	for _, stack := range s.stacks {
+		if stack.Discovery.ComposeProject == project || stack.ProjectName == project || stack.Name == project {
+			return stack, true
+		}
+	}
+
+	return Stack{}, false
+}
+
 func (s *Store) Save(stack Stack) (Stack, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -105,6 +123,23 @@ func (s *Store) Delete(id string) error {
 	}
 
 	delete(s.stacks, id)
+	return s.persistLocked()
+}
+
+func (s *Store) RecordDeployStatus(id string, status string, at time.Time) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	stack, ok := s.stacks[id]
+	if !ok {
+		return fmt.Errorf("stack not found")
+	}
+
+	stack.LastDeployStatus = status
+	stack.LastDeployAt = &at
+	stack.UpdatedAt = at
+	s.stacks[id] = stack
+
 	return s.persistLocked()
 }
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"dockgo/stacks"
@@ -46,15 +47,25 @@ func (s *Server) handleStacks(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		stack, err := s.StackStore.Save(stackFromPayload(stacks.Stack{}, payload))
+		stack := stackFromPayload(stacks.Stack{}, payload)
+		validation := stacks.Validate(context.Background(), stack)
+		if !validation.Valid {
+			writeJSON(w, http.StatusBadRequest, map[string]any{
+				"error":      "stack validation failed",
+				"validation": validation,
+			})
+			return
+		}
+
+		saved, err := s.StackStore.Save(stack)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 
 		writeJSON(w, http.StatusCreated, stackDetailResponse{
-			Stack:      stack,
-			Validation: validationPtr(stacks.Validate(context.Background(), stack)),
+			Stack:      saved,
+			Validation: validationPtr(validation),
 		})
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -101,7 +112,17 @@ func (s *Server) handleStackByID(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			updated, err := s.StackStore.Save(stackFromPayload(stack, payload))
+			updatedInput := stackFromPayload(stack, payload)
+			validation := stacks.Validate(context.Background(), updatedInput)
+			if !validation.Valid {
+				writeJSON(w, http.StatusBadRequest, map[string]any{
+					"error":      "stack validation failed",
+					"validation": validation,
+				})
+				return
+			}
+
+			updated, err := s.StackStore.Save(updatedInput)
 			if err != nil {
 				writeError(w, http.StatusInternalServerError, err.Error())
 				return
@@ -109,7 +130,7 @@ func (s *Server) handleStackByID(w http.ResponseWriter, r *http.Request) {
 
 			writeJSON(w, http.StatusOK, stackDetailResponse{
 				Stack:      updated,
-				Validation: validationPtr(stacks.Validate(context.Background(), updated)),
+				Validation: validationPtr(validation),
 			})
 		case http.MethodDelete:
 			if err := s.StackStore.Delete(id); err != nil {
@@ -133,6 +154,72 @@ func (s *Server) handleStackByID(w http.ResponseWriter, r *http.Request) {
 		defer cancel()
 
 		writeJSON(w, http.StatusOK, stacks.Validate(ctx, stack))
+		return
+	}
+
+	if len(parts) == 2 && parts[1] == "deploy" {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("X-Accel-Buffering", "no")
+
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
+			return
+		}
+
+		startBytes, _ := json.Marshal(map[string]any{
+			"type":    "start",
+			"message": "Starting stack deployment...",
+			"stack":   stack.Name,
+		})
+		_, _ = w.Write([]byte("data: "))
+		_, _ = w.Write(startBytes)
+		_, _ = w.Write([]byte("\n\n"))
+		flusher.Flush()
+
+		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Minute)
+		defer cancel()
+
+		var writeMu sync.Mutex
+		emit := func(payload map[string]any) {
+			writeMu.Lock()
+			defer writeMu.Unlock()
+			bytes, _ := json.Marshal(payload)
+			_, _ = w.Write([]byte("data: "))
+			_, _ = w.Write(bytes)
+			_, _ = w.Write([]byte("\n\n"))
+			flusher.Flush()
+		}
+
+		err := stacks.Deploy(ctx, stack, func(line string) {
+			emit(map[string]any{
+				"type":   "progress",
+				"status": line,
+				"stack":  stack.Name,
+			})
+		})
+		if err != nil {
+			_ = s.StackStore.RecordDeployStatus(stack.ID, "error", time.Now().UTC())
+			emit(map[string]any{
+				"type":  "error",
+				"error": err.Error(),
+				"stack": stack.Name,
+			})
+			return
+		}
+
+		_ = s.StackStore.RecordDeployStatus(stack.ID, "success", time.Now().UTC())
+		emit(map[string]any{
+			"type":    "done",
+			"success": true,
+			"stack":   stack.Name,
+		})
 		return
 	}
 

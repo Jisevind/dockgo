@@ -87,6 +87,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const loginPasswordInput = document.getElementById('password');
     const logoutBtn = document.getElementById('logout-btn');
     const logoutAllBtn = document.getElementById('logout-all-btn');
+    const stackModal = document.getElementById('stack-modal');
+    const stackForm = document.getElementById('stack-form');
+    const stackModalTitle = document.getElementById('stack-modal-title');
+    const closeStackBtn = document.getElementById('close-stack-btn');
+    const stackCancelBtn = document.getElementById('stack-cancel-btn');
+    const stackFormError = document.getElementById('stack-form-error');
+    const stackNameInput = document.getElementById('stack-name');
+    const stackProjectNameInput = document.getElementById('stack-project-name');
+    const stackWorkingDirInput = document.getElementById('stack-working-dir');
+    const stackComposeFileInput = document.getElementById('stack-compose-file');
+    const stackEnvFileInput = document.getElementById('stack-env-file');
+    const stackPathModeInput = document.getElementById('stack-path-mode');
+    let stackFormMode = 'create';
+    let editingStackId = null;
+    let stackFormDiscoverySelector = {};
+    let stackFormLabels = {};
+    let stackFormProfiles = [];
+    let stackFormProjectEnv = {};
+    let stackFormUpdatePolicy = null;
+    let stackFormHealthPolicy = null;
+    let stackFormPathMappings = [];
+    let stackFormKind = 'compose_files';
 
     // Auth Functions
     const getCsrfToken = () => {
@@ -154,6 +176,16 @@ document.addEventListener('DOMContentLoaded', () => {
         return headers;
     };
 
+    const joinDiscoveredPath = (basePath, leaf) => {
+        if (!basePath) return leaf;
+
+        const isWindowsPath = /^[a-zA-Z]:\\/.test(basePath) || basePath.includes('\\');
+        const separator = isWindowsPath ? '\\' : '/';
+        const trimmedBase = basePath.replace(/[\\/]+$/, '');
+        const trimmedLeaf = leaf.replace(/^[\\/]+/, '');
+        return `${trimmedBase}${separator}${trimmedLeaf}`;
+    };
+
     logoutBtn.addEventListener('click', async () => {
         if (!confirm('Are you sure you want to logout?')) return;
         try {
@@ -193,6 +225,75 @@ document.addEventListener('DOMContentLoaded', () => {
         loginForm.reset();
     };
 
+    const showStackError = (message) => {
+        stackFormError.textContent = message;
+        stackFormError.classList.remove('hidden');
+    };
+
+    const hideStackError = () => {
+        stackFormError.textContent = '';
+        stackFormError.classList.add('hidden');
+    };
+
+    const openStackModal = (mode, stack = null, candidate = null) => {
+        stackFormMode = mode;
+        editingStackId = stack ? stack.id : null;
+        hideStackError();
+        stackForm.reset();
+
+        if (mode === 'edit' && stack) {
+            stackModalTitle.textContent = `Edit Stack: ${stack.name}`;
+            stackNameInput.value = stack.name || '';
+            stackProjectNameInput.value = stack.project_name || '';
+            stackWorkingDirInput.value = stack.working_dir || '';
+            stackComposeFileInput.value = Array.isArray(stack.compose_files) && stack.compose_files[0] ? stack.compose_files[0] : '';
+            stackEnvFileInput.value = Array.isArray(stack.env_files) && stack.env_files[0] ? stack.env_files[0] : '';
+            stackPathModeInput.value = stack.path_mode || 'host_native';
+            stackFormDiscoverySelector = stack.discovery_selector || {};
+            stackFormLabels = stack.labels || {};
+            stackFormProfiles = stack.profiles || [];
+            stackFormProjectEnv = stack.project_env || {};
+            stackFormUpdatePolicy = stack.update_policy || null;
+            stackFormHealthPolicy = stack.health_policy || null;
+            stackFormPathMappings = stack.path_mappings || [];
+            stackFormKind = stack.kind || 'compose_files';
+        } else {
+            stackModalTitle.textContent = 'Register Stack';
+            const workingDir = candidate ? (candidate.working_dir || '') : '';
+            const composeGuess = candidate && workingDir ? joinDiscoveredPath(workingDir, 'docker-compose.yml') : '';
+            const envGuess = candidate && workingDir ? joinDiscoveredPath(workingDir, '.env') : '';
+            const isWindowsPath = /^[a-zA-Z]:\\/.test(workingDir) || workingDir.includes('\\');
+
+            stackNameInput.value = candidate ? candidate.project : '';
+            stackProjectNameInput.value = candidate ? candidate.project : '';
+            stackWorkingDirInput.value = workingDir;
+            stackComposeFileInput.value = composeGuess;
+            stackEnvFileInput.value = envGuess;
+            stackPathModeInput.value = isWindowsPath ? 'mapped' : 'host_native';
+            stackFormDiscoverySelector = candidate ? {
+                compose_project: candidate.project,
+                service_names: candidate.services || []
+            } : {};
+            stackFormLabels = {};
+            stackFormProfiles = [];
+            stackFormProjectEnv = {};
+            stackFormUpdatePolicy = null;
+            stackFormHealthPolicy = null;
+            stackFormPathMappings = [];
+            stackFormKind = 'compose_files';
+        }
+
+        stackModal.classList.remove('hidden');
+        stackNameInput.focus();
+    };
+
+    const closeStackModal = () => {
+        stackModal.classList.add('hidden');
+        hideStackError();
+        stackForm.reset();
+        editingStackId = null;
+    };
+
     // --- Logs Modal Elements ---
     const logsModal = document.getElementById('logs-modal');
     const logsTitle = document.getElementById('logs-title');
@@ -223,11 +324,22 @@ document.addEventListener('DOMContentLoaded', () => {
     if (closeLogsBtn) {
         closeLogsBtn.addEventListener('click', closeLogsModal);
     }
+    if (closeStackBtn) {
+        closeStackBtn.addEventListener('click', closeStackModal);
+    }
+    if (stackCancelBtn) {
+        stackCancelBtn.addEventListener('click', closeStackModal);
+    }
 
     // Close logs modal on outside click
     logsModal.addEventListener('click', (e) => {
         if (e.target === logsModal) {
             closeLogsModal();
+        }
+    });
+    stackModal.addEventListener('click', (e) => {
+        if (e.target === stackModal) {
+            closeStackModal();
         }
     });
 
@@ -477,6 +589,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         stacks.forEach((stack) => {
             const clone = stackCardTemplate.content.cloneNode(true);
+            const stackEl = clone.querySelector('.stack-card');
             clone.querySelector('.stack-name').textContent = stack.name;
             clone.querySelector('.stack-path').textContent = stack.working_dir;
             clone.querySelector('.stack-project').textContent = `Project: ${stack.project_name}`;
@@ -490,6 +603,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 `Last deploy: ${stack.last_deploy_status || 'not deployed'}`
             ];
             clone.querySelector('.stack-meta').textContent = metaLines.join('\n');
+
+            clone.querySelector('.edit-stack-btn').addEventListener('click', async () => {
+                await editStack(stack);
+            });
+            clone.querySelector('.validate-stack-btn').addEventListener('click', async () => {
+                await validateStack(stack);
+            });
+            clone.querySelector('.deploy-stack-btn').addEventListener('click', async () => {
+                await deployStack(stack, stackEl);
+            });
 
             stackListEl.appendChild(clone);
         });
@@ -515,7 +638,7 @@ document.addEventListener('DOMContentLoaded', () => {
             stateBadge.textContent = candidate.registered ? 'registered' : 'unregistered';
             stateBadge.classList.add(candidate.registered ? 'registered' : 'unregistered');
 
-            const composeFileGuess = candidate.working_dir ? `${candidate.working_dir}/docker-compose.yml` : '';
+            const composeFileGuess = candidate.working_dir ? joinDiscoveredPath(candidate.working_dir, 'docker-compose.yml') : '';
             const metaLines = [
                 `Suggested compose file: ${composeFileGuess || 'unknown'}`,
                 'Discovery source: Compose labels'
@@ -527,8 +650,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 registerBtn.disabled = true;
                 registerBtn.textContent = 'Already Registered';
             } else {
-                registerBtn.addEventListener('click', async () => {
-                    await registerStackCandidate(candidate, composeFileGuess);
+                registerBtn.addEventListener('click', () => {
+                    openStackModal('create', null, candidate);
                 });
             }
 
@@ -567,48 +690,165 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const registerStackCandidate = async (candidate, composeFileGuess) => {
-        const composeFile = window.prompt('Compose file path', composeFileGuess);
-        if (!composeFile) return;
+    const editStack = async (stack) => {
+        openStackModal('edit', stack);
+    };
 
-        const envFileGuess = candidate.working_dir ? `${candidate.working_dir}/.env` : '';
-        const envFile = window.prompt('Env file path (leave empty to skip)', envFileGuess);
+    stackForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        hideStackError();
 
         const payload = {
-            name: candidate.project,
-            project_name: candidate.project,
-            kind: 'compose_files',
-            compose_files: [composeFile],
-            env_files: envFile ? [envFile] : [],
-            working_dir: candidate.working_dir,
-            path_mode: 'host_native',
-            discovery_selector: {
-                compose_project: candidate.project,
-                service_names: candidate.services || []
-            }
+            name: stackNameInput.value.trim(),
+            project_name: stackProjectNameInput.value.trim(),
+            kind: stackFormKind,
+            compose_files: [stackComposeFileInput.value.trim()],
+            env_files: stackEnvFileInput.value.trim() ? [stackEnvFileInput.value.trim()] : [],
+            working_dir: stackWorkingDirInput.value.trim(),
+            profiles: stackFormProfiles,
+            project_env: stackFormProjectEnv,
+            path_mode: stackPathModeInput.value,
+            path_mappings: stackFormPathMappings,
+            update_policy: stackFormUpdatePolicy,
+            health_policy: stackFormHealthPolicy,
+            discovery_selector: stackFormDiscoverySelector,
+            labels: stackFormLabels
         };
 
+        const url = stackFormMode === 'edit'
+            ? `/api/stacks/${encodeURIComponent(editingStackId)}`
+            : '/api/stacks';
+        const method = stackFormMode === 'edit' ? 'PUT' : 'POST';
+
         try {
-            const response = await fetch('/api/stacks', {
-                method: 'POST',
+            const response = await fetch(url, {
+                method,
                 headers: getAuthHeaders(true),
                 body: JSON.stringify(payload)
             });
-
             const data = await response.json();
             if (!response.ok) {
-                throw new Error(data.error || 'Failed to register stack');
+                const validationIssues = data.validation && data.validation.issues
+                    ? data.validation.issues.join('\n')
+                    : '';
+                showStackError([data.error || 'Failed to save stack', validationIssues].filter(Boolean).join('\n\n'));
+                return;
             }
 
-            const validation = data.validation;
-            if (validation && !validation.valid) {
-                alert(`Stack saved, but validation failed:\n\n${(validation.issues || []).join('\n')}`);
-            }
-
+            closeStackModal();
             await Promise.all([fetchStacks(), fetchStackCandidates()]);
         } catch (error) {
-            console.error('Failed to register stack', error);
-            alert(`Failed to register stack: ${error.message}`);
+            console.error('Failed to save stack', error);
+            showStackError(`Failed to save stack: ${error.message}`);
+        }
+    });
+
+    const validateStack = async (stack) => {
+        try {
+            const response = await fetch(`/api/stacks/${encodeURIComponent(stack.id)}/validate`, {
+                method: 'POST',
+                headers: getAuthHeaders()
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || 'Validation failed');
+            }
+
+            if (data.valid) {
+                alert(`Validation passed for ${stack.name}.`);
+            } else {
+                const issues = (data.issues || []).join('\n') || 'Unknown validation error';
+                alert(`Validation failed for ${stack.name}:\n\n${issues}`);
+            }
+        } catch (error) {
+            console.error('Failed to validate stack', error);
+            alert(`Failed to validate stack: ${error.message}`);
+        }
+    };
+
+    const setStackProgress = (stackEl, message, state = '') => {
+        if (!stackEl) return;
+        const progressEl = stackEl.querySelector('.stack-progress');
+        if (!progressEl) return;
+
+        progressEl.textContent = message;
+        progressEl.classList.remove('hidden', 'success', 'error');
+        if (state) {
+            progressEl.classList.add(state);
+        }
+    };
+
+    const setStackButtonsDisabled = (stackEl, disabled) => {
+        if (!stackEl) return;
+        stackEl.querySelectorAll('.stack-actions .btn').forEach((button) => {
+            button.disabled = disabled;
+        });
+    };
+
+    const deployStack = async (stack, stackEl) => {
+        if (!confirm(`Deploy registered stack ${stack.name}?`)) {
+            return;
+        }
+
+        try {
+            setStackButtonsDisabled(stackEl, true);
+            setStackProgress(stackEl, 'Starting stack deployment...');
+
+            const response = await fetch(`/api/stacks/${encodeURIComponent(stack.id)}/deploy`, {
+                method: 'POST',
+                headers: getAuthHeaders()
+            });
+
+            if (!response.ok) {
+                let errorMessage = `Deploy failed (${response.status})`;
+                try {
+                    const data = await response.json();
+                    errorMessage = data.error || errorMessage;
+                } catch (e) {
+                    // keep fallback
+                }
+                throw new Error(errorMessage);
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const parts = buffer.split('\n\n');
+                buffer = parts.pop();
+
+                for (const part of parts) {
+                    if (!part.startsWith('data: ')) continue;
+                    const jsonStr = part.substring(6);
+                    try {
+                        const data = JSON.parse(jsonStr);
+                        if (data.type === 'start') {
+                            setStackProgress(stackEl, data.message || 'Starting stack deployment...');
+                        } else if (data.type === 'progress') {
+                            setStackProgress(stackEl, data.status || 'Working...');
+                        } else if (data.type === 'error') {
+                            setStackProgress(stackEl, data.error || 'Deployment failed.', 'error');
+                        } else if (data.type === 'done') {
+                            setStackProgress(stackEl, 'Deployment completed successfully.', 'success');
+                        }
+                    } catch (e) {
+                        console.error('Failed to parse stack deploy event', e);
+                    }
+                }
+            }
+
+            await Promise.all([fetchStacks(), fetchContainers(false)]);
+        } catch (error) {
+            console.error('Failed to deploy stack', error);
+            setStackProgress(stackEl, `Deployment failed: ${error.message}`, 'error');
+            await fetchStacks();
+        } finally {
+            setStackButtonsDisabled(stackEl, false);
         }
     };
 

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 )
 
@@ -39,39 +38,49 @@ func Validate(ctx context.Context, stack Stack) ValidationResult {
 	}
 
 	if info, err := os.Stat(stack.WorkingDir); err != nil {
+		resolvedDir := resolvePathForRuntime(stack, stack.WorkingDir)
+		info, err = os.Stat(resolvedDir)
+		if err == nil && info.IsDir() {
+			goto workingDirOK
+		}
 		result.Valid = false
 		result.Issues = append(result.Issues, fmt.Sprintf("working_dir does not exist: %s", stack.WorkingDir))
 	} else if !info.IsDir() {
 		result.Valid = false
 		result.Issues = append(result.Issues, "working_dir is not a directory")
 	}
+workingDirOK:
 
 	for _, composeFile := range stack.ComposeFiles {
-		if !filepath.IsAbs(composeFile) {
+		if !isAbsPath(composeFile) {
 			result.Valid = false
 			result.Issues = append(result.Issues, fmt.Sprintf("compose file must be absolute: %s", composeFile))
 			continue
 		}
-		if _, err := os.Stat(composeFile); err != nil {
+		resolvedComposeFile := resolvePathForRuntime(stack, composeFile)
+		if _, err := os.Stat(resolvedComposeFile); err != nil {
 			result.Valid = false
 			result.Issues = append(result.Issues, fmt.Sprintf("compose file does not exist: %s", composeFile))
 		}
 	}
 
 	for _, envFile := range stack.EnvFiles {
-		if !filepath.IsAbs(envFile) {
+		if !isAbsPath(envFile) {
 			result.Valid = false
 			result.Issues = append(result.Issues, fmt.Sprintf("env file must be absolute: %s", envFile))
 			continue
 		}
-		if _, err := os.Stat(envFile); err != nil {
+		resolvedEnvFile := resolvePathForRuntime(stack, envFile)
+		if _, err := os.Stat(resolvedEnvFile); err != nil {
 			result.Valid = false
 			result.Issues = append(result.Issues, fmt.Sprintf("env file does not exist: %s", envFile))
 		}
 	}
 
 	if stack.PathMode == PathModeMapped && len(stack.PathMappings) == 0 {
-		result.Warnings = append(result.Warnings, "mapped path mode is configured without explicit path_mappings")
+		if len(defaultMappings()) == 0 {
+			result.Warnings = append(result.Warnings, "mapped path mode is configured without explicit path_mappings")
+		}
 	}
 
 	if !result.Valid {
@@ -80,15 +89,15 @@ func Validate(ctx context.Context, stack Stack) ValidationResult {
 
 	args := []string{"compose"}
 	for _, composeFile := range stack.ComposeFiles {
-		args = append(args, "-f", composeFile)
+		args = append(args, "-f", resolvePathForRuntime(stack, composeFile))
 	}
 	for _, envFile := range stack.EnvFiles {
-		args = append(args, "--env-file", envFile)
+		args = append(args, "--env-file", resolvePathForRuntime(stack, envFile))
 	}
 	args = append(args, "config", "--format", "json")
 
 	cmd := exec.CommandContext(ctx, "docker", args...)
-	cmd.Dir = stack.WorkingDir
+	cmd.Dir = resolvePathForRuntime(stack, stack.WorkingDir)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		result.Valid = false
