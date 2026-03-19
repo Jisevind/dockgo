@@ -37,8 +37,20 @@ type stackDetailResponse struct {
 func (s *Server) handleStacks(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
+		stackList := s.StackStore.List()
+		type stackListItem struct {
+			Stack         stacks.Stack          `json:"stack"`
+			RecentHistory []stacks.HistoryEntry `json:"recent_history"`
+		}
+		items := make([]stackListItem, 0, len(stackList))
+		for _, stack := range stackList {
+			items = append(items, stackListItem{
+				Stack:         stack,
+				RecentHistory: s.StackHistory.ListByStack(stack.ID, 3),
+			})
+		}
 		writeJSON(w, http.StatusOK, map[string]any{
-			"stacks": s.StackStore.List(),
+			"stacks": items,
 		})
 	case http.MethodPost:
 		var payload stackPayload
@@ -62,6 +74,7 @@ func (s *Server) handleStacks(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
+		s.recordStackHistory(saved, "register", "success", "stack registered")
 
 		writeJSON(w, http.StatusCreated, stackDetailResponse{
 			Stack:      saved,
@@ -127,6 +140,7 @@ func (s *Server) handleStackByID(w http.ResponseWriter, r *http.Request) {
 				writeError(w, http.StatusInternalServerError, err.Error())
 				return
 			}
+			s.recordStackHistory(updated, "edit", "success", "stack updated")
 
 			writeJSON(w, http.StatusOK, stackDetailResponse{
 				Stack:      updated,
@@ -137,6 +151,7 @@ func (s *Server) handleStackByID(w http.ResponseWriter, r *http.Request) {
 				writeError(w, http.StatusInternalServerError, err.Error())
 				return
 			}
+			s.recordStackHistory(stack, "delete", "success", "stack unregistered")
 			w.WriteHeader(http.StatusNoContent)
 		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)
@@ -153,7 +168,13 @@ func (s *Server) handleStackByID(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 		defer cancel()
 
-		writeJSON(w, http.StatusOK, stacks.Validate(ctx, stack))
+		result := stacks.Validate(ctx, stack)
+		if result.Valid {
+			s.recordStackHistory(stack, "validate", "success", "stack validation passed")
+		} else {
+			s.recordStackHistory(stack, "validate", "error", strings.Join(result.Issues, "; "))
+		}
+		writeJSON(w, http.StatusOK, result)
 		return
 	}
 
@@ -206,6 +227,7 @@ func (s *Server) handleStackByID(w http.ResponseWriter, r *http.Request) {
 		})
 		if err != nil {
 			_ = s.StackStore.RecordDeployStatus(stack.ID, "error", time.Now().UTC())
+			s.recordStackHistory(stack, "deploy", "error", err.Error())
 			emit(map[string]any{
 				"type":  "error",
 				"error": err.Error(),
@@ -215,10 +237,22 @@ func (s *Server) handleStackByID(w http.ResponseWriter, r *http.Request) {
 		}
 
 		_ = s.StackStore.RecordDeployStatus(stack.ID, "success", time.Now().UTC())
+		s.recordStackHistory(stack, "deploy", "success", "stack deployment completed")
 		emit(map[string]any{
 			"type":    "done",
 			"success": true,
 			"stack":   stack.Name,
+		})
+		return
+	}
+
+	if len(parts) == 2 && parts[1] == "history" {
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"entries": s.StackHistory.ListByStack(stack.ID, 20),
 		})
 		return
 	}
@@ -341,4 +375,17 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 
 func writeError(w http.ResponseWriter, status int, message string) {
 	writeJSON(w, status, map[string]string{"error": message})
+}
+
+func (s *Server) recordStackHistory(stack stacks.Stack, action string, status string, message string) {
+	if s.StackHistory == nil {
+		return
+	}
+	_ = s.StackHistory.Append(stacks.HistoryEntry{
+		StackID:   stack.ID,
+		StackName: stack.Name,
+		Action:    action,
+		Status:    status,
+		Message:   message,
+	})
 }

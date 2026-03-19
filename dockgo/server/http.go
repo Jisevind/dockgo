@@ -76,6 +76,7 @@ type Server struct {
 	savePending      atomic.Bool
 	DebugEnabled     bool
 	StackStore       *stacks.Store
+	StackHistory     *stacks.HistoryStore
 }
 
 type RateLimiter struct {
@@ -107,6 +108,7 @@ func NewServer(port string) (*Server, error) {
 	costStr := os.Getenv("AUTH_BCRYPT_COST")
 	sessionPath := os.Getenv("SESSION_STORE_PATH")
 	stackStorePath := os.Getenv("STACK_STORE_PATH")
+	stackHistoryPath := os.Getenv("STACK_HISTORY_PATH")
 	allowedPathsStr := os.Getenv("ALLOWED_COMPOSE_PATHS")
 	debugEnabled := os.Getenv("DOCKGO_DEBUG") == "true"
 
@@ -115,6 +117,9 @@ func NewServer(port string) (*Server, error) {
 	}
 	if stackStorePath == "" {
 		stackStorePath = "/app/data/stacks.json"
+	}
+	if stackHistoryPath == "" {
+		stackHistoryPath = "/app/data/stack_history.json"
 	}
 
 	if authSecret == "" {
@@ -188,6 +193,10 @@ func NewServer(port string) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize stack store: %w", err)
 	}
+	stackHistory, err := stacks.NewHistoryStore(stackHistoryPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize stack history store: %w", err)
+	}
 
 	srv := &Server{
 		Port:             port,
@@ -207,6 +216,7 @@ func NewServer(port string) (*Server, error) {
 		revokedSessions:  make(map[string]time.Time),
 		DebugEnabled:     debugEnabled,
 		StackStore:       stackStore,
+		StackHistory:     stackHistory,
 	}
 
 	srv.loadAuthState()
@@ -958,7 +968,23 @@ func (s *Server) handleContainers(w http.ResponseWriter, r *http.Request) {
 			"state":            c.State,
 			"status":           c.Status,
 			"update_available": updateAvail,
+			"compose_project":  c.Labels["com.docker.compose.project"],
+			"compose_service":  c.Labels["com.docker.compose.service"],
+			"stack_registered": false,
+			"stack_name":       "",
 		})
+	}
+
+	for i := range result {
+		project, _ := result[i]["compose_project"].(string)
+		if project == "" || s.StackStore == nil {
+			continue
+		}
+
+		if stack, ok := s.StackStore.FindByComposeProject(project); ok {
+			result[i]["stack_registered"] = true
+			result[i]["stack_name"] = stack.Name
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")

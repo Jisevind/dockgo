@@ -83,6 +83,7 @@ func (s *Store) Save(stack Stack) (Stack, error) {
 	defer s.mu.Unlock()
 
 	now := time.Now().UTC()
+	stack = normalizeStackForStorage(stack)
 
 	if stack.ID == "" {
 		stack.ID = uuid.NewString()
@@ -163,6 +164,7 @@ func (s *Store) load() error {
 	}
 
 	for _, stack := range payload.Stacks {
+		stack = normalizeStackForStorage(stack)
 		s.stacks[stack.ID] = stack
 	}
 
