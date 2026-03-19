@@ -20,3 +20,5 @@ dev.ps1
 
 #Ignore vscode AI rules
 codacy.instructions.md
+
+.gocache/
