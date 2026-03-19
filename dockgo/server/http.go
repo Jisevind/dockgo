@@ -1283,10 +1283,48 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		LogCallback:     emitSSE,
 	}
 
-	serverLog.Debug("Beginning native engine update",
-		logger.String("container", name),
-	)
-	err = engine.PerformUpdate(ctx, s.Discovery, targetUpdate, opts)
+	project := targetUpdate.Labels["com.docker.compose.project"]
+	if project != "" {
+		if stack, ok := s.StackStore.FindByComposeProject(project); ok {
+			serverLog.Debug("Routing compose update through registered stack",
+				logger.String("container", name),
+				logger.String("project", project),
+				logger.String("stack_id", stack.ID),
+			)
+
+			emitSSE(api.ProgressEvent{
+				Type:      "progress",
+				Status:    fmt.Sprintf("Using registered stack '%s' for project '%s'.", stack.Name, project),
+				Container: name,
+			})
+
+			deployLogger := func(line string) {
+				emitSSE(api.ProgressEvent{
+					Type:      "progress",
+					Status:    line,
+					Container: name,
+				})
+			}
+
+			err = stacks.Deploy(ctx, stack, deployLogger)
+			if err != nil {
+				_ = s.StackStore.RecordDeployStatus(stack.ID, "error", time.Now().UTC())
+			} else {
+				_ = s.StackStore.RecordDeployStatus(stack.ID, "success", time.Now().UTC())
+			}
+		} else {
+			serverLog.Debug("No registered stack match found, using legacy compose update path",
+				logger.String("container", name),
+				logger.String("project", project),
+			)
+			err = engine.PerformUpdate(ctx, s.Discovery, targetUpdate, opts)
+		}
+	} else {
+		serverLog.Debug("Beginning native engine update",
+			logger.String("container", name),
+		)
+		err = engine.PerformUpdate(ctx, s.Discovery, targetUpdate, opts)
+	}
 
 	if err != nil {
 		serverLog.Debug("Update process failed",

@@ -184,6 +184,52 @@
                 </div>
             </div>
         </div>
+
+        <!-- Stack Form Modal -->
+        <div id="stack-modal" class="modal-overlay hidden">
+            <div class="modal stack-modal-content">
+                <div class="modal-header">
+                    <h2 id="stack-modal-title">Register Stack</h2>
+                    <button id="close-stack-btn" class="close-btn" title="Close">✕</button>
+                </div>
+                <div class="modal-body">
+                    <form id="stack-form">
+                        <div class="form-group">
+                            <label for="stack-name">Stack Name</label>
+                            <input type="text" id="stack-name" name="stack_name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="stack-project-name">Project Name</label>
+                            <input type="text" id="stack-project-name" name="stack_project_name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="stack-working-dir">Working Directory</label>
+                            <input type="text" id="stack-working-dir" name="stack_working_dir" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="stack-compose-file">Compose File</label>
+                            <input type="text" id="stack-compose-file" name="stack_compose_file" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="stack-env-file">Env File</label>
+                            <input type="text" id="stack-env-file" name="stack_env_file">
+                        </div>
+                        <div class="form-group">
+                            <label for="stack-path-mode">Path Mode</label>
+                            <select id="stack-path-mode" name="stack_path_mode">
+                                <option value="host_native">Host Native</option>
+                                <option value="mapped">Mapped</option>
+                            </select>
+                        </div>
+                        <div id="stack-form-error" class="error-message hidden"></div>
+                        <div class="stack-form-actions">
+                            <button type="button" id="stack-cancel-btn" class="btn secondary">Cancel</button>
+                            <button type="submit" class="btn primary">Save Stack</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Template for container card -->
@@ -264,6 +310,12 @@
             </div>
             <p class="stack-project"></p>
             <div class="stack-meta"></div>
+            <div class="stack-progress hidden"></div>
+            <div class="stack-actions">
+                <button class="btn secondary edit-stack-btn">Edit</button>
+                <button class="btn secondary validate-stack-btn">Validate</button>
+                <button class="btn primary deploy-stack-btn">Deploy</button>
+            </div>
         </div>
     </template>
 
