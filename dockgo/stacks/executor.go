@@ -78,6 +78,13 @@ func Deploy(ctx context.Context, stack Stack, log Logger) error {
 		return fmt.Errorf("stack deploy failed: %w", err)
 	}
 
+	if stack.HealthPolicy.RequireHealthy || stack.HealthPolicy.StartupGrace > 0 {
+		log("Running post-deploy verification...")
+		if err := VerifyDeployment(ctx, stack, log); err != nil {
+			return fmt.Errorf("stack verification failed: %w", err)
+		}
+	}
+
 	log("Stack deployment completed successfully.")
 	return nil
 }

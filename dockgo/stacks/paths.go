@@ -83,9 +83,54 @@ func translatePath(path string, mappings []PathMapping) string {
 	return path
 }
 
+func reverseTranslatePath(path string, mappings []PathMapping) string {
+	if path == "" {
+		return path
+	}
+
+	normalizedPath := strings.ReplaceAll(path, "\\", "/")
+	for _, mapping := range mappings {
+		hostPath := strings.TrimSpace(mapping.HostPath)
+		containerPath := strings.ReplaceAll(strings.TrimSpace(mapping.ContainerPath), "\\", "/")
+		if hostPath == "" || containerPath == "" {
+			continue
+		}
+
+		if strings.HasPrefix(strings.ToLower(normalizedPath), strings.ToLower(containerPath)) {
+			remainder := normalizedPath[len(containerPath):]
+			if isWindowsAbs(hostPath) || strings.Contains(hostPath, "\\") {
+				remainder = strings.ReplaceAll(remainder, "/", "\\")
+				hostPath = strings.ReplaceAll(hostPath, "/", "\\")
+				return strings.TrimRight(hostPath, "\\/") + remainder
+			}
+			return filepath.Clean(hostPath + remainder)
+		}
+	}
+
+	return path
+}
+
 func resolvePathForRuntime(stack Stack, path string) string {
 	if stack.PathMode != PathModeMapped {
 		return path
 	}
 	return translatePath(path, effectiveMappings(stack))
+}
+
+func normalizePathForStorage(stack Stack, path string) string {
+	if stack.PathMode != PathModeMapped {
+		return path
+	}
+	return reverseTranslatePath(path, effectiveMappings(stack))
+}
+
+func normalizeStackForStorage(stack Stack) Stack {
+	stack.WorkingDir = normalizePathForStorage(stack, stack.WorkingDir)
+	for i, composeFile := range stack.ComposeFiles {
+		stack.ComposeFiles[i] = normalizePathForStorage(stack, composeFile)
+	}
+	for i, envFile := range stack.EnvFiles {
+		stack.EnvFiles[i] = normalizePathForStorage(stack, envFile)
+	}
+	return stack
 }

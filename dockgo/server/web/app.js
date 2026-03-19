@@ -579,15 +579,17 @@ document.addEventListener('DOMContentLoaded', () => {
         discoverStacksBtn.addEventListener('click', () => fetchStackCandidates());
     }
 
-    const renderStacks = (stacks) => {
+    const renderStacks = (stackItems) => {
         stackListEl.innerHTML = '';
 
-        if (!Array.isArray(stacks) || stacks.length === 0) {
+        if (!Array.isArray(stackItems) || stackItems.length === 0) {
             stackListEl.innerHTML = '<div class="loading">No registered stacks yet.</div>';
             return;
         }
 
-        stacks.forEach((stack) => {
+        stackItems.forEach((item) => {
+            const stack = item.stack || item;
+            const recentHistory = item.recent_history || [];
             const clone = stackCardTemplate.content.cloneNode(true);
             const stackEl = clone.querySelector('.stack-card');
             clone.querySelector('.stack-name').textContent = stack.name;
@@ -597,13 +599,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const composeFiles = Array.isArray(stack.compose_files) ? stack.compose_files.length : 0;
             const envFiles = Array.isArray(stack.env_files) ? stack.env_files.length : 0;
+            const composeFile = composeFiles > 0 ? stack.compose_files[0] : 'none';
+            const envFile = envFiles > 0 ? stack.env_files[0] : 'none';
             const metaLines = [
-                `Compose files: ${composeFiles}`,
-                `Env files: ${envFiles}`,
+                `Compose file: ${composeFile}`,
+                `Env file: ${envFile}`,
                 `Last deploy: ${stack.last_deploy_status || 'not deployed'}`
             ];
+            if (recentHistory.length > 0) {
+                metaLines.push('Recent activity:');
+                recentHistory.forEach((entry) => {
+                    metaLines.push(`- ${entry.action} ${entry.status}: ${entry.message || 'no details'}`);
+                });
+            }
             clone.querySelector('.stack-meta').textContent = metaLines.join('\n');
 
+            const deleteBtn = clone.querySelector('.delete-stack-btn');
+            deleteBtn.classList.remove('secondary');
+            deleteBtn.classList.add('danger');
+            deleteBtn.addEventListener('click', async () => {
+                await deleteStack(stack);
+            });
             clone.querySelector('.edit-stack-btn').addEventListener('click', async () => {
                 await editStack(stack);
             });
@@ -766,6 +782,35 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const deleteStack = async (stack) => {
+        if (!confirm(`Delete registered stack ${stack.name}? This will remove the registration only.`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/stacks/${encodeURIComponent(stack.id)}`, {
+                method: 'DELETE',
+                headers: getAuthHeaders()
+            });
+
+            if (!response.ok) {
+                let errorMessage = `Delete failed (${response.status})`;
+                try {
+                    const data = await response.json();
+                    errorMessage = data.error || errorMessage;
+                } catch (e) {
+                    // keep fallback
+                }
+                throw new Error(errorMessage);
+            }
+
+            await Promise.all([fetchStacks(), fetchStackCandidates(), fetchContainers(false)]);
+        } catch (error) {
+            console.error('Failed to delete stack', error);
+            alert(`Failed to delete stack: ${error.message}`);
+        }
+    };
+
     const setStackProgress = (stackEl, message, state = '') => {
         if (!stackEl) return;
         const progressEl = stackEl.querySelector('.stack-progress');
@@ -905,6 +950,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     tagBadge.classList.remove('hidden');
                 }
 
+                if (container.stack_registered) {
+                    const stackBadge = document.createElement('span');
+                    stackBadge.className = 'stack-badge';
+                    stackBadge.textContent = `stack:${container.stack_name || container.compose_project}`;
+                    const badgesEl = clone.querySelector('.badges') || clone.querySelector('.image-row');
+                    if (badgesEl) {
+                        badgesEl.appendChild(stackBadge);
+                    }
+                }
+
                 const statusBadge = clone.querySelector('.status-badge');
                 statusBadge.textContent = container.state;
 
@@ -961,6 +1016,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (updateSection) {
                         updateSection.classList.remove('hidden');
                         const btn = updateSection.querySelector('.btn-update');
+                        if (container.stack_registered) {
+                            btn.textContent = 'Deploy Stack';
+                        }
                         btn.addEventListener('click', (e) => {
                             e.preventDefault();
                             handleUpdate(container.name, containerEl);
