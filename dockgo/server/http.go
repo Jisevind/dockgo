@@ -10,6 +10,7 @@ import (
 	"dockgo/engine"
 	"dockgo/logger"
 	"dockgo/notify"
+	"dockgo/stacks"
 	"embed"
 	"encoding/base64"
 	"encoding/hex"
@@ -47,10 +48,10 @@ var Version = "dev"
 type Server struct {
 	Port             string
 	CorsOrigin       string
-	APIToken         string   `json:"-"`
+	APIToken         string `json:"-"`
 	AuthUsername     string
-	AuthPasswordHash []byte   `json:"-"`
-	AuthSecret       string   `json:"-"`
+	AuthPasswordHash []byte `json:"-"`
+	AuthSecret       string `json:"-"`
 	AllowedPaths     []string
 	Discovery        *engine.DiscoveryEngine
 	Registry         *engine.RegistryClient
@@ -74,6 +75,7 @@ type Server struct {
 	sessionMu        sync.RWMutex
 	savePending      atomic.Bool
 	DebugEnabled     bool
+	StackStore       *stacks.Store
 }
 
 type RateLimiter struct {
@@ -104,11 +106,15 @@ func NewServer(port string) (*Server, error) {
 	authSecret := os.Getenv("AUTH_SECRET")
 	costStr := os.Getenv("AUTH_BCRYPT_COST")
 	sessionPath := os.Getenv("SESSION_STORE_PATH")
+	stackStorePath := os.Getenv("STACK_STORE_PATH")
 	allowedPathsStr := os.Getenv("ALLOWED_COMPOSE_PATHS")
 	debugEnabled := os.Getenv("DOCKGO_DEBUG") == "true"
 
 	if sessionPath == "" {
 		sessionPath = "/app/data/sessions.json"
+	}
+	if stackStorePath == "" {
+		stackStorePath = "/app/data/stacks.json"
 	}
 
 	if authSecret == "" {
@@ -178,6 +184,11 @@ func NewServer(port string) (*Server, error) {
 
 	serverLog.Info("Server initializing")
 
+	stackStore, err := stacks.NewStore(stackStorePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize stack store: %w", err)
+	}
+
 	srv := &Server{
 		Port:             port,
 		CorsOrigin:       corsOrigin,
@@ -195,6 +206,7 @@ func NewServer(port string) (*Server, error) {
 		loginAttempts:    make(map[string]*RateLimiter),
 		revokedSessions:  make(map[string]time.Time),
 		DebugEnabled:     debugEnabled,
+		StackStore:       stackStore,
 	}
 
 	srv.loadAuthState()
@@ -212,6 +224,8 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/update/", s.enableCors(s.requireAuth(s.handleUpdate)))
 	mux.HandleFunc("/api/container/", s.enableCors(s.requireAuth(s.handleContainerAction)))
 	mux.HandleFunc("/api/logs/", s.enableCors(s.requireAuth(s.handleContainerLogs)))
+	mux.HandleFunc("/api/stacks", s.enableCors(s.requireAuth(s.handleStacks)))
+	mux.HandleFunc("/api/stacks/", s.enableCors(s.requireAuth(s.handleStackByID)))
 
 	mux.HandleFunc("/api/login", s.enableCors(s.handleLogin))
 	mux.HandleFunc("/api/logout", s.enableCors(s.handleLogout))

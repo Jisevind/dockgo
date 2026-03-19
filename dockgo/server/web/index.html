@@ -109,6 +109,28 @@
             </div>
         </main>
 
+        <section class="stack-dashboard">
+            <div class="stack-panel">
+                <div class="stack-panel-header">
+                    <h2>Registered Stacks</h2>
+                    <button id="refresh-stacks-btn" class="btn secondary">Refresh</button>
+                </div>
+                <div id="stack-list" class="stack-list">
+                    <div class="loading">Loading registered stacks...</div>
+                </div>
+            </div>
+
+            <div class="stack-panel">
+                <div class="stack-panel-header">
+                    <h2>Discovered Compose Projects</h2>
+                    <button id="discover-stacks-btn" class="btn secondary">Discover</button>
+                </div>
+                <div id="stack-candidates" class="stack-list">
+                    <div class="loading">Loading discovered projects...</div>
+                </div>
+            </div>
+        </section>
+
         <!-- Login Modal -->
         <div id="login-modal" class="modal-overlay hidden">
             <div class="modal">
@@ -227,6 +249,37 @@
                     <button class="btn-update">Update Now</button>
                 </div>
                 <div class="update-message hidden"></div>
+            </div>
+        </div>
+    </template>
+
+    <template id="stack-card-template">
+        <div class="stack-card">
+            <div class="stack-card-header">
+                <div>
+                    <h3 class="stack-name"></h3>
+                    <p class="stack-path"></p>
+                </div>
+                <span class="stack-mode-badge"></span>
+            </div>
+            <p class="stack-project"></p>
+            <div class="stack-meta"></div>
+        </div>
+    </template>
+
+    <template id="stack-candidate-template">
+        <div class="stack-card">
+            <div class="stack-card-header">
+                <div>
+                    <h3 class="stack-name"></h3>
+                    <p class="stack-path"></p>
+                </div>
+                <span class="stack-mode-badge candidate-state"></span>
+            </div>
+            <p class="stack-project"></p>
+            <div class="stack-meta"></div>
+            <div class="stack-actions">
+                <button class="btn primary register-stack-btn">Register Stack</button>
             </div>
         </div>
     </template>

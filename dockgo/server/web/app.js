@@ -7,10 +7,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const listEl = document.getElementById('container-list');
     const cardTemplate = document.getElementById('container-card-template');
     const listTemplate = document.getElementById('container-list-template');
+    const stackCardTemplate = document.getElementById('stack-card-template');
+    const stackCandidateTemplate = document.getElementById('stack-candidate-template');
     const statusEl = document.getElementById('connection-status');
     const refreshBtn = document.getElementById('refresh-btn');
+    const refreshStacksBtn = document.getElementById('refresh-stacks-btn');
+    const discoverStacksBtn = document.getElementById('discover-stacks-btn');
     const viewGridBtn = document.getElementById('view-grid');
     const viewListBtn = document.getElementById('view-list');
+    const stackListEl = document.getElementById('stack-list');
+    const stackCandidatesEl = document.getElementById('stack-candidates');
 
     // View State
     let currentView = localStorage.getItem('dockgo_view') || 'grid';
@@ -129,6 +135,23 @@ document.addEventListener('DOMContentLoaded', () => {
             return null;
         }
         return encodeURIComponent(name);
+    };
+
+    const getAuthHeaders = (includeJSON = false) => {
+        const headers = {};
+        if (includeJSON) {
+            headers['Content-Type'] = 'application/json';
+        }
+
+        const token = sessionStorage.getItem('dockgo_token');
+        if (token && !isLoggedIn) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        if (isLoggedIn) {
+            headers['X-CSRF-Token'] = getCsrfToken();
+        }
+
+        return headers;
     };
 
     logoutBtn.addEventListener('click', async () => {
@@ -381,14 +404,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const headers = {};
-        const token = sessionStorage.getItem('dockgo_token');
-        if (token && !isLoggedIn) {
-            headers['Authorization'] = `Bearer ${token}`;
-        }
-
         try {
-            const response = await fetch('/api/containers', { headers });
+            const response = await fetch('/api/containers', { headers: getAuthHeaders() });
 
             if (response.status === 401 || response.status === 403) {
                 // Unauthorized or Forbidden
@@ -443,6 +460,157 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     refreshBtn.addEventListener('click', () => fetchContainers(true, true));
+    if (refreshStacksBtn) {
+        refreshStacksBtn.addEventListener('click', () => fetchStacks());
+    }
+    if (discoverStacksBtn) {
+        discoverStacksBtn.addEventListener('click', () => fetchStackCandidates());
+    }
+
+    const renderStacks = (stacks) => {
+        stackListEl.innerHTML = '';
+
+        if (!Array.isArray(stacks) || stacks.length === 0) {
+            stackListEl.innerHTML = '<div class="loading">No registered stacks yet.</div>';
+            return;
+        }
+
+        stacks.forEach((stack) => {
+            const clone = stackCardTemplate.content.cloneNode(true);
+            clone.querySelector('.stack-name').textContent = stack.name;
+            clone.querySelector('.stack-path').textContent = stack.working_dir;
+            clone.querySelector('.stack-project').textContent = `Project: ${stack.project_name}`;
+            clone.querySelector('.stack-mode-badge').textContent = stack.path_mode || 'unknown';
+
+            const composeFiles = Array.isArray(stack.compose_files) ? stack.compose_files.length : 0;
+            const envFiles = Array.isArray(stack.env_files) ? stack.env_files.length : 0;
+            const metaLines = [
+                `Compose files: ${composeFiles}`,
+                `Env files: ${envFiles}`,
+                `Last deploy: ${stack.last_deploy_status || 'not deployed'}`
+            ];
+            clone.querySelector('.stack-meta').textContent = metaLines.join('\n');
+
+            stackListEl.appendChild(clone);
+        });
+    };
+
+    const renderStackCandidates = (candidates) => {
+        stackCandidatesEl.innerHTML = '';
+
+        if (!Array.isArray(candidates) || candidates.length === 0) {
+            stackCandidatesEl.innerHTML = '<div class="loading">No Compose projects discovered.</div>';
+            return;
+        }
+
+        candidates.sort((a, b) => a.project.localeCompare(b.project));
+
+        candidates.forEach((candidate) => {
+            const clone = stackCandidateTemplate.content.cloneNode(true);
+            clone.querySelector('.stack-name').textContent = candidate.project;
+            clone.querySelector('.stack-path').textContent = candidate.working_dir || 'No working directory label';
+            clone.querySelector('.stack-project').textContent = `Services: ${(candidate.services || []).join(', ') || 'none reported'}`;
+
+            const stateBadge = clone.querySelector('.candidate-state');
+            stateBadge.textContent = candidate.registered ? 'registered' : 'unregistered';
+            stateBadge.classList.add(candidate.registered ? 'registered' : 'unregistered');
+
+            const composeFileGuess = candidate.working_dir ? `${candidate.working_dir}/docker-compose.yml` : '';
+            const metaLines = [
+                `Suggested compose file: ${composeFileGuess || 'unknown'}`,
+                'Discovery source: Compose labels'
+            ];
+            clone.querySelector('.stack-meta').textContent = metaLines.join('\n');
+
+            const registerBtn = clone.querySelector('.register-stack-btn');
+            if (candidate.registered) {
+                registerBtn.disabled = true;
+                registerBtn.textContent = 'Already Registered';
+            } else {
+                registerBtn.addEventListener('click', async () => {
+                    await registerStackCandidate(candidate, composeFileGuess);
+                });
+            }
+
+            stackCandidatesEl.appendChild(clone);
+        });
+    };
+
+    const fetchStacks = async () => {
+        try {
+            const response = await fetch('/api/stacks', { headers: getAuthHeaders() });
+            if (!response.ok) {
+                throw new Error(`Failed to fetch stacks (${response.status})`);
+            }
+            const data = await response.json();
+            renderStacks(data.stacks || []);
+        } catch (error) {
+            console.error('Failed to fetch stacks', error);
+            stackListEl.innerHTML = '<div class="loading">Failed to load registered stacks.</div>';
+        }
+    };
+
+    const fetchStackCandidates = async () => {
+        try {
+            const response = await fetch('/api/stacks/discover', {
+                method: 'POST',
+                headers: getAuthHeaders()
+            });
+            if (!response.ok) {
+                throw new Error(`Failed to discover stacks (${response.status})`);
+            }
+            const data = await response.json();
+            renderStackCandidates(data.candidates || []);
+        } catch (error) {
+            console.error('Failed to discover stacks', error);
+            stackCandidatesEl.innerHTML = '<div class="loading">Failed to discover Compose projects.</div>';
+        }
+    };
+
+    const registerStackCandidate = async (candidate, composeFileGuess) => {
+        const composeFile = window.prompt('Compose file path', composeFileGuess);
+        if (!composeFile) return;
+
+        const envFileGuess = candidate.working_dir ? `${candidate.working_dir}/.env` : '';
+        const envFile = window.prompt('Env file path (leave empty to skip)', envFileGuess);
+
+        const payload = {
+            name: candidate.project,
+            project_name: candidate.project,
+            kind: 'compose_files',
+            compose_files: [composeFile],
+            env_files: envFile ? [envFile] : [],
+            working_dir: candidate.working_dir,
+            path_mode: 'host_native',
+            discovery_selector: {
+                compose_project: candidate.project,
+                service_names: candidate.services || []
+            }
+        };
+
+        try {
+            const response = await fetch('/api/stacks', {
+                method: 'POST',
+                headers: getAuthHeaders(true),
+                body: JSON.stringify(payload)
+            });
+
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to register stack');
+            }
+
+            const validation = data.validation;
+            if (validation && !validation.valid) {
+                alert(`Stack saved, but validation failed:\n\n${(validation.issues || []).join('\n')}`);
+            }
+
+            await Promise.all([fetchStacks(), fetchStackCandidates()]);
+        } catch (error) {
+            console.error('Failed to register stack', error);
+            alert(`Failed to register stack: ${error.message}`);
+        }
+    };
 
     const renderContainers = (containers) => {
         listEl.innerHTML = '';
@@ -639,12 +807,9 @@ document.addEventListener('DOMContentLoaded', () => {
         msgEl.classList.remove('hidden');
 
         try {
-            const headers = {};
+            const headers = getAuthHeaders();
             if (token) {
                 headers['Authorization'] = `Bearer ${token}`;
-            }
-            if (isLoggedIn) {
-                headers['X-CSRF-Token'] = getCsrfToken();
             }
 
             const response = await fetch(`/api/update/${safeName}`, {
@@ -857,7 +1022,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial load
     Promise.all([checkAuthStatus(), fetchHealth()]).then(() => {
-        fetchContainers().then(() => {
+        Promise.all([fetchContainers(), fetchStacks(), fetchStackCandidates()]).then(() => {
             if (isLoggedIn || !authEnabled) {
                 fetchContainers(true);
             }
@@ -868,6 +1033,8 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(() => {
         if (activeUpdates === 0 && (isLoggedIn || !authEnabled)) {
             fetchContainers(false);
+            fetchStacks();
+            fetchStackCandidates();
         }
     }, 30000);
 });
