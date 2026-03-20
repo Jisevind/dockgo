@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 )
 
@@ -31,6 +32,11 @@ func Validate(ctx context.Context, stack Stack) ValidationResult {
 	if stack.PathMode != PathModeHostNative && stack.PathMode != PathModeMapped {
 		result.Valid = false
 		result.Issues = append(result.Issues, "path_mode must be 'host_native' or 'mapped'")
+	}
+
+	if stack.PathMode == PathModeHostNative && runtime.GOOS != "windows" && isWindowsAbs(stack.WorkingDir) {
+		result.Valid = false
+		result.Issues = append(result.Issues, "host_native path mode cannot use Windows paths from a non-Windows DockGo runtime; use mapped mode with path_mappings")
 	}
 
 	if !result.Valid {
@@ -80,6 +86,14 @@ workingDirOK:
 	if stack.PathMode == PathModeMapped && len(stack.PathMappings) == 0 {
 		if len(defaultMappings()) == 0 {
 			result.Warnings = append(result.Warnings, "mapped path mode is configured without explicit path_mappings")
+			if isWindowsAbs(stack.WorkingDir) {
+				result.Warnings = append(result.Warnings, "Windows host paths in mapped mode require COMPOSE_PATH_MAPPING or stack path_mappings to resolve inside DockGo")
+			}
+		}
+	} else if stack.PathMode == PathModeMapped {
+		resolvedDir := resolvePathForRuntime(stack, stack.WorkingDir)
+		if resolvedDir == stack.WorkingDir {
+			result.Warnings = append(result.Warnings, "working_dir did not change after path mapping resolution; verify host_path/container_path values")
 		}
 	}
 

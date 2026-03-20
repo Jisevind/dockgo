@@ -134,3 +134,7 @@ func normalizeStackForStorage(stack Stack) Stack {
 	}
 	return stack
 }
+
+func ResolvePathForRuntime(stack Stack, path string) string {
+	return resolvePathForRuntime(stack, path)
+}

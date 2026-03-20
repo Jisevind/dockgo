@@ -99,8 +99,37 @@ document.addEventListener('DOMContentLoaded', () => {
     const stackComposeFileInput = document.getElementById('stack-compose-file');
     const stackEnvFileInput = document.getElementById('stack-env-file');
     const stackPathModeInput = document.getElementById('stack-path-mode');
+    const stackFormHints = document.getElementById('stack-form-hints');
+    const stackPathMappingsInput = document.getElementById('stack-path-mappings');
+    const stackProfilesInput = document.getElementById('stack-profiles');
+    const stackProjectEnvInput = document.getElementById('stack-project-env');
+    const stackPolicyPullInput = document.getElementById('stack-policy-pull');
+    const stackPolicyBuildInput = document.getElementById('stack-policy-build');
+    const stackPolicyDownBeforeUpInput = document.getElementById('stack-policy-down-before-up');
+    const stackPolicyForceRecreateInput = document.getElementById('stack-policy-force-recreate');
+    const stackPolicyRemoveOrphansInput = document.getElementById('stack-policy-remove-orphans');
+    const stackHealthComposeWaitInput = document.getElementById('stack-health-compose-wait');
+    const stackHealthRequireHealthyInput = document.getElementById('stack-health-require-healthy');
+    const stackHealthTimeoutInput = document.getElementById('stack-health-timeout');
+    const stackHealthStartupGraceInput = document.getElementById('stack-health-startup-grace');
+    const stackDetailsModal = document.getElementById('stack-details-modal');
+    const closeStackDetailsBtn = document.getElementById('close-stack-details-btn');
+    const stackDetailsTitle = document.getElementById('stack-details-title');
+    const stackDetailsDefinition = document.getElementById('stack-details-definition');
+    const stackDetailsPaths = document.getElementById('stack-details-paths');
+    const stackDetailsValidation = document.getElementById('stack-details-validation');
+    const stackDetailsContainers = document.getElementById('stack-details-containers');
+    const stackDetailsHistory = document.getElementById('stack-details-history');
+    const stackDetailsEditBtn = document.getElementById('stack-details-edit-btn');
+    const stackDetailsValidateBtn = document.getElementById('stack-details-validate-btn');
+    const stackDetailsPullBtn = document.getElementById('stack-details-pull-btn');
+    const stackDetailsRestartBtn = document.getElementById('stack-details-restart-btn');
+    const stackDetailsDownBtn = document.getElementById('stack-details-down-btn');
+    const stackDetailsDeployBtn = document.getElementById('stack-details-deploy-btn');
+    const stackDetailsDeleteBtn = document.getElementById('stack-details-delete-btn');
     let stackFormMode = 'create';
     let editingStackId = null;
+    let activeStackDetails = null;
     let stackFormDiscoverySelector = {};
     let stackFormLabels = {};
     let stackFormProfiles = [];
@@ -235,6 +264,159 @@ document.addEventListener('DOMContentLoaded', () => {
         stackFormError.classList.add('hidden');
     };
 
+    const isWindowsLikePath = (value) => /^[a-zA-Z]:[\\/]/.test(value) || value.includes('\\');
+
+    const defaultUpdatePolicy = () => ({
+        pull: true,
+        build: false,
+        down_before_up: false,
+        force_recreate: false,
+        remove_orphans: true
+    });
+
+    const defaultHealthPolicy = () => ({
+        use_compose_wait: true,
+        require_healthy: true,
+        wait_timeout_seconds: 120,
+        startup_grace_seconds: 20
+    });
+
+    const formatPathMappings = (mappings) => (Array.isArray(mappings) ? mappings : [])
+        .filter((mapping) => mapping && mapping.host_path && mapping.container_path)
+        .map((mapping) => `${mapping.host_path}=${mapping.container_path}`)
+        .join('\n');
+
+    const parsePathMappings = (value) => value
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => {
+            const separatorIndex = line.indexOf('=');
+            if (separatorIndex === -1) {
+                throw new Error(`Invalid path mapping: ${line}`);
+            }
+            return {
+                host_path: line.slice(0, separatorIndex).trim(),
+                container_path: line.slice(separatorIndex + 1).trim()
+            };
+        });
+
+    const resolveMappedPathPreview = (pathValue, mappings) => {
+        if (!pathValue) return '';
+
+        const normalizedPath = pathValue.replaceAll('\\', '/');
+        for (const mapping of mappings) {
+            const hostPath = (mapping.host_path || '').trim().replaceAll('\\', '/');
+            const containerPath = (mapping.container_path || '').trim();
+            if (!hostPath || !containerPath) {
+                continue;
+            }
+            if (normalizedPath.toLowerCase().startsWith(hostPath.toLowerCase())) {
+                const remainder = normalizedPath.slice(hostPath.length);
+                return `${containerPath}${remainder}`;
+            }
+        }
+        return pathValue;
+    };
+
+    const renderStackFormHints = () => {
+        if (!stackFormHints) return;
+
+        const workingDir = stackWorkingDirInput.value.trim();
+        const pathMode = stackPathModeInput.value;
+        let mappings = [];
+
+        try {
+            mappings = parsePathMappings(stackPathMappingsInput.value.trim());
+        } catch (error) {
+            mappings = [];
+        }
+
+        const lines = [];
+        let stateClass = 'info';
+
+        if (!workingDir) {
+            lines.push('Set a working directory to preview path handling.');
+        } else if (pathMode === 'host_native') {
+            lines.push(`DockGo will use the path exactly as entered: ${workingDir}`);
+            if (isWindowsLikePath(workingDir)) {
+                stateClass = 'warning';
+                lines.push('Windows host paths usually require Mapped mode when DockGo runs in a Linux container.');
+            }
+        } else {
+            const resolved = resolveMappedPathPreview(workingDir, mappings);
+            lines.push(`Canonical host path: ${workingDir}`);
+            lines.push(`Runtime path inside DockGo: ${resolved}`);
+            if (mappings.length === 0) {
+                stateClass = 'warning';
+                lines.push('No explicit path mappings are configured in this stack. DockGo will fall back to COMPOSE_PATH_MAPPING if available.');
+            } else if (resolved === workingDir) {
+                stateClass = 'warning';
+                lines.push('The working directory did not change after mapping. Verify the host_path/container_path values.');
+            }
+        }
+
+        stackFormHints.textContent = lines.join('\n');
+        stackFormHints.classList.remove('hidden', 'info', 'warning');
+        stackFormHints.classList.add(stateClass);
+    };
+
+    const formatProjectEnv = (projectEnv) => Object.entries(projectEnv || {})
+        .map(([key, value]) => `${key}=${value}`)
+        .join('\n');
+
+    const parseProjectEnv = (value) => {
+        const entries = {};
+        value.split(/\r?\n/)
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .forEach((line) => {
+                const separatorIndex = line.indexOf('=');
+                if (separatorIndex === -1) {
+                    throw new Error(`Invalid environment override: ${line}`);
+                }
+                const key = line.slice(0, separatorIndex).trim();
+                const envValue = line.slice(separatorIndex + 1);
+                if (!key) {
+                    throw new Error(`Invalid environment override: ${line}`);
+                }
+                entries[key] = envValue;
+            });
+        return entries;
+    };
+
+    const setUpdatePolicyFields = (policy) => {
+        const effectivePolicy = policy || defaultUpdatePolicy();
+        stackPolicyPullInput.checked = !!effectivePolicy.pull;
+        stackPolicyBuildInput.checked = !!effectivePolicy.build;
+        stackPolicyDownBeforeUpInput.checked = !!effectivePolicy.down_before_up;
+        stackPolicyForceRecreateInput.checked = !!effectivePolicy.force_recreate;
+        stackPolicyRemoveOrphansInput.checked = !!effectivePolicy.remove_orphans;
+    };
+
+    const readUpdatePolicyFields = () => ({
+        pull: stackPolicyPullInput.checked,
+        build: stackPolicyBuildInput.checked,
+        down_before_up: stackPolicyDownBeforeUpInput.checked,
+        force_recreate: stackPolicyForceRecreateInput.checked,
+        remove_orphans: stackPolicyRemoveOrphansInput.checked
+    });
+
+    const setHealthPolicyFields = (policy) => {
+        const effectivePolicy = policy || defaultHealthPolicy();
+        stackHealthComposeWaitInput.checked = !!effectivePolicy.use_compose_wait;
+        stackHealthRequireHealthyInput.checked = !!effectivePolicy.require_healthy;
+        stackHealthTimeoutInput.value = effectivePolicy.wait_timeout_seconds ?? 120;
+        stackHealthStartupGraceInput.value = effectivePolicy.startup_grace_seconds ?? 20;
+    };
+
+    const readHealthPolicyFields = () => ({
+        use_compose_wait: stackHealthComposeWaitInput.checked,
+        require_healthy: stackHealthRequireHealthyInput.checked,
+        wait_timeout_seconds: Number.parseInt(stackHealthTimeoutInput.value, 10) || 120,
+        startup_grace_seconds: Number.parseInt(stackHealthStartupGraceInput.value, 10) || 20
+    });
+
     const openStackModal = (mode, stack = null, candidate = null) => {
         stackFormMode = mode;
         editingStackId = stack ? stack.id : null;
@@ -249,6 +431,11 @@ document.addEventListener('DOMContentLoaded', () => {
             stackComposeFileInput.value = Array.isArray(stack.compose_files) && stack.compose_files[0] ? stack.compose_files[0] : '';
             stackEnvFileInput.value = Array.isArray(stack.env_files) && stack.env_files[0] ? stack.env_files[0] : '';
             stackPathModeInput.value = stack.path_mode || 'host_native';
+            stackPathMappingsInput.value = formatPathMappings(stack.path_mappings);
+            stackProfilesInput.value = (stack.profiles || []).join(', ');
+            stackProjectEnvInput.value = formatProjectEnv(stack.project_env);
+            setUpdatePolicyFields(stack.update_policy);
+            setHealthPolicyFields(stack.health_policy);
             stackFormDiscoverySelector = stack.discovery_selector || {};
             stackFormLabels = stack.labels || {};
             stackFormProfiles = stack.profiles || [];
@@ -270,6 +457,11 @@ document.addEventListener('DOMContentLoaded', () => {
             stackComposeFileInput.value = composeGuess;
             stackEnvFileInput.value = envGuess;
             stackPathModeInput.value = isWindowsPath ? 'mapped' : 'host_native';
+            stackPathMappingsInput.value = '';
+            stackProfilesInput.value = '';
+            stackProjectEnvInput.value = '';
+            setUpdatePolicyFields(defaultUpdatePolicy());
+            setHealthPolicyFields(defaultHealthPolicy());
             stackFormDiscoverySelector = candidate ? {
                 compose_project: candidate.project,
                 service_names: candidate.services || []
@@ -284,6 +476,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         stackModal.classList.remove('hidden');
+        renderStackFormHints();
         stackNameInput.focus();
     };
 
@@ -292,6 +485,17 @@ document.addEventListener('DOMContentLoaded', () => {
         hideStackError();
         stackForm.reset();
         editingStackId = null;
+    };
+
+    const closeStackDetailsModal = () => {
+        stackDetailsModal.classList.add('hidden');
+        stackDetailsTitle.textContent = 'Stack Details';
+        stackDetailsDefinition.textContent = '';
+        stackDetailsPaths.textContent = '';
+        stackDetailsValidation.textContent = '';
+        stackDetailsContainers.textContent = '';
+        stackDetailsHistory.textContent = '';
+        activeStackDetails = null;
     };
 
     // --- Logs Modal Elements ---
@@ -327,9 +531,79 @@ document.addEventListener('DOMContentLoaded', () => {
     if (closeStackBtn) {
         closeStackBtn.addEventListener('click', closeStackModal);
     }
+    if (closeStackDetailsBtn) {
+        closeStackDetailsBtn.addEventListener('click', closeStackDetailsModal);
+    }
+    if (stackDetailsEditBtn) {
+        stackDetailsEditBtn.addEventListener('click', () => {
+            if (!activeStackDetails) return;
+            closeStackDetailsModal();
+            openStackModal('edit', activeStackDetails);
+        });
+    }
+    if (stackDetailsValidateBtn) {
+        stackDetailsValidateBtn.addEventListener('click', async () => {
+            if (!activeStackDetails) return;
+            await validateStack(activeStackDetails);
+            await openStackDetails(activeStackDetails);
+        });
+    }
+    if (stackDetailsPullBtn) {
+        stackDetailsPullBtn.addEventListener('click', async () => {
+            if (!activeStackDetails) return;
+            const stackToPull = activeStackDetails;
+            closeStackDetailsModal();
+            const stackCard = document.querySelector(`.stack-card[data-stack-id="${CSS.escape(stackToPull.id)}"]`);
+            await runStackAction(stackToPull, 'pull', stackCard);
+            await openStackDetails(stackToPull);
+        });
+    }
+    if (stackDetailsRestartBtn) {
+        stackDetailsRestartBtn.addEventListener('click', async () => {
+            if (!activeStackDetails) return;
+            const stackToRestart = activeStackDetails;
+            closeStackDetailsModal();
+            const stackCard = document.querySelector(`.stack-card[data-stack-id="${CSS.escape(stackToRestart.id)}"]`);
+            await runStackAction(stackToRestart, 'restart', stackCard);
+            await openStackDetails(stackToRestart);
+        });
+    }
+    if (stackDetailsDownBtn) {
+        stackDetailsDownBtn.addEventListener('click', async () => {
+            if (!activeStackDetails) return;
+            const stackToStop = activeStackDetails;
+            closeStackDetailsModal();
+            const stackCard = document.querySelector(`.stack-card[data-stack-id="${CSS.escape(stackToStop.id)}"]`);
+            await runStackAction(stackToStop, 'down', stackCard);
+            await openStackDetails(stackToStop);
+        });
+    }
+    if (stackDetailsDeployBtn) {
+        stackDetailsDeployBtn.addEventListener('click', async () => {
+            if (!activeStackDetails) return;
+            const stackToDeploy = activeStackDetails;
+            closeStackDetailsModal();
+            const stackCard = document.querySelector(`.stack-card[data-stack-id="${CSS.escape(stackToDeploy.id)}"]`);
+            await runStackAction(stackToDeploy, 'deploy', stackCard);
+            await openStackDetails(stackToDeploy);
+        });
+    }
+    if (stackDetailsDeleteBtn) {
+        stackDetailsDeleteBtn.addEventListener('click', async () => {
+            if (!activeStackDetails) return;
+            const stackToDelete = activeStackDetails;
+            closeStackDetailsModal();
+            await deleteStack(stackToDelete);
+        });
+    }
     if (stackCancelBtn) {
         stackCancelBtn.addEventListener('click', closeStackModal);
     }
+    [stackWorkingDirInput, stackPathModeInput, stackPathMappingsInput].forEach((element) => {
+        if (!element) return;
+        element.addEventListener('input', renderStackFormHints);
+        element.addEventListener('change', renderStackFormHints);
+    });
 
     // Close logs modal on outside click
     logsModal.addEventListener('click', (e) => {
@@ -340,6 +614,11 @@ document.addEventListener('DOMContentLoaded', () => {
     stackModal.addEventListener('click', (e) => {
         if (e.target === stackModal) {
             closeStackModal();
+        }
+    });
+    stackDetailsModal.addEventListener('click', (e) => {
+        if (e.target === stackDetailsModal) {
+            closeStackDetailsModal();
         }
     });
 
@@ -590,18 +869,22 @@ document.addEventListener('DOMContentLoaded', () => {
         stackItems.forEach((item) => {
             const stack = item.stack || item;
             const recentHistory = item.recent_history || [];
+            const statusSummary = item.status_summary || null;
             const clone = stackCardTemplate.content.cloneNode(true);
             const stackEl = clone.querySelector('.stack-card');
+            stackEl.dataset.stackId = stack.id;
             clone.querySelector('.stack-name').textContent = stack.name;
             clone.querySelector('.stack-path').textContent = stack.working_dir;
             clone.querySelector('.stack-project').textContent = `Project: ${stack.project_name}`;
             clone.querySelector('.stack-mode-badge').textContent = stack.path_mode || 'unknown';
+            applyStackStatusBadge(clone.querySelector('.stack-status-badge'), statusSummary);
 
             const composeFiles = Array.isArray(stack.compose_files) ? stack.compose_files.length : 0;
             const envFiles = Array.isArray(stack.env_files) ? stack.env_files.length : 0;
             const composeFile = composeFiles > 0 ? stack.compose_files[0] : 'none';
             const envFile = envFiles > 0 ? stack.env_files[0] : 'none';
             const metaLines = [
+                formatStackStatusSummary(statusSummary),
                 `Compose file: ${composeFile}`,
                 `Env file: ${envFile}`,
                 `Last deploy: ${stack.last_deploy_status || 'not deployed'}`
@@ -614,6 +897,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             clone.querySelector('.stack-meta').textContent = metaLines.join('\n');
 
+            clone.querySelector('.details-stack-btn').addEventListener('click', async () => {
+                await openStackDetails(stack);
+            });
             const deleteBtn = clone.querySelector('.delete-stack-btn');
             deleteBtn.classList.remove('secondary');
             deleteBtn.classList.add('danger');
@@ -627,7 +913,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 await validateStack(stack);
             });
             clone.querySelector('.deploy-stack-btn').addEventListener('click', async () => {
-                await deployStack(stack, stackEl);
+                await runStackAction(stack, 'deploy', stackEl);
             });
 
             stackListEl.appendChild(clone);
@@ -721,15 +1007,27 @@ document.addEventListener('DOMContentLoaded', () => {
             compose_files: [stackComposeFileInput.value.trim()],
             env_files: stackEnvFileInput.value.trim() ? [stackEnvFileInput.value.trim()] : [],
             working_dir: stackWorkingDirInput.value.trim(),
-            profiles: stackFormProfiles,
-            project_env: stackFormProjectEnv,
+            profiles: [],
+            project_env: {},
             path_mode: stackPathModeInput.value,
-            path_mappings: stackFormPathMappings,
-            update_policy: stackFormUpdatePolicy,
-            health_policy: stackFormHealthPolicy,
+            path_mappings: [],
+            update_policy: readUpdatePolicyFields(),
+            health_policy: readHealthPolicyFields(),
             discovery_selector: stackFormDiscoverySelector,
             labels: stackFormLabels
         };
+
+        try {
+            payload.path_mappings = parsePathMappings(stackPathMappingsInput.value.trim());
+            payload.project_env = parseProjectEnv(stackProjectEnvInput.value.trim());
+            payload.profiles = stackProfilesInput.value
+                .split(',')
+                .map((value) => value.trim())
+                .filter(Boolean);
+        } catch (parseError) {
+            showStackError(parseError.message);
+            return;
+        }
 
         const url = stackFormMode === 'edit'
             ? `/api/stacks/${encodeURIComponent(editingStackId)}`
@@ -782,6 +1080,197 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const formatStackDefinition = (stack, validation) => {
+        const lines = [
+            `Name: ${stack.name}`,
+            `Project: ${stack.project_name}`,
+            `Working directory: ${stack.working_dir}`,
+            `Path mode: ${stack.path_mode}`,
+            `Compose files: ${(stack.compose_files || []).join(', ') || 'none'}`,
+            `Env files: ${(stack.env_files || []).join(', ') || 'none'}`,
+            `Profiles: ${(stack.profiles || []).join(', ') || 'none'}`,
+            `Path mappings: ${(stack.path_mappings || []).map((mapping) => `${mapping.host_path} => ${mapping.container_path}`).join(', ') || 'none'}`,
+            `Update policy: pull=${!!stack.update_policy?.pull}, build=${!!stack.update_policy?.build}, down_before_up=${!!stack.update_policy?.down_before_up}, force_recreate=${!!stack.update_policy?.force_recreate}, remove_orphans=${!!stack.update_policy?.remove_orphans}`,
+            `Health policy: compose_wait=${!!stack.health_policy?.use_compose_wait}, require_healthy=${!!stack.health_policy?.require_healthy}, timeout=${stack.health_policy?.wait_timeout_seconds ?? 'n/a'}s, startup_grace=${stack.health_policy?.startup_grace_seconds ?? 'n/a'}s`,
+            `Last deploy: ${stack.last_deploy_status || 'not deployed'}`
+        ];
+        if (validation && Array.isArray(validation.warnings) && validation.warnings.length > 0) {
+            lines.push(`Warnings: ${validation.warnings.join('; ')}`);
+        }
+        return lines.join('\n');
+    };
+
+    const formatStackStatusSummary = (summary) => {
+        if (!summary) {
+            return 'Status: unknown';
+        }
+
+        return [
+            `Status: ${summary.state || 'unknown'}`,
+            summary.message || 'No stack status details available.',
+            `Containers: ${summary.running || 0}/${summary.total || 0} running`,
+            `Health: ${summary.healthy || 0} healthy, ${summary.unhealthy || 0} unhealthy, ${summary.degraded || 0} starting, ${summary.stopped || 0} stopped`
+        ].join('\n');
+    };
+
+    const applyStackStatusBadge = (element, summary) => {
+        if (!element) return;
+
+        const state = summary?.state || 'unknown';
+        element.textContent = state;
+        element.className = 'stack-status-badge';
+        element.classList.add(`status-${state}`);
+    };
+
+    const renderStackHistoryEntries = (entries) => {
+        if (!Array.isArray(entries) || entries.length === 0) {
+            stackDetailsHistory.textContent = 'No history recorded yet.';
+            return;
+        }
+
+        stackDetailsHistory.innerHTML = '';
+        entries.forEach((entry) => {
+            const item = document.createElement('div');
+            item.className = 'stack-history-entry';
+
+            const headline = document.createElement('div');
+            headline.className = `stack-history-status ${entry.status || ''}`;
+            headline.textContent = `${entry.action} ${entry.status}`;
+
+            const message = document.createElement('div');
+            message.textContent = entry.message || 'No details';
+
+            const timestamp = document.createElement('div');
+            timestamp.className = 'stack-history-time';
+            timestamp.textContent = new Date(entry.created_at).toLocaleString();
+
+            item.appendChild(headline);
+            item.appendChild(message);
+
+            if (Array.isArray(entry.details) && entry.details.length > 0) {
+                const details = document.createElement('pre');
+                details.className = 'stack-history-details';
+                details.textContent = entry.details.join('\n');
+                item.appendChild(details);
+            }
+
+            item.appendChild(timestamp);
+            stackDetailsHistory.appendChild(item);
+        });
+    };
+
+    const renderStackContainers = (containers) => {
+        if (!Array.isArray(containers) || containers.length === 0) {
+            stackDetailsContainers.textContent = 'No associated containers found.';
+            return;
+        }
+
+        stackDetailsContainers.innerHTML = '';
+        containers.forEach((container) => {
+            const item = document.createElement('div');
+            item.className = 'stack-history-entry';
+
+            const name = document.createElement('div');
+            name.textContent = `${container.name || 'unknown'} (${container.service || 'unknown service'})`;
+
+            const state = document.createElement('div');
+            state.className = 'stack-history-time';
+            state.textContent = `${container.state || 'unknown'} - ${container.status || 'no status'}${container.health ? ` - health:${container.health}` : ''}`;
+
+            const actions = document.createElement('div');
+            actions.className = 'stack-container-actions';
+
+            if (container.name) {
+                const logsBtn = document.createElement('button');
+                logsBtn.type = 'button';
+                logsBtn.className = 'btn secondary small';
+                logsBtn.textContent = 'Logs';
+                logsBtn.addEventListener('click', () => openLogsModal(container.name));
+                actions.appendChild(logsBtn);
+            }
+
+            item.appendChild(name);
+            item.appendChild(state);
+            item.appendChild(actions);
+            stackDetailsContainers.appendChild(item);
+        });
+    };
+
+    const formatResolvedPaths = (resolvedPaths) => {
+        if (!resolvedPaths) {
+            return 'No resolved path data available.';
+        }
+
+        const lines = [
+            `Host working directory: ${resolvedPaths.working_dir || 'unknown'}`,
+            `Runtime working directory: ${resolvedPaths.runtime_working_dir || 'unknown'}`
+        ];
+
+        const composeFiles = resolvedPaths.compose_files || [];
+        composeFiles.forEach((entry, index) => {
+            lines.push(`Compose file ${index + 1}:`);
+            lines.push(`  Host: ${entry.host}`);
+            lines.push(`  Runtime: ${entry.runtime}`);
+        });
+
+        const envFiles = resolvedPaths.env_files || [];
+        envFiles.forEach((entry, index) => {
+            lines.push(`Env file ${index + 1}:`);
+            lines.push(`  Host: ${entry.host}`);
+            lines.push(`  Runtime: ${entry.runtime}`);
+        });
+
+        return lines.join('\n');
+    };
+
+    const openStackDetails = async (stack) => {
+        try {
+            const [detailResponse, historyResponse] = await Promise.all([
+                fetch(`/api/stacks/${encodeURIComponent(stack.id)}`, { headers: getAuthHeaders() }),
+                fetch(`/api/stacks/${encodeURIComponent(stack.id)}/history`, { headers: getAuthHeaders() })
+            ]);
+
+            const detailData = await detailResponse.json();
+            const historyData = await historyResponse.json();
+
+            if (!detailResponse.ok) {
+                throw new Error(detailData.error || 'Failed to fetch stack details');
+            }
+            if (!historyResponse.ok) {
+                throw new Error(historyData.error || 'Failed to fetch stack history');
+            }
+
+            activeStackDetails = detailData.stack;
+            stackDetailsTitle.textContent = `Stack Details: ${detailData.stack.name}`;
+            stackDetailsDefinition.textContent = `${formatStackStatusSummary(detailData.status_summary)}\n\n${formatStackDefinition(detailData.stack, detailData.validation)}`;
+            stackDetailsPaths.textContent = formatResolvedPaths(detailData.resolved_paths);
+
+            if (detailData.validation) {
+                if (detailData.validation.valid) {
+                    const warnings = (detailData.validation.warnings || []).join('\n');
+                    stackDetailsValidation.textContent = warnings
+                        ? `Validation status: valid\nWarnings:\n${warnings}`
+                        : 'Validation status: valid';
+                } else {
+                    const issues = (detailData.validation.issues || []).join('\n') || 'Unknown validation error';
+                    const warnings = (detailData.validation.warnings || []).join('\n');
+                    stackDetailsValidation.textContent = warnings
+                        ? `Validation status: invalid\n${issues}\n\nWarnings:\n${warnings}`
+                        : `Validation status: invalid\n${issues}`;
+                }
+            } else {
+                stackDetailsValidation.textContent = 'No validation data available.';
+            }
+
+            renderStackContainers(detailData.containers || []);
+            renderStackHistoryEntries(historyData.entries || []);
+            stackDetailsModal.classList.remove('hidden');
+        } catch (error) {
+            console.error('Failed to open stack details', error);
+            alert(`Failed to load stack details: ${error.message}`);
+        }
+    };
+
     const deleteStack = async (stack) => {
         if (!confirm(`Delete registered stack ${stack.name}? This will remove the registration only.`)) {
             return;
@@ -830,16 +1319,47 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    const deployStack = async (stack, stackEl) => {
-        if (!confirm(`Deploy registered stack ${stack.name}?`)) {
+    const stackActionLabels = {
+        deploy: 'deploy',
+        pull: 'pull images for',
+        restart: 'restart',
+        down: 'bring down'
+    };
+
+    const stackProgressMessages = {
+        deploy: {
+            start: 'Starting stack deployment...',
+            success: 'Deployment completed successfully.',
+            failure: 'Deployment failed'
+        },
+        pull: {
+            start: 'Starting stack image pull...',
+            success: 'Image pull completed successfully.',
+            failure: 'Image pull failed'
+        },
+        restart: {
+            start: 'Starting stack restart...',
+            success: 'Restart completed successfully.',
+            failure: 'Restart failed'
+        },
+        down: {
+            start: 'Starting stack shutdown...',
+            success: 'Stack is down.',
+            failure: 'Shutdown failed'
+        }
+    };
+
+    const runStackAction = async (stack, action, stackEl) => {
+        const actionLabel = stackActionLabels[action] || action;
+        if (!confirm(`Are you sure you want to ${actionLabel} stack ${stack.name}?`)) {
             return;
         }
 
         try {
             setStackButtonsDisabled(stackEl, true);
-            setStackProgress(stackEl, 'Starting stack deployment...');
+            setStackProgress(stackEl, stackProgressMessages[action]?.start || 'Starting stack action...');
 
-            const response = await fetch(`/api/stacks/${encodeURIComponent(stack.id)}/deploy`, {
+            const response = await fetch(`/api/stacks/${encodeURIComponent(stack.id)}/${encodeURIComponent(action)}`, {
                 method: 'POST',
                 headers: getAuthHeaders()
             });
@@ -873,13 +1393,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     try {
                         const data = JSON.parse(jsonStr);
                         if (data.type === 'start') {
-                            setStackProgress(stackEl, data.message || 'Starting stack deployment...');
+                            setStackProgress(stackEl, data.message || stackProgressMessages[action]?.start || 'Starting stack action...');
                         } else if (data.type === 'progress') {
                             setStackProgress(stackEl, data.status || 'Working...');
                         } else if (data.type === 'error') {
-                            setStackProgress(stackEl, data.error || 'Deployment failed.', 'error');
+                            setStackProgress(stackEl, data.error || stackProgressMessages[action]?.failure || 'Stack action failed.', 'error');
                         } else if (data.type === 'done') {
-                            setStackProgress(stackEl, 'Deployment completed successfully.', 'success');
+                            setStackProgress(stackEl, stackProgressMessages[action]?.success || 'Stack action completed successfully.', 'success');
                         }
                     } catch (e) {
                         console.error('Failed to parse stack deploy event', e);
@@ -889,8 +1409,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             await Promise.all([fetchStacks(), fetchContainers(false)]);
         } catch (error) {
-            console.error('Failed to deploy stack', error);
-            setStackProgress(stackEl, `Deployment failed: ${error.message}`, 'error');
+            console.error(`Failed to ${action} stack`, error);
+            setStackProgress(stackEl, `${stackProgressMessages[action]?.failure || 'Stack action failed'}: ${error.message}`, 'error');
             await fetchStacks();
         } finally {
             setStackButtonsDisabled(stackEl, false);
@@ -988,12 +1508,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     const startBtn = menuDropdown.querySelector('[data-action="start"]');
                     const stopBtn = menuDropdown.querySelector('[data-action="stop"]');
                     const restartBtn = menuDropdown.querySelector('[data-action="restart"]');
+                    const viewStackBtn = menuDropdown.querySelector('[data-action="view-stack"]');
 
                     if (container.state === 'running') {
                         startBtn.disabled = true;
                     } else if (container.state === 'exited' || container.state === 'created' || container.state === 'dead') {
                         stopBtn.disabled = true;
                         restartBtn.disabled = true;
+                    }
+
+                    if (viewStackBtn && container.stack_registered && container.stack_id) {
+                        viewStackBtn.classList.remove('hidden');
                     }
 
                     menuDropdown.querySelectorAll('.menu-action-btn').forEach(btn => {
@@ -1004,6 +1529,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             const action = e.target.dataset.action;
                             if (action === 'logs') {
                                 openLogsModal(container.name);
+                            } else if (action === 'view-stack' && container.stack_id) {
+                                await openStackDetails({
+                                    id: container.stack_id,
+                                    name: container.stack_name || container.compose_project
+                                });
                             } else {
                                 await handleContainerAction(container.name, action, containerEl);
                             }

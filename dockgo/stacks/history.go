@@ -17,6 +17,7 @@ type HistoryEntry struct {
 	Action    string    `json:"action"`
 	Status    string    `json:"status"`
 	Message   string    `json:"message,omitempty"`
+	Details   []string  `json:"details,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
