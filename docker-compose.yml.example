@@ -16,8 +16,13 @@ services:
       - .env
 
     # environment:
-      # Required if DockGo's internal volume mount differs from the host path.
-      # Format: HOST_PATH:CONTAINER_PATH
+      # Only set COMPOSE_PATH_MAPPING when DockGo sees Compose projects at a
+      # different path than the Docker host.
+      #
+      # Windows example:
+      # - COMPOSE_PATH_MAPPING=D:\Docker:/compose
+      #
+      # Linux example only if you intentionally mount to a different internal path:
       # - COMPOSE_PATH_MAPPING=/home/user/docker:/compose
 
     volumes:
@@ -28,8 +33,15 @@ services:
       # Required: Persistent data (sessions, cache, etc.)
       - ./data:/app/data
 
-      # Required for Compose: Mount host compose directories for path mapping
+      # Compose stacks on Linux: prefer mounting the compose root at the exact
+      # same absolute path as the host, then use "Host Native" in DockGo.
+      # - /home/user/docker:/home/user/docker
+
+      # Compose stacks on Windows, or any setup where DockGo sees a different
+      # path than the host: mount to an internal path and use "Mapped" in DockGo
+      # together with COMPOSE_PATH_MAPPING.
       # - /home/user/docker:/compose
+      # - D:\Docker:/compose
       
   ########################################
   # Optional: Apprise API Container

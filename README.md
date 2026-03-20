@@ -114,7 +114,7 @@ Configure DockGo using environment variables:
 | `DOCKGO_STABILITY_WINDOW` | Stability monitoring window in seconds post-healthcheck. | `20` |
 | `CORS_ORIGIN` | Allowed Origin for CORS (e.g. `https://mydomain.com`) | *(disabled)* |
 | `ALLOWED_COMPOSE_PATHS` | Comma-separated list of allowed base paths for Compose working directories (e.g., `/opt/docker,/srv/compose`) | *(empty)* |
-| `COMPOSE_PATH_MAPPING` | Comma-separated map of host paths to container paths (e.g. `/home/user/docker:/compose`) to resolve mount isolation. | *(empty)* |
+| `COMPOSE_PATH_MAPPING` | Comma-separated map of host paths to container paths (e.g. `D:\Docker:/compose` or `/home/user/docker:/compose`) when DockGo sees Compose projects at a different path than the host. | *(empty)* |
 | `SESSION_STORE_PATH` | Path to session persistence file | `/app/data/sessions.json` |
 | `LOG_FILE_PATH` | Path to write persistent rotating logs (e.g., `/app/data/logs/dockgo.log`) | *(Stdout only)* |
 | `LOG_MAX_SIZE` | Maximum size in MB before a log file is rotated | `10` |
@@ -152,9 +152,52 @@ services:
       - AUTH_PASSWORD_HASH=$$2a$$10$$YOUR_GENERATED_HASH_HERE
       # Optional: Restrict updates to specific Compose directories
       - ALLOWED_COMPOSE_PATHS=/opt/docker,/srv/compose
-      # Optional: Map Windows host paths to container paths for Compose
+      # Optional: Map host paths when DockGo sees Compose projects at a
+      # different path than the Docker host (common on Windows).
       # - COMPOSE_PATH_MAPPING=D:\Docker:/compose
 ```
+
+### Compose Stacks: Linux vs Windows
+
+If you want reliable Compose stack updates from the DockGo container, the mount layout matters.
+
+#### Linux: prefer same-path mounts and `Host Native`
+
+On Linux, the recommended setup is to mount the Compose root into DockGo at the exact same absolute path as the host:
+
+```yaml
+volumes:
+  - /var/run/docker.sock:/var/run/docker.sock
+  - ./data:/app/data
+  - /home/johan/docker:/home/johan/docker
+```
+
+With that setup:
+- do **not** set `COMPOSE_PATH_MAPPING`
+- register Linux stacks as `Host Native`
+
+This is the most reliable option because DockGo and the Docker host resolve paths the same way, including relative bind mounts like `./app_data`.
+
+#### Windows, or any different mount path: use `Mapped`
+
+If DockGo sees the Compose project at a different path than the host, use a path mapping instead. This is the normal setup on Windows with a Linux DockGo container:
+
+```yaml
+volumes:
+  - /var/run/docker.sock:/var/run/docker.sock
+  - ./data:/app/data
+  - D:\Docker:/compose
+```
+
+```env
+COMPOSE_PATH_MAPPING=D:\Docker:/compose
+```
+
+With that setup:
+- register those stacks as `Mapped`
+- keep the canonical stack paths as host paths like `D:\Docker\bazarr`
+
+You can also use `Mapped` on Linux if you deliberately mount the Compose root to a different internal path such as `/compose`, but `Host Native` is preferred on Linux whenever possible.
 
 ---
 
