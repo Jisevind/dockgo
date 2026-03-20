@@ -420,7 +420,7 @@ func (s *Server) suggestEnvFile(workingDir string) string {
 	if discoveryPathExists(envPath) {
 		return envPath
 	}
-	return envPath
+	return ""
 }
 
 func joinPathForDiscovery(basePath string, leaf string) string {

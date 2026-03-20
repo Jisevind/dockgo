@@ -62,6 +62,17 @@ func TestSuggestEnvFileReturnsEnvPath(t *testing.T) {
 	}
 }
 
+func TestSuggestEnvFileReturnsEmptyWhenMissing(t *testing.T) {
+	tempDir := t.TempDir()
+
+	srv := &Server{}
+	got := srv.suggestEnvFile(tempDir)
+
+	if got != "" {
+		t.Fatalf("suggestEnvFile() = %q, want empty string", got)
+	}
+}
+
 func TestCompareStackRuntimeStateWarnsOnWorkingDirMismatch(t *testing.T) {
 	warnings := compareStackRuntimeState(
 		`D:\Docker\bazarr`,
