@@ -503,7 +503,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 ? (candidate.suggested_compose_file || (workingDir ? joinDiscoveredPath(workingDir, 'docker-compose.yml') : ''))
                 : '';
             const envGuess = candidate
-                ? (candidate.suggested_env_file || (workingDir ? joinDiscoveredPath(workingDir, '.env') : ''))
+                ? (candidate.suggested_env_file || '')
                 : '';
             const isWindowsPath = /^[a-zA-Z]:\\/.test(workingDir) || workingDir.includes('\\');
 
@@ -998,7 +998,7 @@ document.addEventListener('DOMContentLoaded', () => {
             stateBadge.classList.add(candidate.registered ? 'registered' : 'unregistered');
 
             const composeFileGuess = candidate.suggested_compose_file || (candidate.working_dir ? joinDiscoveredPath(candidate.working_dir, 'docker-compose.yml') : '');
-            const envFileGuess = candidate.suggested_env_file || (candidate.working_dir ? joinDiscoveredPath(candidate.working_dir, '.env') : '');
+            const envFileGuess = candidate.suggested_env_file || '';
             const metaLines = [
                 `Suggested compose file: ${composeFileGuess || 'unknown'}`,
                 `Suggested env file: ${envFileGuess || 'none'}`,
