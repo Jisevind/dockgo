@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -33,11 +34,12 @@ type stackPayload struct {
 }
 
 type stackDetailResponse struct {
-	Stack         stacks.Stack             `json:"stack"`
-	Validation    *stacks.ValidationResult `json:"validation,omitempty"`
-	ResolvedPaths map[string]any           `json:"resolved_paths,omitempty"`
-	Containers    []map[string]string      `json:"containers,omitempty"`
-	StatusSummary map[string]any           `json:"status_summary,omitempty"`
+	Stack          stacks.Stack             `json:"stack"`
+	Validation     *stacks.ValidationResult `json:"validation,omitempty"`
+	ResolvedPaths  map[string]any           `json:"resolved_paths,omitempty"`
+	Containers     []map[string]string      `json:"containers,omitempty"`
+	StatusSummary  map[string]any           `json:"status_summary,omitempty"`
+	HistorySummary *stacks.HistorySummary   `json:"history_summary,omitempty"`
 }
 
 func (s *Server) handleStacks(w http.ResponseWriter, r *http.Request) {
@@ -45,16 +47,18 @@ func (s *Server) handleStacks(w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		stackList := s.StackStore.List()
 		type stackListItem struct {
-			Stack         stacks.Stack          `json:"stack"`
-			RecentHistory []stacks.HistoryEntry `json:"recent_history"`
-			StatusSummary map[string]any        `json:"status_summary,omitempty"`
+			Stack          stacks.Stack          `json:"stack"`
+			RecentHistory  []stacks.HistoryEntry `json:"recent_history"`
+			StatusSummary  map[string]any        `json:"status_summary,omitempty"`
+			HistorySummary stacks.HistorySummary `json:"history_summary"`
 		}
 		items := make([]stackListItem, 0, len(stackList))
 		for _, stack := range stackList {
 			items = append(items, stackListItem{
-				Stack:         stack,
-				RecentHistory: s.StackHistory.ListByStack(stack.ID, 3),
-				StatusSummary: s.stackStatusSummary(r.Context(), stack),
+				Stack:          stack,
+				RecentHistory:  s.StackHistory.ListByStack(stack.ID, 3),
+				StatusSummary:  s.stackStatusSummary(r.Context(), stack),
+				HistorySummary: s.StackHistory.SummarizeByStack(stack.ID),
 			})
 		}
 		writeJSON(w, http.StatusOK, map[string]any{
@@ -68,7 +72,7 @@ func (s *Server) handleStacks(w http.ResponseWriter, r *http.Request) {
 		}
 
 		stack := stackFromPayload(stacks.Stack{}, payload)
-		validation := stacks.Validate(context.Background(), stack)
+		validation := s.validateStackWithRuntime(context.Background(), stack)
 		if !validation.Valid {
 			writeJSON(w, http.StatusBadRequest, map[string]any{
 				"error":      "stack validation failed",
@@ -123,9 +127,10 @@ func (s *Server) handleStackByID(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			associatedContainers := s.stackAssociatedContainers(r.Context(), stack)
+			validation := s.validateStackWithRuntime(r.Context(), stack)
 			writeJSON(w, http.StatusOK, stackDetailResponse{
 				Stack:      stack,
-				Validation: validationPtr(stacks.Validate(context.Background(), stack)),
+				Validation: validationPtr(validation),
 				ResolvedPaths: map[string]any{
 					"working_dir":         stack.WorkingDir,
 					"runtime_working_dir": stacks.ResolvePathForRuntime(stack, stack.WorkingDir),
@@ -136,8 +141,9 @@ func (s *Server) handleStackByID(w http.ResponseWriter, r *http.Request) {
 						return stacks.ResolvePathForRuntime(stack, path)
 					}),
 				},
-				Containers:    associatedContainers,
-				StatusSummary: s.stackStatusSummary(r.Context(), stack),
+				Containers:     associatedContainers,
+				StatusSummary:  s.stackStatusSummary(r.Context(), stack),
+				HistorySummary: validationHistorySummary(s.StackHistory, stack.ID),
 			})
 		case http.MethodPut:
 			var payload stackPayload
@@ -147,7 +153,7 @@ func (s *Server) handleStackByID(w http.ResponseWriter, r *http.Request) {
 			}
 
 			updatedInput := stackFromPayload(stack, payload)
-			validation := stacks.Validate(context.Background(), updatedInput)
+			validation := s.validateStackWithRuntime(context.Background(), updatedInput)
 			if !validation.Valid {
 				writeJSON(w, http.StatusBadRequest, map[string]any{
 					"error":      "stack validation failed",
@@ -189,7 +195,7 @@ func (s *Server) handleStackByID(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 		defer cancel()
 
-		result := stacks.Validate(ctx, stack)
+		result := s.validateStackWithRuntime(ctx, stack)
 		if result.Valid {
 			s.recordStackHistory(stack, "validate", "success", "stack validation passed")
 		} else {
@@ -224,8 +230,19 @@ func (s *Server) handleStackByID(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
+		limit := 20
+		if rawLimit := strings.TrimSpace(r.URL.Query().Get("limit")); rawLimit != "" {
+			if parsed, err := strconv.Atoi(rawLimit); err == nil && parsed > 0 {
+				limit = parsed
+			}
+		}
 		writeJSON(w, http.StatusOK, map[string]any{
-			"entries": s.StackHistory.ListByStack(stack.ID, 20),
+			"entries": s.StackHistory.ListByStackFiltered(stack.ID, stacks.HistoryFilter{
+				Action: strings.TrimSpace(r.URL.Query().Get("action")),
+				Status: strings.TrimSpace(r.URL.Query().Get("status")),
+				Source: strings.TrimSpace(r.URL.Query().Get("source")),
+				Limit:  limit,
+			}),
 		})
 		return
 	}
@@ -335,6 +352,14 @@ func validationPtr(result stacks.ValidationResult) *stacks.ValidationResult {
 	return &result
 }
 
+func validationHistorySummary(store *stacks.HistoryStore, stackID string) *stacks.HistorySummary {
+	if store == nil {
+		return nil
+	}
+	summary := store.SummarizeByStack(stackID)
+	return &summary
+}
+
 func contains(values []string, target string) bool {
 	for _, value := range values {
 		if value == target {
@@ -349,6 +374,13 @@ func firstOrEmpty(values []string) string {
 		return ""
 	}
 	return values[0]
+}
+
+func normalizeComparePath(path string) string {
+	path = strings.TrimSpace(path)
+	path = strings.ReplaceAll(path, "\\", "/")
+	path = strings.TrimRight(path, "/")
+	return strings.ToLower(path)
 }
 
 func (s *Server) suggestComposeFile(workingDir string) string {
@@ -485,7 +517,7 @@ func (s *Server) handleStackActionStream(
 		flusher.Flush()
 	}
 
-	err := s.executeStackAction(ctx, stack, action, run, func(line string) {
+	err := s.executeStackAction(ctx, stack, action, "stacks_view", run, func(line string) {
 		emit(map[string]any{
 			"type":   "progress",
 			"status": line,
@@ -515,9 +547,11 @@ func (s *Server) executeStackAction(
 	ctx context.Context,
 	stack stacks.Stack,
 	action string,
+	source string,
 	run func(context.Context, stacks.Stack, stacks.Logger) error,
 	onLine func(string),
 ) error {
+	startedAt := time.Now().UTC()
 	lines := make([]string, 0, 50)
 	logger := func(line string) {
 		if len(lines) < 50 {
@@ -529,38 +563,147 @@ func (s *Server) executeStackAction(
 	}
 
 	err := run(ctx, stack, logger)
+	completedAt := time.Now().UTC()
 	if err != nil {
 		if action == "deploy" && s.StackStore != nil {
 			_ = s.StackStore.RecordDeployStatus(stack.ID, "error", time.Now().UTC())
 		}
-		s.recordStackHistory(stack, action, "error", err.Error(), lines)
+		s.recordStackHistoryEntry(stacks.HistoryEntry{
+			StackID:     stack.ID,
+			StackName:   stack.Name,
+			Action:      action,
+			Status:      "error",
+			Source:      source,
+			Message:     err.Error(),
+			Details:     lines,
+			StartedAt:   startedAt,
+			CompletedAt: completedAt,
+		})
 		return err
 	}
 
 	if action == "deploy" && s.StackStore != nil {
 		_ = s.StackStore.RecordDeployStatus(stack.ID, "success", time.Now().UTC())
 	}
-	s.recordStackHistory(stack, action, "success", fmt.Sprintf("stack %s completed", action), lines)
+	s.recordStackHistoryEntry(stacks.HistoryEntry{
+		StackID:     stack.ID,
+		StackName:   stack.Name,
+		Action:      action,
+		Status:      "success",
+		Source:      source,
+		Message:     fmt.Sprintf("stack %s completed", action),
+		Details:     lines,
+		StartedAt:   startedAt,
+		CompletedAt: completedAt,
+	})
 	return nil
 }
 
-func (s *Server) recordStackHistory(stack stacks.Stack, action string, status string, message string, details ...[]string) {
-	if s.StackHistory == nil {
-		return
+func (s *Server) validateStackWithRuntime(ctx context.Context, stack stacks.Stack) stacks.ValidationResult {
+	result := stacks.Validate(ctx, stack)
+	result.Warnings = append(result.Warnings, s.stackDriftWarnings(ctx, stack)...)
+	return result
+}
+
+func (s *Server) stackDriftWarnings(ctx context.Context, stack stacks.Stack) []string {
+	if s.Discovery == nil {
+		return nil
 	}
 
+	project := stack.Discovery.ComposeProject
+	if project == "" {
+		project = stack.ProjectName
+	}
+	if project == "" {
+		return nil
+	}
+
+	containers, err := s.Discovery.ListContainers(ctx)
+	if err != nil {
+		return []string{fmt.Sprintf("runtime drift check failed to list containers: %v", err)}
+	}
+
+	runtimeServices := make(map[string]struct{})
+	runtimeWorkingDirs := make(map[string]struct{})
+	for _, c := range containers {
+		if c.Labels["com.docker.compose.project"] != project {
+			continue
+		}
+		if service := strings.TrimSpace(c.Labels["com.docker.compose.service"]); service != "" {
+			runtimeServices[service] = struct{}{}
+		}
+		if workingDir := strings.TrimSpace(c.Labels["com.docker.compose.project.working_dir"]); workingDir != "" {
+			runtimeWorkingDirs[normalizeComparePath(workingDir)] = struct{}{}
+		}
+	}
+
+	if len(runtimeServices) == 0 && len(runtimeWorkingDirs) == 0 {
+		return nil
+	}
+
+	warnings := make([]string, 0)
+
+	if len(runtimeWorkingDirs) > 1 {
+		warnings = append(warnings, "runtime compose project reports multiple working directories; project labels may be inconsistent")
+	} else if len(runtimeWorkingDirs) == 1 {
+		for runtimeWorkingDir := range runtimeWorkingDirs {
+			if runtimeWorkingDir != normalizeComparePath(stack.WorkingDir) {
+				warnings = append(warnings, fmt.Sprintf("runtime working directory differs from registered stack: %s", stack.WorkingDir))
+			}
+		}
+	}
+
+	savedServices, err := stacks.ResolvedComposeServices(ctx, stack)
+	if err != nil {
+		warnings = append(warnings, fmt.Sprintf("runtime drift check could not resolve saved compose services: %v", err))
+		return warnings
+	}
+
+	if len(savedServices) == 0 || len(runtimeServices) == 0 {
+		return warnings
+	}
+
+	savedServiceSet := make(map[string]struct{}, len(savedServices))
+	for _, service := range savedServices {
+		savedServiceSet[strings.TrimSpace(service)] = struct{}{}
+	}
+
+	for runtimeService := range runtimeServices {
+		if _, ok := savedServiceSet[runtimeService]; !ok {
+			warnings = append(warnings, fmt.Sprintf("runtime service '%s' is not present in the saved compose config", runtimeService))
+		}
+	}
+
+	for _, savedService := range savedServices {
+		if _, ok := runtimeServices[savedService]; !ok {
+			warnings = append(warnings, fmt.Sprintf("saved compose service '%s' is not present among current runtime containers", savedService))
+		}
+	}
+
+	return warnings
+}
+
+func (s *Server) recordStackHistory(stack stacks.Stack, action string, status string, message string, details ...[]string) {
 	var detailLines []string
 	if len(details) > 0 {
 		detailLines = details[0]
 	}
-	_ = s.StackHistory.Append(stacks.HistoryEntry{
+	s.recordStackHistoryEntry(stacks.HistoryEntry{
 		StackID:   stack.ID,
 		StackName: stack.Name,
 		Action:    action,
 		Status:    status,
+		Source:    "system",
 		Message:   message,
 		Details:   detailLines,
 	})
+}
+
+func (s *Server) recordStackHistoryEntry(entry stacks.HistoryEntry) {
+	if s.StackHistory == nil {
+		return
+	}
+	_ = s.StackHistory.Append(entry)
 }
 
 func (s *Server) stackAssociatedContainers(ctx context.Context, stack stacks.Stack) []map[string]string {

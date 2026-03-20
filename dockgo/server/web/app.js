@@ -593,8 +593,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (stackDetailsEditBtn) {
         stackDetailsEditBtn.addEventListener('click', () => {
             if (!activeStackDetails) return;
+            const stackToEdit = activeStackDetails;
             closeStackDetailsModal();
-            openStackModal('edit', activeStackDetails);
+            openStackModal('edit', stackToEdit);
         });
     }
     if (stackDetailsValidateBtn) {

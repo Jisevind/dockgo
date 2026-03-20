@@ -1339,7 +1339,7 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 				})
 			}
 
-			err = s.executeStackAction(ctx, stack, "deploy", stacks.Deploy, deployLogger)
+			err = s.executeStackAction(ctx, stack, "deploy", "dashboard_update", stacks.Deploy, deployLogger)
 		} else {
 			serverLog.Debug("No registered stack match found, using legacy compose update path",
 				logger.String("container", name),
