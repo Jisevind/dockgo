@@ -13,6 +13,8 @@ import (
 	"testing"
 
 	"dockgo/stacks"
+
+	"github.com/docker/docker/api/types"
 )
 
 func TestSuggestComposeFilePrefersComposeYamlVariants(t *testing.T) {
@@ -360,6 +362,135 @@ func TestHandleStackByIDValidateRecordsInvalidResultHistory(t *testing.T) {
 	}
 	if len(history[0].Details) == 0 {
 		t.Fatalf("validate history details empty, want validation issues")
+	}
+}
+
+func TestBuildStackDiscoverCandidatesMarksExactMatchRegistered(t *testing.T) {
+	tempDir := t.TempDir()
+	store, err := stacks.NewStore(filepath.Join(tempDir, "stacks.json"))
+	if err != nil {
+		t.Fatalf("NewStore() error = %v", err)
+	}
+
+	_, err = store.Save(stacks.Stack{
+		Name:         "bazarr",
+		ProjectName:  "media",
+		WorkingDir:   `D:\Docker\bazarr`,
+		ComposeFiles: []string{filepath.Join(tempDir, "compose.yaml")},
+		PathMode:     stacks.PathModeMapped,
+		Discovery: stacks.DiscoverySelector{
+			ComposeProject: "media",
+			ServiceNames:   []string{"bazarr"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	candidates := buildStackDiscoverCandidates([]types.Container{
+		{
+			Labels: map[string]string{
+				"com.docker.compose.project":             "media",
+				"com.docker.compose.project.working_dir": `D:\Docker\bazarr`,
+				"com.docker.compose.service":             "bazarr",
+			},
+		},
+	}, store, func(dir string) string { return dir + `/compose.yaml` }, func(dir string) string { return dir + `/.env` })
+
+	if len(candidates) != 1 {
+		t.Fatalf("candidates len = %d, want 1", len(candidates))
+	}
+	if !candidates[0].Registered {
+		t.Fatalf("candidate = %+v, want registered", candidates[0])
+	}
+}
+
+func TestBuildStackDiscoverCandidatesFailsClosedOnAmbiguousProject(t *testing.T) {
+	tempDir := t.TempDir()
+	store, err := stacks.NewStore(filepath.Join(tempDir, "stacks.json"))
+	if err != nil {
+		t.Fatalf("NewStore() error = %v", err)
+	}
+
+	for _, workingDir := range []string{`D:\Docker\app-a`, `D:\Docker\app-b`} {
+		_, err = store.Save(stacks.Stack{
+			Name:         filepath.Base(workingDir),
+			ProjectName:  "shared",
+			WorkingDir:   workingDir,
+			ComposeFiles: []string{filepath.Join(tempDir, "compose.yaml")},
+			PathMode:     stacks.PathModeMapped,
+			Discovery: stacks.DiscoverySelector{
+				ComposeProject: "shared",
+			},
+		})
+		if err != nil {
+			t.Fatalf("Save() error = %v", err)
+		}
+	}
+
+	candidates := buildStackDiscoverCandidates([]types.Container{
+		{
+			Labels: map[string]string{
+				"com.docker.compose.project":             "shared",
+				"com.docker.compose.project.working_dir": `D:\Docker\unknown`,
+				"com.docker.compose.service":             "web",
+			},
+		},
+	}, store, func(dir string) string { return dir + `/compose.yaml` }, func(dir string) string { return dir + `/.env` })
+
+	if len(candidates) != 1 {
+		t.Fatalf("candidates len = %d, want 1", len(candidates))
+	}
+	if candidates[0].Registered {
+		t.Fatalf("candidate = %+v, want unregistered due to ambiguity", candidates[0])
+	}
+}
+
+func TestBuildStackDiscoverCandidatesUsesServiceTieBreakWhenAvailable(t *testing.T) {
+	tempDir := t.TempDir()
+	store, err := stacks.NewStore(filepath.Join(tempDir, "stacks.json"))
+	if err != nil {
+		t.Fatalf("NewStore() error = %v", err)
+	}
+
+	for _, tc := range []struct {
+		name    string
+		service string
+	}{
+		{name: "radarr", service: "radarr"},
+		{name: "sonarr", service: "sonarr"},
+	} {
+		_, err = store.Save(stacks.Stack{
+			Name:         tc.name,
+			ProjectName:  "media",
+			WorkingDir:   `D:\Docker\shared`,
+			ComposeFiles: []string{filepath.Join(tempDir, tc.name+".yaml")},
+			PathMode:     stacks.PathModeMapped,
+			Discovery: stacks.DiscoverySelector{
+				ComposeProject: "media",
+				ServiceNames:   []string{tc.service},
+			},
+		})
+		if err != nil {
+			t.Fatalf("Save() error = %v", err)
+		}
+	}
+
+	candidates := buildStackDiscoverCandidates([]types.Container{
+		{
+			Labels: map[string]string{
+				"com.docker.compose.project":             "media",
+				"com.docker.compose.project.working_dir": `D:\Docker\shared`,
+				"com.docker.compose.service":             "sonarr",
+			},
+		},
+	}, store, func(dir string) string { return dir + `/compose.yaml` }, func(dir string) string { return dir + `/.env` })
+
+	if len(candidates) != 1 {
+		t.Fatalf("candidates len = %d, want 1", len(candidates))
+	}
+	if !candidates[0].Registered {
+		t.Fatalf("candidate = %+v, want registered via service tie-break", candidates[0])
 	}
 }
 

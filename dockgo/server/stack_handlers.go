@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"dockgo/stacks"
+
+	"github.com/docker/docker/api/types"
 )
 
 type stackPayload struct {
@@ -40,6 +42,15 @@ type stackDetailResponse struct {
 	Containers     []map[string]string      `json:"containers,omitempty"`
 	StatusSummary  map[string]any           `json:"status_summary,omitempty"`
 	HistorySummary *stacks.HistorySummary   `json:"history_summary,omitempty"`
+}
+
+type stackDiscoverCandidate struct {
+	Project              string   `json:"project"`
+	WorkingDir           string   `json:"working_dir"`
+	Services             []string `json:"services"`
+	Registered           bool     `json:"registered"`
+	SuggestedComposeFile string   `json:"suggested_compose_file,omitempty"`
+	SuggestedEnvFile     string   `json:"suggested_env_file,omitempty"`
 }
 
 func (s *Server) handleStacks(w http.ResponseWriter, r *http.Request) {
@@ -257,17 +268,18 @@ func (s *Server) handleStackDiscover(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	type candidate struct {
-		Project              string   `json:"project"`
-		WorkingDir           string   `json:"working_dir"`
-		Services             []string `json:"services"`
-		Registered           bool     `json:"registered"`
-		SuggestedComposeFile string   `json:"suggested_compose_file,omitempty"`
-		SuggestedEnvFile     string   `json:"suggested_env_file,omitempty"`
-	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"candidates": buildStackDiscoverCandidates(containers, s.StackStore, s.suggestComposeFile, s.suggestEnvFile),
+	})
+}
 
-	grouped := make(map[string]*candidate)
-	registered := s.StackStore.List()
+func buildStackDiscoverCandidates(
+	containers []types.Container,
+	store *stacks.Store,
+	suggestComposeFile func(string) string,
+	suggestEnvFile func(string) string,
+) []stackDiscoverCandidate {
+	grouped := make(map[string]*stackDiscoverCandidate)
 
 	for _, c := range containers {
 		project := c.Labels["com.docker.compose.project"]
@@ -277,7 +289,7 @@ func (s *Server) handleStackDiscover(w http.ResponseWriter, r *http.Request) {
 
 		entry, ok := grouped[project]
 		if !ok {
-			entry = &candidate{
+			entry = &stackDiscoverCandidate{
 				Project:    project,
 				WorkingDir: c.Labels["com.docker.compose.project.working_dir"],
 			}
@@ -290,23 +302,17 @@ func (s *Server) handleStackDiscover(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	out := make([]stackDiscoverCandidate, 0, len(grouped))
 	for _, entry := range grouped {
-		entry.SuggestedComposeFile = s.suggestComposeFile(entry.WorkingDir)
-		entry.SuggestedEnvFile = s.suggestEnvFile(entry.WorkingDir)
-		for _, stack := range registered {
-			if matched, ok := s.StackStore.FindForComposeTarget(entry.Project, entry.WorkingDir, firstOrEmpty(entry.Services)); ok && matched.ID == stack.ID {
-				entry.Registered = true
-				break
-			}
+		entry.SuggestedComposeFile = suggestComposeFile(entry.WorkingDir)
+		entry.SuggestedEnvFile = suggestEnvFile(entry.WorkingDir)
+		if store != nil {
+			_, entry.Registered = store.FindForComposeTarget(entry.Project, entry.WorkingDir, firstOrEmpty(entry.Services))
 		}
-	}
-
-	out := make([]candidate, 0, len(grouped))
-	for _, entry := range grouped {
 		out = append(out, *entry)
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{"candidates": out})
+	return out
 }
 
 func stackFromPayload(existing stacks.Stack, payload stackPayload) stacks.Stack {
