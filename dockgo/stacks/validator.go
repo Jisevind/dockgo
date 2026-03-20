@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"runtime"
 	"strings"
 )
@@ -101,21 +100,10 @@ workingDirOK:
 		return result
 	}
 
-	args := []string{"compose"}
-	for _, composeFile := range stack.ComposeFiles {
-		args = append(args, "-f", resolvePathForRuntime(stack, composeFile))
-	}
-	for _, envFile := range stack.EnvFiles {
-		args = append(args, "--env-file", resolvePathForRuntime(stack, envFile))
-	}
-	args = append(args, "config", "--format", "json")
-
-	cmd := exec.CommandContext(ctx, "docker", args...)
-	cmd.Dir = resolvePathForRuntime(stack, stack.WorkingDir)
-	output, err := cmd.CombinedOutput()
+	output, err := composeConfigJSON(ctx, stack)
 	if err != nil {
 		result.Valid = false
-		result.Issues = append(result.Issues, fmt.Sprintf("docker compose config failed: %s", strings.TrimSpace(string(output))))
+		result.Issues = append(result.Issues, err.Error())
 		return result
 	}
 

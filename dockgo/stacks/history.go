@@ -11,14 +11,34 @@ import (
 )
 
 type HistoryEntry struct {
-	ID        string    `json:"id"`
-	StackID   string    `json:"stack_id"`
-	StackName string    `json:"stack_name"`
-	Action    string    `json:"action"`
-	Status    string    `json:"status"`
-	Message   string    `json:"message,omitempty"`
-	Details   []string  `json:"details,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
+	ID          string    `json:"id"`
+	StackID     string    `json:"stack_id"`
+	StackName   string    `json:"stack_name"`
+	Action      string    `json:"action"`
+	Status      string    `json:"status"`
+	Source      string    `json:"source,omitempty"`
+	Message     string    `json:"message,omitempty"`
+	Details     []string  `json:"details,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
+	StartedAt   time.Time `json:"started_at,omitempty"`
+	CompletedAt time.Time `json:"completed_at,omitempty"`
+	DurationMs  int64     `json:"duration_ms,omitempty"`
+}
+
+type HistoryFilter struct {
+	Action string
+	Status string
+	Source string
+	Limit  int
+}
+
+type HistorySummary struct {
+	LastEvent            *HistoryEntry `json:"last_event,omitempty"`
+	LastSuccessfulDeploy *HistoryEntry `json:"last_successful_deploy,omitempty"`
+	LastFailedAction     *HistoryEntry `json:"last_failed_action,omitempty"`
+	LastDashboardDeploy  *HistoryEntry `json:"last_dashboard_deploy,omitempty"`
+	LastStacksViewAction *HistoryEntry `json:"last_stacks_view_action,omitempty"`
+	LastSystemEvent      *HistoryEntry `json:"last_system_event,omitempty"`
 }
 
 type HistoryStore struct {
@@ -45,6 +65,15 @@ func (s *HistoryStore) Append(entry HistoryEntry) error {
 	if entry.CreatedAt.IsZero() {
 		entry.CreatedAt = time.Now().UTC()
 	}
+	if entry.StartedAt.IsZero() {
+		entry.StartedAt = entry.CreatedAt
+	}
+	if entry.CompletedAt.IsZero() {
+		entry.CompletedAt = entry.CreatedAt
+	}
+	if entry.DurationMs == 0 && !entry.CompletedAt.Before(entry.StartedAt) {
+		entry.DurationMs = entry.CompletedAt.Sub(entry.StartedAt).Milliseconds()
+	}
 
 	s.entries = append(s.entries, entry)
 	if len(s.entries) > 500 {
@@ -55,25 +84,81 @@ func (s *HistoryStore) Append(entry HistoryEntry) error {
 }
 
 func (s *HistoryStore) ListByStack(stackID string, limit int) []HistoryEntry {
+	return s.ListByStackFiltered(stackID, HistoryFilter{Limit: limit})
+}
+
+func (s *HistoryStore) ListByStackFiltered(stackID string, filter HistoryFilter) []HistoryEntry {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	filtered := make([]HistoryEntry, 0)
 	for _, entry := range s.entries {
-		if entry.StackID == stackID {
-			filtered = append(filtered, entry)
+		if entry.StackID != stackID {
+			continue
 		}
+		if filter.Action != "" && entry.Action != filter.Action {
+			continue
+		}
+		if filter.Status != "" && entry.Status != filter.Status {
+			continue
+		}
+		if filter.Source != "" && entry.Source != filter.Source {
+			continue
+		}
+		filtered = append(filtered, entry)
 	}
 
 	sort.Slice(filtered, func(i, j int) bool {
 		return filtered[i].CreatedAt.After(filtered[j].CreatedAt)
 	})
 
-	if limit > 0 && len(filtered) > limit {
-		filtered = filtered[:limit]
+	if filter.Limit > 0 && len(filtered) > filter.Limit {
+		filtered = filtered[:filter.Limit]
 	}
 
 	return filtered
+}
+
+func (s *HistoryStore) SummarizeByStack(stackID string) HistorySummary {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	entries := make([]HistoryEntry, 0)
+	for _, entry := range s.entries {
+		if entry.StackID == stackID {
+			entries = append(entries, entry)
+		}
+	}
+
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].CreatedAt.After(entries[j].CreatedAt)
+	})
+
+	summary := HistorySummary{}
+	for _, entry := range entries {
+		entryCopy := entry
+
+		if summary.LastEvent == nil {
+			summary.LastEvent = &entryCopy
+		}
+		if summary.LastSuccessfulDeploy == nil && entry.Action == "deploy" && entry.Status == "success" {
+			summary.LastSuccessfulDeploy = &entryCopy
+		}
+		if summary.LastFailedAction == nil && entry.Status == "error" {
+			summary.LastFailedAction = &entryCopy
+		}
+		if summary.LastDashboardDeploy == nil && entry.Action == "deploy" && entry.Source == "dashboard_update" {
+			summary.LastDashboardDeploy = &entryCopy
+		}
+		if summary.LastStacksViewAction == nil && entry.Source == "stacks_view" {
+			summary.LastStacksViewAction = &entryCopy
+		}
+		if summary.LastSystemEvent == nil && entry.Source == "system" {
+			summary.LastSystemEvent = &entryCopy
+		}
+	}
+
+	return summary
 }
 
 func (s *HistoryStore) load() error {
