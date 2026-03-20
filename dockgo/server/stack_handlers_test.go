@@ -2,9 +2,13 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -230,6 +234,132 @@ func TestExecuteStackActionDoesNotUpdateDeployStatusForNonDeployAction(t *testin
 	}
 	if history[0].Status != "success" || history[0].Source != "stacks_view" {
 		t.Fatalf("history entry = %+v, want success/stacks_view", history[0])
+	}
+}
+
+func TestHandleStacksRejectsInvalidCreateWithoutPersisting(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("test targets non-Windows DockGo runtime behavior")
+	}
+
+	srv, _ := newTestStackServer(t)
+	initialCount := len(srv.StackStore.List())
+
+	body := `{
+		"name":"bad-stack",
+		"project_name":"bad-stack",
+		"working_dir":"D:\\Docker\\bad-stack",
+		"compose_files":["D:\\Docker\\bad-stack\\compose.yaml"],
+		"path_mode":"mapped"
+	}`
+
+	req := httptest.NewRequest(http.MethodPost, "/api/stacks", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+
+	srv.handleStacks(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+
+	var payload struct {
+		Error      string                  `json:"error"`
+		Validation stacks.ValidationResult `json:"validation"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	if payload.Error != "stack validation failed" || payload.Validation.Valid {
+		t.Fatalf("unexpected response payload: %+v", payload)
+	}
+	if len(srv.StackStore.List()) != initialCount {
+		t.Fatalf("stack count changed after invalid create")
+	}
+}
+
+func TestHandleStackByIDRejectsInvalidUpdateWithoutPersisting(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("test targets non-Windows DockGo runtime behavior")
+	}
+
+	srv, stack := newTestStackServer(t)
+	original, ok := srv.StackStore.Get(stack.ID)
+	if !ok {
+		t.Fatalf("expected saved stack")
+	}
+
+	body := `{
+		"name":"bazarr-updated",
+		"project_name":"bazarr",
+		"working_dir":"D:\\Docker\\bazarr",
+		"compose_files":["D:\\Docker\\bazarr\\compose.yaml"],
+		"path_mode":"mapped"
+	}`
+
+	req := httptest.NewRequest(http.MethodPut, "/api/stacks/"+stack.ID, strings.NewReader(body))
+	rec := httptest.NewRecorder()
+
+	srv.handleStackByID(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+
+	updated, ok := srv.StackStore.Get(stack.ID)
+	if !ok {
+		t.Fatalf("expected stack after invalid update")
+	}
+	if updated.Name != original.Name || updated.WorkingDir != original.WorkingDir {
+		t.Fatalf("stack changed after invalid update: before=%+v after=%+v", original, updated)
+	}
+}
+
+func TestHandleStackByIDValidateRecordsInvalidResultHistory(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("test targets non-Windows DockGo runtime behavior")
+	}
+
+	srv, stack := newTestStackServer(t)
+	stack.WorkingDir = `D:\Docker\bazarr`
+	stack.ComposeFiles = []string{`D:\Docker\bazarr\compose.yaml`}
+	stack.PathMode = stacks.PathModeMapped
+
+	var err error
+	stack, err = srv.StackStore.Save(stack)
+	if err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/stacks/"+stack.ID+"/validate", nil)
+	rec := httptest.NewRecorder()
+
+	srv.handleStackByID(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+
+	var result stacks.ValidationResult
+	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	if result.Valid {
+		t.Fatalf("validation unexpectedly passed: %+v", result)
+	}
+
+	history := srv.StackHistory.ListByStackFiltered(stack.ID, stacks.HistoryFilter{
+		Action: "validate",
+		Status: "error",
+		Limit:  1,
+	})
+	if len(history) != 1 {
+		t.Fatalf("validate history len = %d, want 1", len(history))
+	}
+	if history[0].Source != "system" {
+		t.Fatalf("validate history source = %q, want system", history[0].Source)
+	}
+	if len(history[0].Details) == 0 {
+		t.Fatalf("validate history details empty, want validation issues")
 	}
 }
 
