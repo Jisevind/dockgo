@@ -61,6 +61,10 @@ func (s *Store) Get(id string) (Stack, bool) {
 }
 
 func (s *Store) FindByComposeProject(project string) (Stack, bool) {
+	return s.FindForComposeTarget(project, "", "")
+}
+
+func (s *Store) FindForComposeTarget(project string, workingDir string, service string) (Stack, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -69,13 +73,59 @@ func (s *Store) FindByComposeProject(project string) (Stack, bool) {
 		return Stack{}, false
 	}
 
+	projectMatches := make([]Stack, 0)
 	for _, stack := range s.stacks {
 		if stack.Discovery.ComposeProject == project || stack.ProjectName == project || stack.Name == project {
-			return stack, true
+			projectMatches = append(projectMatches, stack)
+		}
+	}
+
+	if len(projectMatches) == 0 {
+		return Stack{}, false
+	}
+	if len(projectMatches) == 1 {
+		return projectMatches[0], true
+	}
+
+	if workingDir = normalizeMatchPath(workingDir); workingDir != "" {
+		exactWorkingDirMatches := make([]Stack, 0)
+		for _, stack := range projectMatches {
+			if normalizeMatchPath(stack.WorkingDir) == workingDir {
+				exactWorkingDirMatches = append(exactWorkingDirMatches, stack)
+			}
+		}
+		if len(exactWorkingDirMatches) == 1 {
+			return exactWorkingDirMatches[0], true
+		}
+		if len(exactWorkingDirMatches) > 1 {
+			projectMatches = exactWorkingDirMatches
+		}
+	}
+
+	service = strings.TrimSpace(strings.ToLower(service))
+	if service != "" {
+		serviceMatches := make([]Stack, 0)
+		for _, stack := range projectMatches {
+			for _, serviceName := range stack.Discovery.ServiceNames {
+				if strings.ToLower(strings.TrimSpace(serviceName)) == service {
+					serviceMatches = append(serviceMatches, stack)
+					break
+				}
+			}
+		}
+		if len(serviceMatches) == 1 {
+			return serviceMatches[0], true
 		}
 	}
 
 	return Stack{}, false
+}
+
+func normalizeMatchPath(path string) string {
+	path = strings.TrimSpace(path)
+	path = strings.ReplaceAll(path, "\\", "/")
+	path = strings.TrimRight(path, "/")
+	return strings.ToLower(path)
 }
 
 func (s *Store) Save(stack Stack) (Stack, error) {

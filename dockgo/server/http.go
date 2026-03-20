@@ -961,28 +961,31 @@ func (s *Server) handleContainers(w http.ResponseWriter, r *http.Request) {
 		}
 
 		result = append(result, map[string]interface{}{
-			"id":               c.ID,
-			"name":             name,
-			"image":            image,
-			"tag":              tagName,
-			"state":            c.State,
-			"status":           c.Status,
-			"update_available": updateAvail,
-			"compose_project":  c.Labels["com.docker.compose.project"],
-			"compose_service":  c.Labels["com.docker.compose.service"],
-			"stack_registered": false,
-			"stack_id":         "",
-			"stack_name":       "",
+			"id":                  c.ID,
+			"name":                name,
+			"image":               image,
+			"tag":                 tagName,
+			"state":               c.State,
+			"status":              c.Status,
+			"update_available":    updateAvail,
+			"compose_project":     c.Labels["com.docker.compose.project"],
+			"compose_service":     c.Labels["com.docker.compose.service"],
+			"compose_working_dir": c.Labels["com.docker.compose.project.working_dir"],
+			"stack_registered":    false,
+			"stack_id":            "",
+			"stack_name":          "",
 		})
 	}
 
 	for i := range result {
 		project, _ := result[i]["compose_project"].(string)
+		workingDir, _ := result[i]["compose_working_dir"].(string)
+		service, _ := result[i]["compose_service"].(string)
 		if project == "" || s.StackStore == nil {
 			continue
 		}
 
-		if stack, ok := s.StackStore.FindByComposeProject(project); ok {
+		if stack, ok := s.StackStore.FindForComposeTarget(project, workingDir, service); ok {
 			result[i]["stack_registered"] = true
 			result[i]["stack_id"] = stack.ID
 			result[i]["stack_name"] = stack.Name
@@ -1313,7 +1316,9 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 
 	project := targetUpdate.Labels["com.docker.compose.project"]
 	if project != "" {
-		if stack, ok := s.StackStore.FindByComposeProject(project); ok {
+		workingDir := targetUpdate.Labels["com.docker.compose.project.working_dir"]
+		service := targetUpdate.Labels["com.docker.compose.service"]
+		if stack, ok := s.StackStore.FindForComposeTarget(project, workingDir, service); ok {
 			serverLog.Debug("Routing compose update through registered stack",
 				logger.String("container", name),
 				logger.String("project", project),
@@ -1334,12 +1339,7 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 				})
 			}
 
-			err = stacks.Deploy(ctx, stack, deployLogger)
-			if err != nil {
-				_ = s.StackStore.RecordDeployStatus(stack.ID, "error", time.Now().UTC())
-			} else {
-				_ = s.StackStore.RecordDeployStatus(stack.ID, "success", time.Now().UTC())
-			}
+			err = s.executeStackAction(ctx, stack, "deploy", stacks.Deploy, deployLogger)
 		} else {
 			serverLog.Debug("No registered stack match found, using legacy compose update path",
 				logger.String("container", name),

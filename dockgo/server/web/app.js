@@ -499,8 +499,12 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             stackModalTitle.textContent = 'Register Stack';
             const workingDir = candidate ? (candidate.working_dir || '') : '';
-            const composeGuess = candidate && workingDir ? joinDiscoveredPath(workingDir, 'docker-compose.yml') : '';
-            const envGuess = candidate && workingDir ? joinDiscoveredPath(workingDir, '.env') : '';
+            const composeGuess = candidate
+                ? (candidate.suggested_compose_file || (workingDir ? joinDiscoveredPath(workingDir, 'docker-compose.yml') : ''))
+                : '';
+            const envGuess = candidate
+                ? (candidate.suggested_env_file || (workingDir ? joinDiscoveredPath(workingDir, '.env') : ''))
+                : '';
             const isWindowsPath = /^[a-zA-Z]:\\/.test(workingDir) || workingDir.includes('\\');
 
             stackNameInput.value = candidate ? candidate.project : '';
@@ -992,9 +996,11 @@ document.addEventListener('DOMContentLoaded', () => {
             stateBadge.textContent = candidate.registered ? 'registered' : 'unregistered';
             stateBadge.classList.add(candidate.registered ? 'registered' : 'unregistered');
 
-            const composeFileGuess = candidate.working_dir ? joinDiscoveredPath(candidate.working_dir, 'docker-compose.yml') : '';
+            const composeFileGuess = candidate.suggested_compose_file || (candidate.working_dir ? joinDiscoveredPath(candidate.working_dir, 'docker-compose.yml') : '');
+            const envFileGuess = candidate.suggested_env_file || (candidate.working_dir ? joinDiscoveredPath(candidate.working_dir, '.env') : '');
             const metaLines = [
                 `Suggested compose file: ${composeFileGuess || 'unknown'}`,
+                `Suggested env file: ${envFileGuess || 'none'}`,
                 'Discovery source: Compose labels'
             ];
             clone.querySelector('.stack-meta').textContent = metaLines.join('\n');

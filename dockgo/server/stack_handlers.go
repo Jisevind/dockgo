@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -239,10 +241,12 @@ func (s *Server) handleStackDiscover(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type candidate struct {
-		Project    string   `json:"project"`
-		WorkingDir string   `json:"working_dir"`
-		Services   []string `json:"services"`
-		Registered bool     `json:"registered"`
+		Project              string   `json:"project"`
+		WorkingDir           string   `json:"working_dir"`
+		Services             []string `json:"services"`
+		Registered           bool     `json:"registered"`
+		SuggestedComposeFile string   `json:"suggested_compose_file,omitempty"`
+		SuggestedEnvFile     string   `json:"suggested_env_file,omitempty"`
 	}
 
 	grouped := make(map[string]*candidate)
@@ -270,8 +274,10 @@ func (s *Server) handleStackDiscover(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, entry := range grouped {
+		entry.SuggestedComposeFile = s.suggestComposeFile(entry.WorkingDir)
+		entry.SuggestedEnvFile = s.suggestEnvFile(entry.WorkingDir)
 		for _, stack := range registered {
-			if stack.Discovery.ComposeProject == entry.Project || stack.ProjectName == entry.Project {
+			if matched, ok := s.StackStore.FindForComposeTarget(entry.Project, entry.WorkingDir, firstOrEmpty(entry.Services)); ok && matched.ID == stack.ID {
 				entry.Registered = true
 				break
 			}
@@ -338,6 +344,88 @@ func contains(values []string, target string) bool {
 	return false
 }
 
+func firstOrEmpty(values []string) string {
+	if len(values) == 0 {
+		return ""
+	}
+	return values[0]
+}
+
+func (s *Server) suggestComposeFile(workingDir string) string {
+	if strings.TrimSpace(workingDir) == "" {
+		return ""
+	}
+
+	candidates := []string{
+		"compose.yml",
+		"compose.yaml",
+		"docker-compose.yml",
+		"docker-compose.yaml",
+	}
+
+	for _, name := range candidates {
+		hostPath := joinPathForDiscovery(workingDir, name)
+		if discoveryPathExists(hostPath) {
+			return hostPath
+		}
+	}
+
+	return joinPathForDiscovery(workingDir, "docker-compose.yml")
+}
+
+func (s *Server) suggestEnvFile(workingDir string) string {
+	if strings.TrimSpace(workingDir) == "" {
+		return ""
+	}
+
+	envPath := joinPathForDiscovery(workingDir, ".env")
+	if discoveryPathExists(envPath) {
+		return envPath
+	}
+	return envPath
+}
+
+func joinPathForDiscovery(basePath string, leaf string) string {
+	if basePath == "" {
+		return leaf
+	}
+
+	if strings.Contains(basePath, "\\") {
+		return strings.TrimRight(basePath, "\\/") + `\` + strings.TrimLeft(leaf, "\\/")
+	}
+
+	return filepath.Clean(filepath.Join(basePath, leaf))
+}
+
+func discoveryPathExists(path string) bool {
+	if path == "" {
+		return false
+	}
+	if _, err := os.Stat(path); err == nil {
+		return true
+	}
+
+	pathMode := stacks.PathModeHostNative
+	if looksLikeWindowsPath(path) {
+		pathMode = stacks.PathModeMapped
+	}
+
+	resolvedPath := stacks.ResolvePathForRuntime(stacks.Stack{PathMode: pathMode}, path)
+	if resolvedPath == path {
+		return false
+	}
+
+	_, err := os.Stat(resolvedPath)
+	return err == nil
+}
+
+func looksLikeWindowsPath(path string) bool {
+	return len(path) >= 3 &&
+		((path[0] >= 'A' && path[0] <= 'Z') || (path[0] >= 'a' && path[0] <= 'z')) &&
+		path[1] == ':' &&
+		(path[2] == '\\' || path[2] == '/')
+}
+
 func writeJSON(w http.ResponseWriter, status int, value any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -397,11 +485,7 @@ func (s *Server) handleStackActionStream(
 		flusher.Flush()
 	}
 
-	lines := make([]string, 0, 50)
-	err := run(ctx, stack, func(line string) {
-		if len(lines) < 50 {
-			lines = append(lines, line)
-		}
+	err := s.executeStackAction(ctx, stack, action, run, func(line string) {
 		emit(map[string]any{
 			"type":   "progress",
 			"status": line,
@@ -410,10 +494,6 @@ func (s *Server) handleStackActionStream(
 		})
 	})
 	if err != nil {
-		if action == "deploy" {
-			_ = s.StackStore.RecordDeployStatus(stack.ID, "error", time.Now().UTC())
-		}
-		s.recordStackHistory(stack, action, "error", err.Error(), lines)
 		emit(map[string]any{
 			"type":   "error",
 			"error":  err.Error(),
@@ -423,16 +503,45 @@ func (s *Server) handleStackActionStream(
 		return
 	}
 
-	if action == "deploy" {
-		_ = s.StackStore.RecordDeployStatus(stack.ID, "success", time.Now().UTC())
-	}
-	s.recordStackHistory(stack, action, "success", fmt.Sprintf("stack %s completed", action), lines)
 	emit(map[string]any{
 		"type":    "done",
 		"success": true,
 		"stack":   stack.Name,
 		"action":  action,
 	})
+}
+
+func (s *Server) executeStackAction(
+	ctx context.Context,
+	stack stacks.Stack,
+	action string,
+	run func(context.Context, stacks.Stack, stacks.Logger) error,
+	onLine func(string),
+) error {
+	lines := make([]string, 0, 50)
+	logger := func(line string) {
+		if len(lines) < 50 {
+			lines = append(lines, line)
+		}
+		if onLine != nil {
+			onLine(line)
+		}
+	}
+
+	err := run(ctx, stack, logger)
+	if err != nil {
+		if action == "deploy" && s.StackStore != nil {
+			_ = s.StackStore.RecordDeployStatus(stack.ID, "error", time.Now().UTC())
+		}
+		s.recordStackHistory(stack, action, "error", err.Error(), lines)
+		return err
+	}
+
+	if action == "deploy" && s.StackStore != nil {
+		_ = s.StackStore.RecordDeployStatus(stack.ID, "success", time.Now().UTC())
+	}
+	s.recordStackHistory(stack, action, "success", fmt.Sprintf("stack %s completed", action), lines)
+	return nil
 }
 
 func (s *Server) recordStackHistory(stack stacks.Stack, action string, status string, message string, details ...[]string) {
