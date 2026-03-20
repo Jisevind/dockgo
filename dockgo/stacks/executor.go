@@ -14,6 +14,22 @@ import (
 type Logger func(string)
 
 func Deploy(ctx context.Context, stack Stack, log Logger) error {
+	return executeAction(ctx, stack, "deploy", log)
+}
+
+func Pull(ctx context.Context, stack Stack, log Logger) error {
+	return executeAction(ctx, stack, "pull", log)
+}
+
+func Restart(ctx context.Context, stack Stack, log Logger) error {
+	return executeAction(ctx, stack, "restart", log)
+}
+
+func Down(ctx context.Context, stack Stack, log Logger) error {
+	return executeAction(ctx, stack, "down", log)
+}
+
+func executeAction(ctx context.Context, stack Stack, action string, log Logger) error {
 	if log == nil {
 		log = func(string) {}
 	}
@@ -25,6 +41,94 @@ func Deploy(ctx context.Context, stack Stack, log Logger) error {
 
 	log(fmt.Sprintf("Validated stack '%s'.", stack.Name))
 
+	runtimeStack := runtimeStackForExecution(stack)
+
+	switch action {
+	case "pull":
+		log("Pulling stack images...")
+		if err := streamCommand(ctx, runtimeStack.WorkingDir, log, "docker", append(composeBaseArgs(runtimeStack), "pull")...); err != nil {
+			return fmt.Errorf("stack pull failed: %w", err)
+		}
+		log("Stack image pull completed successfully.")
+		return nil
+	case "restart":
+		log("Restarting stack services...")
+		if err := streamCommand(ctx, runtimeStack.WorkingDir, log, "docker", append(composeBaseArgs(runtimeStack), "restart")...); err != nil {
+			return fmt.Errorf("stack restart failed: %w", err)
+		}
+		if stack.HealthPolicy.RequireHealthy || stack.HealthPolicy.StartupGrace > 0 {
+			log("Running post-restart verification...")
+			if err := VerifyDeployment(ctx, stack, log); err != nil {
+				return fmt.Errorf("stack verification failed: %w", err)
+			}
+		}
+		log("Stack restart completed successfully.")
+		return nil
+	case "down":
+		log("Bringing stack down...")
+		if err := streamCommand(ctx, runtimeStack.WorkingDir, log, "docker", append(composeBaseArgs(runtimeStack), "down")...); err != nil {
+			return fmt.Errorf("stack down failed: %w", err)
+		}
+		log("Stack down completed successfully.")
+		return nil
+	case "deploy":
+		if stack.UpdatePolicy.Pull {
+			log("Pulling stack images...")
+			if err := streamCommand(ctx, runtimeStack.WorkingDir, log, "docker", append(composeBaseArgs(runtimeStack), "pull")...); err != nil {
+				return fmt.Errorf("stack pull failed: %w", err)
+			}
+		}
+
+		if stack.UpdatePolicy.Build {
+			log("Building stack services...")
+			buildArgs := append(composeBaseArgs(runtimeStack), "build", "--progress", "plain")
+			if err := streamCommand(ctx, runtimeStack.WorkingDir, log, "docker", buildArgs...); err != nil {
+				return fmt.Errorf("stack build failed: %w", err)
+			}
+		}
+
+		if stack.UpdatePolicy.DownBeforeUp {
+			log("Bringing stack down before deployment...")
+			downArgs := append(composeBaseArgs(runtimeStack), "down")
+			if err := streamCommand(ctx, runtimeStack.WorkingDir, log, "docker", downArgs...); err != nil {
+				return fmt.Errorf("stack down failed: %w", err)
+			}
+		}
+
+		upArgs := append(composeBaseArgs(runtimeStack), "up", "-d")
+		if stack.UpdatePolicy.RemoveOrphans {
+			upArgs = append(upArgs, "--remove-orphans")
+		}
+		if stack.UpdatePolicy.ForceRecreate {
+			upArgs = append(upArgs, "--force-recreate")
+		}
+		if stack.HealthPolicy.UseComposeWait {
+			upArgs = append(upArgs, "--wait")
+			if stack.HealthPolicy.WaitTimeoutSeconds > 0 {
+				upArgs = append(upArgs, "--wait-timeout", strconv.Itoa(stack.HealthPolicy.WaitTimeoutSeconds))
+			}
+		}
+
+		log("Deploying stack...")
+		if err := streamCommand(ctx, runtimeStack.WorkingDir, log, "docker", upArgs...); err != nil {
+			return fmt.Errorf("stack deploy failed: %w", err)
+		}
+
+		if stack.HealthPolicy.RequireHealthy || stack.HealthPolicy.StartupGrace > 0 {
+			log("Running post-deploy verification...")
+			if err := VerifyDeployment(ctx, stack, log); err != nil {
+				return fmt.Errorf("stack verification failed: %w", err)
+			}
+		}
+
+		log("Stack deployment completed successfully.")
+		return nil
+	default:
+		return fmt.Errorf("unsupported stack action: %s", action)
+	}
+}
+
+func runtimeStackForExecution(stack Stack) Stack {
 	runtimeStack := stack
 	runtimeStack.WorkingDir = resolvePathForRuntime(stack, stack.WorkingDir)
 	runtimeStack.ComposeFiles = make([]string, 0, len(stack.ComposeFiles))
@@ -35,58 +139,7 @@ func Deploy(ctx context.Context, stack Stack, log Logger) error {
 	for _, envFile := range stack.EnvFiles {
 		runtimeStack.EnvFiles = append(runtimeStack.EnvFiles, resolvePathForRuntime(stack, envFile))
 	}
-
-	if stack.UpdatePolicy.Pull {
-		log("Pulling stack images...")
-		if err := streamCommand(ctx, runtimeStack.WorkingDir, log, "docker", append(composeBaseArgs(runtimeStack), "pull")...); err != nil {
-			return fmt.Errorf("stack pull failed: %w", err)
-		}
-	}
-
-	if stack.UpdatePolicy.Build {
-		log("Building stack services...")
-		buildArgs := append(composeBaseArgs(runtimeStack), "build", "--progress", "plain")
-		if err := streamCommand(ctx, runtimeStack.WorkingDir, log, "docker", buildArgs...); err != nil {
-			return fmt.Errorf("stack build failed: %w", err)
-		}
-	}
-
-	if stack.UpdatePolicy.DownBeforeUp {
-		log("Bringing stack down before deployment...")
-		downArgs := append(composeBaseArgs(runtimeStack), "down")
-		if err := streamCommand(ctx, runtimeStack.WorkingDir, log, "docker", downArgs...); err != nil {
-			return fmt.Errorf("stack down failed: %w", err)
-		}
-	}
-
-	upArgs := append(composeBaseArgs(runtimeStack), "up", "-d")
-	if stack.UpdatePolicy.RemoveOrphans {
-		upArgs = append(upArgs, "--remove-orphans")
-	}
-	if stack.UpdatePolicy.ForceRecreate {
-		upArgs = append(upArgs, "--force-recreate")
-	}
-	if stack.HealthPolicy.UseComposeWait {
-		upArgs = append(upArgs, "--wait")
-		if stack.HealthPolicy.WaitTimeoutSeconds > 0 {
-			upArgs = append(upArgs, "--wait-timeout", strconv.Itoa(stack.HealthPolicy.WaitTimeoutSeconds))
-		}
-	}
-
-	log("Deploying stack...")
-	if err := streamCommand(ctx, runtimeStack.WorkingDir, log, "docker", upArgs...); err != nil {
-		return fmt.Errorf("stack deploy failed: %w", err)
-	}
-
-	if stack.HealthPolicy.RequireHealthy || stack.HealthPolicy.StartupGrace > 0 {
-		log("Running post-deploy verification...")
-		if err := VerifyDeployment(ctx, stack, log); err != nil {
-			return fmt.Errorf("stack verification failed: %w", err)
-		}
-	}
-
-	log("Stack deployment completed successfully.")
-	return nil
+	return runtimeStack
 }
 
 func composeBaseArgs(stack Stack) []string {

@@ -971,6 +971,7 @@ func (s *Server) handleContainers(w http.ResponseWriter, r *http.Request) {
 			"compose_project":  c.Labels["com.docker.compose.project"],
 			"compose_service":  c.Labels["com.docker.compose.service"],
 			"stack_registered": false,
+			"stack_id":         "",
 			"stack_name":       "",
 		})
 	}
@@ -983,6 +984,7 @@ func (s *Server) handleContainers(w http.ResponseWriter, r *http.Request) {
 
 		if stack, ok := s.StackStore.FindByComposeProject(project); ok {
 			result[i]["stack_registered"] = true
+			result[i]["stack_id"] = stack.ID
 			result[i]["stack_name"] = stack.Name
 		}
 	}

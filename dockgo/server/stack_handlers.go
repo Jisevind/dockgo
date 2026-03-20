@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"sync"
@@ -30,8 +31,11 @@ type stackPayload struct {
 }
 
 type stackDetailResponse struct {
-	Stack      stacks.Stack             `json:"stack"`
-	Validation *stacks.ValidationResult `json:"validation,omitempty"`
+	Stack         stacks.Stack             `json:"stack"`
+	Validation    *stacks.ValidationResult `json:"validation,omitempty"`
+	ResolvedPaths map[string]any           `json:"resolved_paths,omitempty"`
+	Containers    []map[string]string      `json:"containers,omitempty"`
+	StatusSummary map[string]any           `json:"status_summary,omitempty"`
 }
 
 func (s *Server) handleStacks(w http.ResponseWriter, r *http.Request) {
@@ -41,12 +45,14 @@ func (s *Server) handleStacks(w http.ResponseWriter, r *http.Request) {
 		type stackListItem struct {
 			Stack         stacks.Stack          `json:"stack"`
 			RecentHistory []stacks.HistoryEntry `json:"recent_history"`
+			StatusSummary map[string]any        `json:"status_summary,omitempty"`
 		}
 		items := make([]stackListItem, 0, len(stackList))
 		for _, stack := range stackList {
 			items = append(items, stackListItem{
 				Stack:         stack,
 				RecentHistory: s.StackHistory.ListByStack(stack.ID, 3),
+				StatusSummary: s.stackStatusSummary(r.Context(), stack),
 			})
 		}
 		writeJSON(w, http.StatusOK, map[string]any{
@@ -114,9 +120,22 @@ func (s *Server) handleStackByID(w http.ResponseWriter, r *http.Request) {
 	if len(parts) == 1 {
 		switch r.Method {
 		case http.MethodGet:
+			associatedContainers := s.stackAssociatedContainers(r.Context(), stack)
 			writeJSON(w, http.StatusOK, stackDetailResponse{
 				Stack:      stack,
 				Validation: validationPtr(stacks.Validate(context.Background(), stack)),
+				ResolvedPaths: map[string]any{
+					"working_dir":         stack.WorkingDir,
+					"runtime_working_dir": stacks.ResolvePathForRuntime(stack, stack.WorkingDir),
+					"compose_files": mapPaths(stack.ComposeFiles, func(path string) string {
+						return stacks.ResolvePathForRuntime(stack, path)
+					}),
+					"env_files": mapPaths(stack.EnvFiles, func(path string) string {
+						return stacks.ResolvePathForRuntime(stack, path)
+					}),
+				},
+				Containers:    associatedContainers,
+				StatusSummary: s.stackStatusSummary(r.Context(), stack),
 			})
 		case http.MethodPut:
 			var payload stackPayload
@@ -172,77 +191,29 @@ func (s *Server) handleStackByID(w http.ResponseWriter, r *http.Request) {
 		if result.Valid {
 			s.recordStackHistory(stack, "validate", "success", "stack validation passed")
 		} else {
-			s.recordStackHistory(stack, "validate", "error", strings.Join(result.Issues, "; "))
+			s.recordStackHistory(stack, "validate", "error", strings.Join(result.Issues, "; "), result.Issues)
 		}
 		writeJSON(w, http.StatusOK, result)
 		return
 	}
 
 	if len(parts) == 2 && parts[1] == "deploy" {
-		if r.Method != http.MethodPost {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
+		s.handleStackActionStream(w, r, stack, "deploy", "deployment", 10*time.Minute, stacks.Deploy)
+		return
+	}
 
-		w.Header().Set("Content-Type", "text/event-stream")
-		w.Header().Set("Cache-Control", "no-cache")
-		w.Header().Set("X-Accel-Buffering", "no")
+	if len(parts) == 2 && parts[1] == "pull" {
+		s.handleStackActionStream(w, r, stack, "pull", "image pull", 10*time.Minute, stacks.Pull)
+		return
+	}
 
-		flusher, ok := w.(http.Flusher)
-		if !ok {
-			http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
-			return
-		}
+	if len(parts) == 2 && parts[1] == "restart" {
+		s.handleStackActionStream(w, r, stack, "restart", "restart", 5*time.Minute, stacks.Restart)
+		return
+	}
 
-		startBytes, _ := json.Marshal(map[string]any{
-			"type":    "start",
-			"message": "Starting stack deployment...",
-			"stack":   stack.Name,
-		})
-		_, _ = w.Write([]byte("data: "))
-		_, _ = w.Write(startBytes)
-		_, _ = w.Write([]byte("\n\n"))
-		flusher.Flush()
-
-		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Minute)
-		defer cancel()
-
-		var writeMu sync.Mutex
-		emit := func(payload map[string]any) {
-			writeMu.Lock()
-			defer writeMu.Unlock()
-			bytes, _ := json.Marshal(payload)
-			_, _ = w.Write([]byte("data: "))
-			_, _ = w.Write(bytes)
-			_, _ = w.Write([]byte("\n\n"))
-			flusher.Flush()
-		}
-
-		err := stacks.Deploy(ctx, stack, func(line string) {
-			emit(map[string]any{
-				"type":   "progress",
-				"status": line,
-				"stack":  stack.Name,
-			})
-		})
-		if err != nil {
-			_ = s.StackStore.RecordDeployStatus(stack.ID, "error", time.Now().UTC())
-			s.recordStackHistory(stack, "deploy", "error", err.Error())
-			emit(map[string]any{
-				"type":  "error",
-				"error": err.Error(),
-				"stack": stack.Name,
-			})
-			return
-		}
-
-		_ = s.StackStore.RecordDeployStatus(stack.ID, "success", time.Now().UTC())
-		s.recordStackHistory(stack, "deploy", "success", "stack deployment completed")
-		emit(map[string]any{
-			"type":    "done",
-			"success": true,
-			"stack":   stack.Name,
-		})
+	if len(parts) == 2 && parts[1] == "down" {
+		s.handleStackActionStream(w, r, stack, "down", "shutdown", 5*time.Minute, stacks.Down)
 		return
 	}
 
@@ -377,9 +348,101 @@ func writeError(w http.ResponseWriter, status int, message string) {
 	writeJSON(w, status, map[string]string{"error": message})
 }
 
-func (s *Server) recordStackHistory(stack stacks.Stack, action string, status string, message string) {
+func (s *Server) handleStackActionStream(
+	w http.ResponseWriter,
+	r *http.Request,
+	stack stacks.Stack,
+	action string,
+	actionLabel string,
+	timeout time.Duration,
+	run func(context.Context, stacks.Stack, stacks.Logger) error,
+) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("X-Accel-Buffering", "no")
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+
+	startBytes, _ := json.Marshal(map[string]any{
+		"type":    "start",
+		"message": fmt.Sprintf("Starting stack %s...", actionLabel),
+		"stack":   stack.Name,
+		"action":  action,
+	})
+	_, _ = w.Write([]byte("data: "))
+	_, _ = w.Write(startBytes)
+	_, _ = w.Write([]byte("\n\n"))
+	flusher.Flush()
+
+	ctx, cancel := context.WithTimeout(r.Context(), timeout)
+	defer cancel()
+
+	var writeMu sync.Mutex
+	emit := func(payload map[string]any) {
+		writeMu.Lock()
+		defer writeMu.Unlock()
+		bytes, _ := json.Marshal(payload)
+		_, _ = w.Write([]byte("data: "))
+		_, _ = w.Write(bytes)
+		_, _ = w.Write([]byte("\n\n"))
+		flusher.Flush()
+	}
+
+	lines := make([]string, 0, 50)
+	err := run(ctx, stack, func(line string) {
+		if len(lines) < 50 {
+			lines = append(lines, line)
+		}
+		emit(map[string]any{
+			"type":   "progress",
+			"status": line,
+			"stack":  stack.Name,
+			"action": action,
+		})
+	})
+	if err != nil {
+		if action == "deploy" {
+			_ = s.StackStore.RecordDeployStatus(stack.ID, "error", time.Now().UTC())
+		}
+		s.recordStackHistory(stack, action, "error", err.Error(), lines)
+		emit(map[string]any{
+			"type":   "error",
+			"error":  err.Error(),
+			"stack":  stack.Name,
+			"action": action,
+		})
+		return
+	}
+
+	if action == "deploy" {
+		_ = s.StackStore.RecordDeployStatus(stack.ID, "success", time.Now().UTC())
+	}
+	s.recordStackHistory(stack, action, "success", fmt.Sprintf("stack %s completed", action), lines)
+	emit(map[string]any{
+		"type":    "done",
+		"success": true,
+		"stack":   stack.Name,
+		"action":  action,
+	})
+}
+
+func (s *Server) recordStackHistory(stack stacks.Stack, action string, status string, message string, details ...[]string) {
 	if s.StackHistory == nil {
 		return
+	}
+
+	var detailLines []string
+	if len(details) > 0 {
+		detailLines = details[0]
 	}
 	_ = s.StackHistory.Append(stacks.HistoryEntry{
 		StackID:   stack.ID,
@@ -387,5 +450,148 @@ func (s *Server) recordStackHistory(stack stacks.Stack, action string, status st
 		Action:    action,
 		Status:    status,
 		Message:   message,
+		Details:   detailLines,
 	})
+}
+
+func (s *Server) stackAssociatedContainers(ctx context.Context, stack stacks.Stack) []map[string]string {
+	if s.Discovery == nil {
+		return nil
+	}
+
+	project := stack.Discovery.ComposeProject
+	if project == "" {
+		project = stack.ProjectName
+	}
+	if project == "" {
+		return nil
+	}
+
+	containers, err := s.Discovery.ListContainers(ctx)
+	if err != nil {
+		return nil
+	}
+
+	result := make([]map[string]string, 0)
+	for _, c := range containers {
+		if c.Labels["com.docker.compose.project"] != project {
+			continue
+		}
+
+		name := ""
+		if len(c.Names) > 0 {
+			name = strings.TrimPrefix(c.Names[0], "/")
+		}
+
+		result = append(result, map[string]string{
+			"id":      c.ID,
+			"name":    name,
+			"service": c.Labels["com.docker.compose.service"],
+			"state":   c.State,
+			"status":  c.Status,
+			"health":  s.containerHealthState(ctx, c.ID),
+		})
+	}
+
+	return result
+}
+
+func (s *Server) stackStatusSummary(ctx context.Context, stack stacks.Stack) map[string]any {
+	containers := s.stackAssociatedContainers(ctx, stack)
+	summary := map[string]any{
+		"state":      "unknown",
+		"message":    "No associated containers found.",
+		"total":      len(containers),
+		"running":    0,
+		"healthy":    0,
+		"unhealthy":  0,
+		"stopped":    0,
+		"degraded":   0,
+		"containers": containers,
+	}
+
+	if len(containers) == 0 {
+		return summary
+	}
+
+	running := 0
+	healthy := 0
+	unhealthy := 0
+	stopped := 0
+	degraded := 0
+
+	for _, container := range containers {
+		state := container["state"]
+		health := container["health"]
+
+		if state == "running" {
+			running++
+		} else {
+			stopped++
+		}
+
+		switch health {
+		case "healthy":
+			healthy++
+		case "unhealthy":
+			unhealthy++
+		case "starting":
+			degraded++
+		}
+	}
+
+	summary["running"] = running
+	summary["healthy"] = healthy
+	summary["unhealthy"] = unhealthy
+	summary["stopped"] = stopped
+	summary["degraded"] = degraded
+
+	switch {
+	case running == 0:
+		summary["state"] = "down"
+		summary["message"] = "All stack containers are stopped."
+	case stopped > 0 || unhealthy > 0:
+		summary["state"] = "degraded"
+		summary["message"] = "Some stack containers are stopped or unhealthy."
+	case degraded > 0:
+		summary["state"] = "starting"
+		summary["message"] = "Stack containers are starting or waiting for healthchecks."
+	default:
+		summary["state"] = "running"
+		if healthy > 0 {
+			summary["message"] = "All stack containers are running and healthy."
+		} else {
+			summary["message"] = "All stack containers are running."
+		}
+	}
+
+	return summary
+}
+
+func (s *Server) containerHealthState(ctx context.Context, containerID string) string {
+	if s.Discovery == nil || s.Discovery.Client == nil || containerID == "" {
+		return ""
+	}
+
+	inspect, err := s.Discovery.Client.ContainerInspect(ctx, containerID)
+	if err != nil || inspect.State == nil || inspect.State.Health == nil {
+		return ""
+	}
+
+	return inspect.State.Health.Status
+}
+
+func mapPaths(values []string, mapper func(string) string) []map[string]string {
+	if len(values) == 0 {
+		return nil
+	}
+
+	result := make([]map[string]string, 0, len(values))
+	for _, value := range values {
+		result = append(result, map[string]string{
+			"host":    value,
+			"runtime": mapper(value),
+		})
+	}
+	return result
 }

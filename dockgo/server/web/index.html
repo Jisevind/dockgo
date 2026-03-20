@@ -221,12 +221,97 @@
                                 <option value="mapped">Mapped</option>
                             </select>
                         </div>
+                        <div id="stack-form-hints" class="stack-form-hints hidden"></div>
+                        <div class="form-group">
+                            <label for="stack-path-mappings">Path Mappings</label>
+                            <textarea id="stack-path-mappings" name="stack_path_mappings" rows="3"
+                                placeholder="One per line: host_path=container_path"></textarea>
+                            <small class="form-hint">Used for mapped stacks. Example: <code>D:\Docker=/compose</code></small>
+                        </div>
+                        <div class="form-group">
+                            <label for="stack-profiles">Profiles</label>
+                            <input type="text" id="stack-profiles" name="stack_profiles"
+                                placeholder="Comma-separated profiles">
+                        </div>
+                        <div class="form-group">
+                            <label for="stack-project-env">Project Environment Overrides</label>
+                            <textarea id="stack-project-env" name="stack_project_env" rows="3"
+                                placeholder="One per line: KEY=value"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Update Policy</label>
+                            <div class="checkbox-grid">
+                                <label class="checkbox-row"><input type="checkbox" id="stack-policy-pull"> Pull images before deploy</label>
+                                <label class="checkbox-row"><input type="checkbox" id="stack-policy-build"> Build before deploy</label>
+                                <label class="checkbox-row"><input type="checkbox" id="stack-policy-down-before-up"> Run down before up</label>
+                                <label class="checkbox-row"><input type="checkbox" id="stack-policy-force-recreate"> Force recreate</label>
+                                <label class="checkbox-row"><input type="checkbox" id="stack-policy-remove-orphans"> Remove orphans</label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Health Policy</label>
+                            <div class="checkbox-grid">
+                                <label class="checkbox-row"><input type="checkbox" id="stack-health-compose-wait"> Use compose --wait</label>
+                                <label class="checkbox-row"><input type="checkbox" id="stack-health-require-healthy"> Require healthy/stable containers</label>
+                            </div>
+                            <div class="form-inline-grid">
+                                <div>
+                                    <label for="stack-health-timeout">Wait Timeout (seconds)</label>
+                                    <input type="number" id="stack-health-timeout" min="1" step="1">
+                                </div>
+                                <div>
+                                    <label for="stack-health-startup-grace">Startup Grace (seconds)</label>
+                                    <input type="number" id="stack-health-startup-grace" min="0" step="1">
+                                </div>
+                            </div>
+                        </div>
                         <div id="stack-form-error" class="error-message hidden"></div>
                         <div class="stack-form-actions">
                             <button type="button" id="stack-cancel-btn" class="btn secondary">Cancel</button>
                             <button type="submit" class="btn primary">Save Stack</button>
                         </div>
                     </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stack Details Modal -->
+        <div id="stack-details-modal" class="modal-overlay hidden">
+            <div class="modal stack-details-modal-content">
+                <div class="modal-header">
+                    <h2 id="stack-details-title">Stack Details</h2>
+                    <button id="close-stack-details-btn" class="close-btn" title="Close">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div class="stack-details-toolbar">
+                        <button id="stack-details-edit-btn" class="btn secondary">Edit</button>
+                        <button id="stack-details-validate-btn" class="btn secondary">Validate</button>
+                        <button id="stack-details-pull-btn" class="btn secondary">Pull</button>
+                        <button id="stack-details-restart-btn" class="btn secondary">Restart</button>
+                        <button id="stack-details-down-btn" class="btn secondary">Down</button>
+                        <button id="stack-details-deploy-btn" class="btn primary">Deploy</button>
+                        <button id="stack-details-delete-btn" class="btn danger">Delete</button>
+                    </div>
+                    <div class="stack-details-section">
+                        <h3>Definition</h3>
+                        <pre id="stack-details-definition" class="stack-details-pre"></pre>
+                    </div>
+                    <div class="stack-details-section">
+                        <h3>Resolved Paths</h3>
+                        <pre id="stack-details-paths" class="stack-details-pre"></pre>
+                    </div>
+                    <div class="stack-details-section">
+                        <h3>Validation</h3>
+                        <div id="stack-details-validation" class="stack-details-validation"></div>
+                    </div>
+                    <div class="stack-details-section">
+                        <h3>Associated Containers</h3>
+                        <div id="stack-details-containers" class="stack-details-history"></div>
+                    </div>
+                    <div class="stack-details-section">
+                        <h3>Recent Activity</h3>
+                        <div id="stack-details-history" class="stack-details-history"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -247,6 +332,7 @@
                             <button class="menu-action-btn" data-action="restart">Restart</button>
                             <hr style="margin: 4px 0; border: 0; border-top: 1px solid var(--border);">
                             <button class="menu-action-btn" data-action="logs">View Logs</button>
+                            <button class="menu-action-btn hidden view-stack-menu-btn" data-action="view-stack">View Stack</button>
                         </div>
                     </div>
                 </div>
@@ -288,6 +374,7 @@
                         <button class="menu-action-btn" data-action="restart">Restart</button>
                         <hr style="margin: 4px 0; border: 0; border-top: 1px solid var(--border);">
                         <button class="menu-action-btn" data-action="logs">View Logs</button>
+                        <button class="menu-action-btn hidden view-stack-menu-btn" data-action="view-stack">View Stack</button>
                     </div>
                 </div>
                 <div class="update-section hidden">
@@ -306,12 +393,16 @@
                     <h3 class="stack-name"></h3>
                     <p class="stack-path"></p>
                 </div>
-                <span class="stack-mode-badge"></span>
+                <div class="stack-card-badges">
+                    <span class="stack-status-badge"></span>
+                    <span class="stack-mode-badge"></span>
+                </div>
             </div>
             <p class="stack-project"></p>
             <div class="stack-meta"></div>
             <div class="stack-progress hidden"></div>
             <div class="stack-actions">
+                <button class="btn secondary details-stack-btn">Details</button>
                 <button class="btn secondary delete-stack-btn">Delete</button>
                 <button class="btn secondary edit-stack-btn">Edit</button>
                 <button class="btn secondary validate-stack-btn">Validate</button>
