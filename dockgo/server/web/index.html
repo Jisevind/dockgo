@@ -71,6 +71,10 @@
             <span id="connection-status" class="status-indicator">Connecting...</span>
 
             <div class="control-group">
+                <div class="view-switch" role="tablist" aria-label="Primary Views">
+                    <button id="view-dashboard" class="btn secondary active" type="button">Dashboard</button>
+                    <button id="view-stacks" class="btn secondary" type="button">Stacks</button>
+                </div>
                 <button id="view-grid" class="btn-icon active" title="Grid View">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <rect x="3" y="3" width="7" height="7"></rect>
@@ -102,14 +106,36 @@
             </div>
         </div>
 
-        <main>
+        <main id="dashboard-view" class="page-view">
             <div id="container-list" class="grid-list">
                 <!-- Containers will be injected here -->
                 <div class="loading">Loading containers...</div>
             </div>
         </main>
 
-        <section class="stack-dashboard">
+        <section id="stacks-view" class="stack-dashboard page-view hidden">
+            <div class="stacks-overview">
+                <div>
+                    <p class="stacks-kicker">Advanced Compose Management</p>
+                    <h2>Stacks</h2>
+                    <p class="stacks-description">Register Compose projects for safer updates, validation, deploy
+                        history, and advanced runtime controls.</p>
+                </div>
+                <div class="stacks-overview-stats">
+                    <div class="stacks-stat">
+                        <span class="stacks-stat-label">Registered</span>
+                        <strong id="stacks-stat-registered">0</strong>
+                    </div>
+                    <div class="stacks-stat">
+                        <span class="stacks-stat-label">Running</span>
+                        <strong id="stacks-stat-running">0</strong>
+                    </div>
+                    <div class="stacks-stat">
+                        <span class="stacks-stat-label">Not Registered</span>
+                        <strong id="stacks-stat-discovered">0</strong>
+                    </div>
+                </div>
+            </div>
             <div class="stack-panel">
                 <div class="stack-panel-header">
                     <h2>Registered Stacks</h2>
@@ -226,7 +252,8 @@
                             <label for="stack-path-mappings">Path Mappings</label>
                             <textarea id="stack-path-mappings" name="stack_path_mappings" rows="3"
                                 placeholder="One per line: host_path=container_path"></textarea>
-                            <small class="form-hint">Used for mapped stacks. Example: <code>D:\Docker=/compose</code></small>
+                            <small class="form-hint">Used for mapped stacks. Example:
+                                <code>D:\Docker=/compose</code></small>
                         </div>
                         <div class="form-group">
                             <label for="stack-profiles">Profiles</label>
@@ -241,18 +268,25 @@
                         <div class="form-group">
                             <label>Update Policy</label>
                             <div class="checkbox-grid">
-                                <label class="checkbox-row"><input type="checkbox" id="stack-policy-pull"> Pull images before deploy</label>
-                                <label class="checkbox-row"><input type="checkbox" id="stack-policy-build"> Build before deploy</label>
-                                <label class="checkbox-row"><input type="checkbox" id="stack-policy-down-before-up"> Run down before up</label>
-                                <label class="checkbox-row"><input type="checkbox" id="stack-policy-force-recreate"> Force recreate</label>
-                                <label class="checkbox-row"><input type="checkbox" id="stack-policy-remove-orphans"> Remove orphans</label>
+                                <label class="checkbox-row"><input type="checkbox" id="stack-policy-pull"> Pull images
+                                    before deploy</label>
+                                <label class="checkbox-row"><input type="checkbox" id="stack-policy-build"> Build before
+                                    deploy</label>
+                                <label class="checkbox-row"><input type="checkbox" id="stack-policy-down-before-up"> Run
+                                    down before up</label>
+                                <label class="checkbox-row"><input type="checkbox" id="stack-policy-force-recreate">
+                                    Force recreate</label>
+                                <label class="checkbox-row"><input type="checkbox" id="stack-policy-remove-orphans">
+                                    Remove orphans</label>
                             </div>
                         </div>
                         <div class="form-group">
                             <label>Health Policy</label>
                             <div class="checkbox-grid">
-                                <label class="checkbox-row"><input type="checkbox" id="stack-health-compose-wait"> Use compose --wait</label>
-                                <label class="checkbox-row"><input type="checkbox" id="stack-health-require-healthy"> Require healthy/stable containers</label>
+                                <label class="checkbox-row"><input type="checkbox" id="stack-health-compose-wait"> Use
+                                    compose --wait</label>
+                                <label class="checkbox-row"><input type="checkbox" id="stack-health-require-healthy">
+                                    Require healthy/stable containers</label>
                             </div>
                             <div class="form-inline-grid">
                                 <div>
@@ -332,7 +366,8 @@
                             <button class="menu-action-btn" data-action="restart">Restart</button>
                             <hr style="margin: 4px 0; border: 0; border-top: 1px solid var(--border);">
                             <button class="menu-action-btn" data-action="logs">View Logs</button>
-                            <button class="menu-action-btn hidden view-stack-menu-btn" data-action="view-stack">View Stack</button>
+                            <button class="menu-action-btn hidden view-stack-menu-btn" data-action="view-stack">View
+                                Stack</button>
                         </div>
                     </div>
                 </div>
@@ -374,7 +409,8 @@
                         <button class="menu-action-btn" data-action="restart">Restart</button>
                         <hr style="margin: 4px 0; border: 0; border-top: 1px solid var(--border);">
                         <button class="menu-action-btn" data-action="logs">View Logs</button>
-                        <button class="menu-action-btn hidden view-stack-menu-btn" data-action="view-stack">View Stack</button>
+                        <button class="menu-action-btn hidden view-stack-menu-btn" data-action="view-stack">View
+                            Stack</button>
                     </div>
                 </div>
                 <div class="update-section hidden">
