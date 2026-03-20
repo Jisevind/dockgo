@@ -10,6 +10,18 @@ import (
 	"time"
 )
 
+const (
+	maxHistoryEntries         = 500
+	maxPriorityHistoryEntries = 300
+)
+
+var priorityHistoryActions = map[string]struct{}{
+	"deploy":  {},
+	"pull":    {},
+	"restart": {},
+	"down":    {},
+}
+
 type HistoryEntry struct {
 	ID          string    `json:"id"`
 	StackID     string    `json:"stack_id"`
@@ -76,11 +88,70 @@ func (s *HistoryStore) Append(entry HistoryEntry) error {
 	}
 
 	s.entries = append(s.entries, entry)
-	if len(s.entries) > 500 {
-		s.entries = s.entries[len(s.entries)-500:]
+	if len(s.entries) > maxHistoryEntries {
+		s.entries = pruneHistoryEntries(s.entries)
 	}
 
 	return s.persistLocked()
+}
+
+func pruneHistoryEntries(entries []HistoryEntry) []HistoryEntry {
+	if len(entries) <= maxHistoryEntries {
+		return entries
+	}
+
+	sorted := append([]HistoryEntry(nil), entries...)
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].CreatedAt.After(sorted[j].CreatedAt)
+	})
+
+	kept := make([]HistoryEntry, 0, maxHistoryEntries)
+	priorityCount := 0
+
+	for _, entry := range sorted {
+		if isPriorityHistoryEntry(entry) && priorityCount < maxPriorityHistoryEntries {
+			kept = append(kept, entry)
+			priorityCount++
+		}
+		if len(kept) == maxHistoryEntries {
+			break
+		}
+	}
+
+	for _, entry := range sorted {
+		if len(kept) == maxHistoryEntries {
+			break
+		}
+		if containsHistoryEntry(kept, entry.ID, entry.CreatedAt) {
+			continue
+		}
+		kept = append(kept, entry)
+	}
+
+	sort.Slice(kept, func(i, j int) bool {
+		return kept[i].CreatedAt.Before(kept[j].CreatedAt)
+	})
+	return kept
+}
+
+func isPriorityHistoryEntry(entry HistoryEntry) bool {
+	if entry.Status == "error" {
+		return true
+	}
+	_, ok := priorityHistoryActions[entry.Action]
+	return ok
+}
+
+func containsHistoryEntry(entries []HistoryEntry, id string, createdAt time.Time) bool {
+	for _, entry := range entries {
+		if id != "" && entry.ID == id {
+			return true
+		}
+		if id == "" && entry.CreatedAt.Equal(createdAt) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *HistoryStore) ListByStack(stackID string, limit int) []HistoryEntry {

@@ -37,6 +37,12 @@ func Validate(ctx context.Context, stack Stack) ValidationResult {
 		result.Valid = false
 		result.Issues = append(result.Issues, "host_native path mode cannot use Windows paths from a non-Windows DockGo runtime; use mapped mode with path_mappings")
 	}
+	if stack.PathMode == PathModeMapped {
+		if issue := validateMappedPathResolution(stack.WorkingDir, stack); issue != "" {
+			result.Valid = false
+			result.Issues = append(result.Issues, fmt.Sprintf("working_dir %s", issue))
+		}
+	}
 
 	if !result.Valid {
 		return result
@@ -62,6 +68,13 @@ workingDirOK:
 			result.Issues = append(result.Issues, fmt.Sprintf("compose file must be absolute: %s", composeFile))
 			continue
 		}
+		if stack.PathMode == PathModeMapped {
+			if issue := validateMappedPathResolution(composeFile, stack); issue != "" {
+				result.Valid = false
+				result.Issues = append(result.Issues, fmt.Sprintf("compose file %s", issue))
+				continue
+			}
+		}
 		resolvedComposeFile := resolvePathForRuntime(stack, composeFile)
 		if _, err := os.Stat(resolvedComposeFile); err != nil {
 			result.Valid = false
@@ -74,6 +87,13 @@ workingDirOK:
 			result.Valid = false
 			result.Issues = append(result.Issues, fmt.Sprintf("env file must be absolute: %s", envFile))
 			continue
+		}
+		if stack.PathMode == PathModeMapped {
+			if issue := validateMappedPathResolution(envFile, stack); issue != "" {
+				result.Valid = false
+				result.Issues = append(result.Issues, fmt.Sprintf("env file %s", issue))
+				continue
+			}
 		}
 		resolvedEnvFile := resolvePathForRuntime(stack, envFile)
 		if _, err := os.Stat(resolvedEnvFile); err != nil {
@@ -114,4 +134,17 @@ workingDirOK:
 	}
 
 	return result
+}
+
+func validateMappedPathResolution(path string, stack Stack) string {
+	if strings.TrimSpace(path) == "" {
+		return ""
+	}
+
+	resolvedPath := resolvePathForRuntime(stack, path)
+	if resolvedPath == path && isWindowsAbs(path) && runtime.GOOS != "windows" {
+		return fmt.Sprintf("cannot be resolved inside DockGo from Windows host path: %s", path)
+	}
+
+	return ""
 }

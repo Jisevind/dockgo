@@ -641,22 +641,32 @@ func (s *Server) stackDriftWarnings(ctx context.Context, stack stacks.Stack) []s
 		return nil
 	}
 
+	savedServices, err := stacks.ResolvedComposeServices(ctx, stack)
+	if err != nil {
+		warnings := compareStackRuntimeState(stack.WorkingDir, runtimeWorkingDirs, nil, runtimeServices)
+		warnings = append(warnings, fmt.Sprintf("runtime drift check could not resolve saved compose services: %v", err))
+		return warnings
+	}
+
+	return compareStackRuntimeState(stack.WorkingDir, runtimeWorkingDirs, savedServices, runtimeServices)
+}
+
+func compareStackRuntimeState(
+	registeredWorkingDir string,
+	runtimeWorkingDirs map[string]struct{},
+	savedServices []string,
+	runtimeServices map[string]struct{},
+) []string {
 	warnings := make([]string, 0)
 
 	if len(runtimeWorkingDirs) > 1 {
 		warnings = append(warnings, "runtime compose project reports multiple working directories; project labels may be inconsistent")
 	} else if len(runtimeWorkingDirs) == 1 {
 		for runtimeWorkingDir := range runtimeWorkingDirs {
-			if runtimeWorkingDir != normalizeComparePath(stack.WorkingDir) {
-				warnings = append(warnings, fmt.Sprintf("runtime working directory differs from registered stack: %s", stack.WorkingDir))
+			if runtimeWorkingDir != normalizeComparePath(registeredWorkingDir) {
+				warnings = append(warnings, fmt.Sprintf("runtime working directory differs from registered stack: %s", registeredWorkingDir))
 			}
 		}
-	}
-
-	savedServices, err := stacks.ResolvedComposeServices(ctx, stack)
-	if err != nil {
-		warnings = append(warnings, fmt.Sprintf("runtime drift check could not resolve saved compose services: %v", err))
-		return warnings
 	}
 
 	if len(savedServices) == 0 || len(runtimeServices) == 0 {
