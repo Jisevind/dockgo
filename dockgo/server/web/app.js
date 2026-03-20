@@ -13,13 +13,43 @@ document.addEventListener('DOMContentLoaded', () => {
     const refreshBtn = document.getElementById('refresh-btn');
     const refreshStacksBtn = document.getElementById('refresh-stacks-btn');
     const discoverStacksBtn = document.getElementById('discover-stacks-btn');
+    const viewDashboardBtn = document.getElementById('view-dashboard');
+    const viewStacksBtn = document.getElementById('view-stacks');
     const viewGridBtn = document.getElementById('view-grid');
     const viewListBtn = document.getElementById('view-list');
     const stackListEl = document.getElementById('stack-list');
     const stackCandidatesEl = document.getElementById('stack-candidates');
+    const dashboardViewEl = document.getElementById('dashboard-view');
+    const stacksViewEl = document.getElementById('stacks-view');
+    const stacksRegisteredStatEl = document.getElementById('stacks-stat-registered');
+    const stacksRunningStatEl = document.getElementById('stacks-stat-running');
+    const stacksDiscoveredStatEl = document.getElementById('stacks-stat-discovered');
 
     // View State
     let currentView = localStorage.getItem('dockgo_view') || 'grid';
+    let currentPrimaryView = localStorage.getItem('dockgo_primary_view') || 'dashboard';
+
+    const updatePrimaryViewUI = () => {
+        const showingStacks = currentPrimaryView === 'stacks';
+        if (dashboardViewEl) {
+            dashboardViewEl.classList.toggle('hidden', showingStacks);
+        }
+        if (stacksViewEl) {
+            stacksViewEl.classList.toggle('hidden', !showingStacks);
+        }
+        if (viewDashboardBtn) {
+            viewDashboardBtn.classList.toggle('active', !showingStacks);
+        }
+        if (viewStacksBtn) {
+            viewStacksBtn.classList.toggle('active', showingStacks);
+        }
+        if (viewGridBtn) {
+            viewGridBtn.classList.toggle('hidden', showingStacks);
+        }
+        if (viewListBtn) {
+            viewListBtn.classList.toggle('hidden', showingStacks);
+        }
+    };
 
     const updateViewUI = () => {
         if (currentView === 'list') {
@@ -36,6 +66,26 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     updateViewUI();
+    updatePrimaryViewUI();
+
+    if (viewDashboardBtn) {
+        viewDashboardBtn.addEventListener('click', () => {
+            if (currentPrimaryView === 'dashboard') return;
+            currentPrimaryView = 'dashboard';
+            localStorage.setItem('dockgo_primary_view', currentPrimaryView);
+            updatePrimaryViewUI();
+        });
+    }
+
+    if (viewStacksBtn) {
+        viewStacksBtn.addEventListener('click', () => {
+            if (currentPrimaryView === 'stacks') return;
+            currentPrimaryView = 'stacks';
+            localStorage.setItem('dockgo_primary_view', currentPrimaryView);
+            updatePrimaryViewUI();
+            loadStacksViewData();
+        });
+    }
 
     // View Toggle Listeners
     viewGridBtn.addEventListener('click', () => {
@@ -63,6 +113,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     let cachedContainers = [];
+    let cachedStacks = [];
+    let cachedStackCandidates = [];
     let isCurrentlyMobile = window.innerWidth <= 600;
 
     window.addEventListener('resize', () => {
@@ -968,7 +1020,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(`Failed to fetch stacks (${response.status})`);
             }
             const data = await response.json();
-            renderStacks(data.stacks || []);
+            cachedStacks = data.stacks || [];
+            renderStacks(cachedStacks);
+            renderStacksOverview();
         } catch (error) {
             console.error('Failed to fetch stacks', error);
             stackListEl.innerHTML = '<div class="loading">Failed to load registered stacks.</div>';
@@ -985,11 +1039,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(`Failed to discover stacks (${response.status})`);
             }
             const data = await response.json();
-            renderStackCandidates(data.candidates || []);
+            cachedStackCandidates = data.candidates || [];
+            renderStackCandidates(cachedStackCandidates);
+            renderStacksOverview();
         } catch (error) {
             console.error('Failed to discover stacks', error);
             stackCandidatesEl.innerHTML = '<div class="loading">Failed to discover Compose projects.</div>';
         }
+    };
+
+    const renderStacksOverview = () => {
+        if (!stacksRegisteredStatEl || !stacksRunningStatEl || !stacksDiscoveredStatEl) {
+            return;
+        }
+
+        const registeredCount = cachedStacks.length;
+        const runningCount = cachedStacks.filter((item) => {
+            const summary = item.status_summary || {};
+            return summary.state === 'running';
+        }).length;
+        const discoveredCount = cachedStackCandidates.filter((candidate) => !candidate.registered).length;
+
+        stacksRegisteredStatEl.textContent = String(registeredCount);
+        stacksRunningStatEl.textContent = String(runningCount);
+        stacksDiscoveredStatEl.textContent = String(discoveredCount);
+    };
+
+    const loadStacksViewData = async () => {
+        await Promise.all([fetchStacks(), fetchStackCandidates()]);
     };
 
     const editStack = async (stack) => {
@@ -1546,9 +1623,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (updateSection) {
                         updateSection.classList.remove('hidden');
                         const btn = updateSection.querySelector('.btn-update');
-                        if (container.stack_registered) {
-                            btn.textContent = 'Deploy Stack';
-                        }
+                        btn.textContent = 'Update Now';
                         btn.addEventListener('click', (e) => {
                             e.preventDefault();
                             handleUpdate(container.name, containerEl);
@@ -1850,7 +1925,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial load
     Promise.all([checkAuthStatus(), fetchHealth()]).then(() => {
-        Promise.all([fetchContainers(), fetchStacks(), fetchStackCandidates()]).then(() => {
+        Promise.all([fetchContainers()]).then(() => {
+            if (currentPrimaryView === 'stacks') {
+                loadStacksViewData();
+            }
             if (isLoggedIn || !authEnabled) {
                 fetchContainers(true);
             }
@@ -1861,8 +1939,9 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(() => {
         if (activeUpdates === 0 && (isLoggedIn || !authEnabled)) {
             fetchContainers(false);
-            fetchStacks();
-            fetchStackCandidates();
+            if (currentPrimaryView === 'stacks') {
+                loadStacksViewData();
+            }
         }
     }, 30000);
 });
