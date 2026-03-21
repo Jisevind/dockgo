@@ -505,6 +505,206 @@ func TestBuildStackDiscoverCandidatesUsesServiceTieBreakWhenAvailable(t *testing
 	}
 }
 
+func TestResolveContainerStackPrefersManagedContainerOwnership(t *testing.T) {
+	tempDir := t.TempDir()
+	store, err := stacks.NewStore(filepath.Join(tempDir, "stacks.json"))
+	if err != nil {
+		t.Fatalf("NewStore() error = %v", err)
+	}
+
+	owner, err := store.Save(stacks.Stack{
+		Name:              "owner",
+		ProjectName:       "shared",
+		WorkingDir:        "/srv/owner",
+		ComposeFiles:      []string{filepath.Join(tempDir, "owner.yaml")},
+		PathMode:          stacks.PathModeHostNative,
+		ManagedContainers: []string{"container-1"},
+	})
+	if err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+	_, err = store.Save(stacks.Stack{
+		Name:         "fallback",
+		ProjectName:  "shared",
+		WorkingDir:   "/srv/other",
+		ComposeFiles: []string{filepath.Join(tempDir, "other.yaml")},
+		PathMode:     stacks.PathModeHostNative,
+		Discovery: stacks.DiscoverySelector{
+			ComposeProject: "shared",
+			ServiceNames:   []string{"web"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	srv := &Server{StackStore: store}
+	container := types.Container{
+		ID: "container-1",
+		Labels: map[string]string{
+			"com.docker.compose.project":             "shared",
+			"com.docker.compose.project.working_dir": "/srv/other",
+			"com.docker.compose.service":             "web",
+		},
+	}
+
+	resolved, ok := srv.resolveContainerStack(container)
+	if !ok {
+		t.Fatalf("resolveContainerStack() ok = false, want true")
+	}
+	if resolved.ID != owner.ID {
+		t.Fatalf("resolveContainerStack() = %+v, want owner stack", resolved)
+	}
+}
+
+func TestResolveContainerStackDoesNotFallBackToRegisteredComposeMatch(t *testing.T) {
+	tempDir := t.TempDir()
+	store, err := stacks.NewStore(filepath.Join(tempDir, "stacks.json"))
+	if err != nil {
+		t.Fatalf("NewStore() error = %v", err)
+	}
+
+	_, err = store.Save(stacks.Stack{
+		Name:         "sonarr",
+		ProjectName:  "media",
+		WorkingDir:   "/srv/media",
+		ComposeFiles: []string{filepath.Join(tempDir, "sonarr.yaml")},
+		PathMode:     stacks.PathModeHostNative,
+		Discovery: stacks.DiscoverySelector{
+			ComposeProject: "media",
+			ServiceNames:   []string{"sonarr"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	srv := &Server{StackStore: store}
+	container := types.Container{
+		ID: "container-2",
+		Labels: map[string]string{
+			"com.docker.compose.project":             "media",
+			"com.docker.compose.project.working_dir": "/srv/media",
+			"com.docker.compose.service":             "sonarr",
+		},
+	}
+
+	if _, ok := srv.resolveContainerStack(container); ok {
+		t.Fatalf("resolveContainerStack() ok = true, want false")
+	}
+}
+
+func TestResolveContainerStackFailsClosedWhenUnresolved(t *testing.T) {
+	tempDir := t.TempDir()
+	store, err := stacks.NewStore(filepath.Join(tempDir, "stacks.json"))
+	if err != nil {
+		t.Fatalf("NewStore() error = %v", err)
+	}
+
+	for _, dir := range []string{"/srv/app-a", "/srv/app-b"} {
+		_, err = store.Save(stacks.Stack{
+			Name:         filepath.Base(dir),
+			ProjectName:  "shared",
+			WorkingDir:   dir,
+			ComposeFiles: []string{filepath.Join(tempDir, filepath.Base(dir)+".yaml")},
+			PathMode:     stacks.PathModeHostNative,
+		})
+		if err != nil {
+			t.Fatalf("Save() error = %v", err)
+		}
+	}
+
+	srv := &Server{StackStore: store}
+	container := types.Container{
+		ID: "container-3",
+		Labels: map[string]string{
+			"com.docker.compose.project":             "shared",
+			"com.docker.compose.project.working_dir": "/srv/unknown",
+			"com.docker.compose.service":             "web",
+		},
+	}
+
+	if _, ok := srv.resolveContainerStack(container); ok {
+		t.Fatalf("resolveContainerStack() ok = true, want false")
+	}
+}
+
+func TestContainerMatchesStackProjectMatchesRuntimePathForMappedStack(t *testing.T) {
+	stack := stacks.Stack{
+		Name:         "bazarr",
+		ProjectName:  "bazarr",
+		WorkingDir:   `D:\Docker\bazarr`,
+		PathMode:     stacks.PathModeMapped,
+		PathMappings: []stacks.PathMapping{{HostPath: `D:\Docker`, ContainerPath: "/compose"}},
+	}
+
+	container := types.Container{
+		Labels: map[string]string{
+			"com.docker.compose.project":             "bazarr",
+			"com.docker.compose.project.working_dir": "/compose/bazarr",
+		},
+	}
+
+	if !containerMatchesStackProject(stack, container) {
+		t.Fatalf("containerMatchesStackProject() = false, want true")
+	}
+}
+
+func TestStackOwnershipIssuesIncludesMissingAndExtraContainers(t *testing.T) {
+	extra := []types.Container{
+		{ID: "container-2", Names: []string{"/bazarr-2"}},
+	}
+
+	issues := stackOwnershipIssues([]string{"container-1"}, extra)
+	joined := strings.Join(issues, "\n")
+
+	if !strings.Contains(joined, "Managed container missing: container-1") {
+		t.Fatalf("issues = %#v, want missing-container issue", issues)
+	}
+	if !strings.Contains(joined, "Runtime container not managed by this stack: bazarr-2") {
+		t.Fatalf("issues = %#v, want extra-container issue", issues)
+	}
+}
+
+func TestBlockedStackActionReasonBlocksRiskyActionsWhenDrifted(t *testing.T) {
+	statusSummary := map[string]any{
+		"state": "drifted",
+	}
+
+	for _, action := range []string{"pull", "restart", "down"} {
+		blocked, reason := blockedStackActionReason(statusSummary, action)
+		if !blocked {
+			t.Fatalf("blockedStackActionReason(%q) blocked = false, want true", action)
+		}
+		if !strings.Contains(reason, "blocked while the stack is drifted") {
+			t.Fatalf("reason = %q, want drift explanation", reason)
+		}
+	}
+}
+
+func TestBlockedStackActionReasonAllowsDeployWhenDrifted(t *testing.T) {
+	blocked, reason := blockedStackActionReason(map[string]any{"state": "drifted"}, "deploy")
+	if blocked {
+		t.Fatalf("blockedStackActionReason(deploy) blocked = true, want false (reason=%q)", reason)
+	}
+}
+
+func TestBlockedStackActionReasonBlocksRiskyActionsWhenUnbound(t *testing.T) {
+	statusSummary := map[string]any{
+		"state": "unbound",
+	}
+
+	for _, action := range []string{"pull", "restart", "down"} {
+		blocked, reason := blockedStackActionReason(statusSummary, action)
+		if !blocked {
+			t.Fatalf("blockedStackActionReason(%q) blocked = false, want true", action)
+		}
+		if !strings.Contains(reason, "blocked while the stack is unbound") {
+			t.Fatalf("reason = %q, want unbound explanation", reason)
+		}
+	}
+}
+
 func newTestStackServer(t *testing.T) (*Server, stacks.Stack) {
 	t.Helper()
 

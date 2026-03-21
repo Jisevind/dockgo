@@ -49,26 +49,27 @@ type PathMapping struct {
 }
 
 type Stack struct {
-	ID               string            `json:"id"`
-	Name             string            `json:"name"`
-	ProjectName      string            `json:"project_name"`
-	Kind             Kind              `json:"kind"`
-	ComposeFiles     []string          `json:"compose_files"`
-	EnvFiles         []string          `json:"env_files,omitempty"`
-	WorkingDir       string            `json:"working_dir"`
-	Profiles         []string          `json:"profiles,omitempty"`
-	ProjectEnv       map[string]string `json:"project_env,omitempty"`
-	PathMode         PathMode          `json:"path_mode"`
-	PathMappings     []PathMapping     `json:"path_mappings,omitempty"`
-	UpdatePolicy     UpdatePolicy      `json:"update_policy"`
-	HealthPolicy     HealthPolicy      `json:"health_policy"`
-	Discovery        DiscoverySelector `json:"discovery_selector,omitempty"`
-	GitSource        *GitSource        `json:"git_source,omitempty"`
-	Labels           map[string]string `json:"labels,omitempty"`
-	LastDeployStatus string            `json:"last_deploy_status,omitempty"`
-	LastDeployAt     *time.Time        `json:"last_deploy_at,omitempty"`
-	CreatedAt        time.Time         `json:"created_at"`
-	UpdatedAt        time.Time         `json:"updated_at"`
+	ID                string            `json:"id"`
+	Name              string            `json:"name"`
+	ProjectName       string            `json:"project_name"`
+	Kind              Kind              `json:"kind"`
+	ComposeFiles      []string          `json:"compose_files"`
+	EnvFiles          []string          `json:"env_files,omitempty"`
+	WorkingDir        string            `json:"working_dir"`
+	Profiles          []string          `json:"profiles,omitempty"`
+	ProjectEnv        map[string]string `json:"project_env,omitempty"`
+	PathMode          PathMode          `json:"path_mode"`
+	PathMappings      []PathMapping     `json:"path_mappings,omitempty"`
+	UpdatePolicy      UpdatePolicy      `json:"update_policy"`
+	HealthPolicy      HealthPolicy      `json:"health_policy"`
+	Discovery         DiscoverySelector `json:"discovery_selector,omitempty"`
+	GitSource         *GitSource        `json:"git_source,omitempty"`
+	Labels            map[string]string `json:"labels,omitempty"`
+	ManagedContainers []string          `json:"managed_containers,omitempty"`
+	LastDeployStatus  string            `json:"last_deploy_status,omitempty"`
+	LastDeployAt      *time.Time        `json:"last_deploy_at,omitempty"`
+	CreatedAt         time.Time         `json:"created_at"`
+	UpdatedAt         time.Time         `json:"updated_at"`
 }
 
 type ValidationResult struct {

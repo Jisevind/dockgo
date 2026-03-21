@@ -177,6 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const stackDetailsPullBtn = document.getElementById('stack-details-pull-btn');
     const stackDetailsRestartBtn = document.getElementById('stack-details-restart-btn');
     const stackDetailsDownBtn = document.getElementById('stack-details-down-btn');
+    const stackDetailsReconcileBtn = document.getElementById('stack-details-reconcile-btn');
     const stackDetailsDeployBtn = document.getElementById('stack-details-deploy-btn');
     const stackDetailsDeleteBtn = document.getElementById('stack-details-delete-btn');
     let stackFormMode = 'create';
@@ -190,6 +191,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let stackFormHealthPolicy = null;
     let stackFormPathMappings = [];
     let stackFormKind = 'compose_files';
+    let activeStackStatusSummary = null;
 
     // Auth Functions
     const getCsrfToken = () => {
@@ -552,6 +554,11 @@ document.addEventListener('DOMContentLoaded', () => {
         stackDetailsContainers.textContent = '';
         stackDetailsHistory.textContent = '';
         activeStackDetails = null;
+        activeStackStatusSummary = null;
+        if (stackDetailsPullBtn) stackDetailsPullBtn.disabled = false;
+        if (stackDetailsRestartBtn) stackDetailsRestartBtn.disabled = false;
+        if (stackDetailsDownBtn) stackDetailsDownBtn.disabled = false;
+        if (stackDetailsReconcileBtn) stackDetailsReconcileBtn.disabled = false;
     };
 
     // --- Logs Modal Elements ---
@@ -633,6 +640,27 @@ document.addEventListener('DOMContentLoaded', () => {
             const stackCard = document.querySelector(`.stack-card[data-stack-id="${CSS.escape(stackToStop.id)}"]`);
             await runStackAction(stackToStop, 'down', stackCard);
             await openStackDetails(stackToStop);
+        });
+    }
+    if (stackDetailsReconcileBtn) {
+        stackDetailsReconcileBtn.addEventListener('click', async () => {
+            if (!activeStackDetails) return;
+            const stackToReconcile = activeStackDetails;
+            try {
+                const response = await fetch(`/api/stacks/${encodeURIComponent(stackToReconcile.id)}/reconcile`, {
+                    method: 'POST',
+                    headers: getAuthHeaders()
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to reconcile stack');
+                }
+                await Promise.all([fetchStacks(), fetchContainers(false)]);
+                await openStackDetails(stackToReconcile);
+            } catch (error) {
+                console.error('Failed to reconcile stack', error);
+                alert(`Failed to reconcile stack: ${error.message}`);
+            }
         });
     }
     if (stackDetailsDeployBtn) {
@@ -1189,12 +1217,22 @@ document.addEventListener('DOMContentLoaded', () => {
             return 'Status: unknown';
         }
 
-        return [
+        const lines = [
             `Status: ${summary.state || 'unknown'}`,
             summary.message || 'No stack status details available.',
             `Containers: ${summary.running || 0}/${summary.total || 0} running`,
             `Health: ${summary.healthy || 0} healthy, ${summary.unhealthy || 0} unhealthy, ${summary.degraded || 0} starting, ${summary.stopped || 0} stopped`
-        ].join('\n');
+        ];
+
+        if (summary.ownership_mode) {
+            lines.push(`Ownership: ${summary.ownership_mode}`);
+        }
+        if (Array.isArray(summary.issues) && summary.issues.length > 0) {
+            lines.push('Issues:');
+            summary.issues.forEach((issue) => lines.push(`- ${issue}`));
+        }
+
+        return lines.join('\n');
     };
 
     const applyStackStatusBadge = (element, summary) => {
@@ -1241,6 +1279,16 @@ document.addEventListener('DOMContentLoaded', () => {
             item.appendChild(timestamp);
             stackDetailsHistory.appendChild(item);
         });
+    };
+
+    const updateStackActionAvailability = (statusSummary) => {
+        activeStackStatusSummary = statusSummary || null;
+        const needsReconcile = statusSummary?.state === 'drifted' || statusSummary?.state === 'unbound';
+
+        if (stackDetailsPullBtn) stackDetailsPullBtn.disabled = needsReconcile;
+        if (stackDetailsRestartBtn) stackDetailsRestartBtn.disabled = needsReconcile;
+        if (stackDetailsDownBtn) stackDetailsDownBtn.disabled = needsReconcile;
+        if (stackDetailsReconcileBtn) stackDetailsReconcileBtn.disabled = !needsReconcile;
     };
 
     const renderStackContainers = (containers) => {
@@ -1325,6 +1373,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             activeStackDetails = detailData.stack;
+            updateStackActionAvailability(detailData.status_summary);
             stackDetailsTitle.textContent = `Stack Details: ${detailData.stack.name}`;
             stackDetailsDefinition.textContent = `${formatStackStatusSummary(detailData.status_summary)}\n\n${formatStackDefinition(detailData.stack, detailData.validation)}`;
             stackDetailsPaths.textContent = formatResolvedPaths(detailData.resolved_paths);
@@ -1554,10 +1603,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     tagBadge.classList.remove('hidden');
                 }
 
-                if (container.stack_registered) {
+                if (container.stack_managed && container.stack_name) {
                     const stackBadge = document.createElement('span');
                     stackBadge.className = 'stack-badge';
-                    stackBadge.textContent = `stack:${container.stack_name || container.compose_project}`;
+                    stackBadge.textContent = `stack:${container.stack_name}`;
                     const badgesEl = clone.querySelector('.badges') || clone.querySelector('.image-row');
                     if (badgesEl) {
                         badgesEl.appendChild(stackBadge);
@@ -1601,7 +1650,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         restartBtn.disabled = true;
                     }
 
-                    if (viewStackBtn && container.stack_registered && container.stack_id) {
+                    if (viewStackBtn && container.stack_managed && container.stack_id) {
                         viewStackBtn.classList.remove('hidden');
                     }
 
@@ -1616,7 +1665,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             } else if (action === 'view-stack' && container.stack_id) {
                                 await openStackDetails({
                                     id: container.stack_id,
-                                    name: container.stack_name || container.compose_project
+                                    name: container.stack_name
                                 });
                             } else {
                                 await handleContainerAction(container.name, action, containerEl);

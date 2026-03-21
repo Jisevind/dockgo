@@ -929,12 +929,14 @@ func (s *Server) handleContainers(w http.ResponseWriter, r *http.Request) {
 	s.mu.RUnlock()
 
 	var result []map[string]interface{}
+	visibleContainers := make([]container.Summary, 0, len(containers))
 	for _, c := range containers {
 		name := strings.TrimPrefix(c.Names[0], "/")
 
 		if strings.Contains(name, "_old_") {
 			continue
 		}
+		visibleContainers = append(visibleContainers, c)
 
 		image := c.Image
 		if strings.HasPrefix(image, "sha256:") {
@@ -971,6 +973,7 @@ func (s *Server) handleContainers(w http.ResponseWriter, r *http.Request) {
 			"compose_project":     c.Labels["com.docker.compose.project"],
 			"compose_service":     c.Labels["com.docker.compose.service"],
 			"compose_working_dir": c.Labels["com.docker.compose.project.working_dir"],
+			"stack_managed":       false,
 			"stack_registered":    false,
 			"stack_id":            "",
 			"stack_name":          "",
@@ -978,14 +981,8 @@ func (s *Server) handleContainers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for i := range result {
-		project, _ := result[i]["compose_project"].(string)
-		workingDir, _ := result[i]["compose_working_dir"].(string)
-		service, _ := result[i]["compose_service"].(string)
-		if project == "" || s.StackStore == nil {
-			continue
-		}
-
-		if stack, ok := s.StackStore.FindForComposeTarget(project, workingDir, service); ok {
+		if stack, ok := s.resolveContainerStack(visibleContainers[i]); ok {
+			result[i]["stack_managed"] = true
 			result[i]["stack_registered"] = true
 			result[i]["stack_id"] = stack.ID
 			result[i]["stack_name"] = stack.Name
