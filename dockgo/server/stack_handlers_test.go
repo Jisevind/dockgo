@@ -169,8 +169,8 @@ func TestExecuteStackActionRecordsSuccessfulDeploy(t *testing.T) {
 	if entry.DurationMs < 0 {
 		t.Fatalf("DurationMs = %d, want non-negative", entry.DurationMs)
 	}
-	if len(streamed) != 2 {
-		t.Fatalf("streamed len = %d, want 2", len(streamed))
+	if len(streamed) != 3 {
+		t.Fatalf("streamed len = %d, want 3", len(streamed))
 	}
 }
 
@@ -247,6 +247,33 @@ func TestExecuteStackActionDoesNotUpdateDeployStatusForNonDeployAction(t *testin
 	}
 	if history[0].Status != "success" || history[0].Source != "stacks_view" {
 		t.Fatalf("history entry = %+v, want success/stacks_view", history[0])
+	}
+}
+
+func TestDeployBindingErrorRequiresBoundContainersWhenDiscoveryIsAvailable(t *testing.T) {
+	err := deployBindingError(true, 0, nil)
+	if err == nil {
+		t.Fatalf("deployBindingError() = nil, want error")
+	}
+	if !strings.Contains(err.Error(), "no runtime containers were bound") {
+		t.Fatalf("deployBindingError() = %q, want binding failure message", err.Error())
+	}
+}
+
+func TestDeployBindingErrorWrapsOwnershipSyncFailure(t *testing.T) {
+	err := deployBindingError(true, 0, errors.New("docker unavailable"))
+	if err == nil {
+		t.Fatalf("deployBindingError() = nil, want error")
+	}
+	if !strings.Contains(err.Error(), "ownership binding failed") || !strings.Contains(err.Error(), "docker unavailable") {
+		t.Fatalf("deployBindingError() = %q, want wrapped sync failure", err.Error())
+	}
+}
+
+func TestDeployBindingErrorAllowsZeroBoundContainersWithoutDiscovery(t *testing.T) {
+	err := deployBindingError(false, 0, nil)
+	if err != nil {
+		t.Fatalf("deployBindingError() error = %v, want nil", err)
 	}
 }
 
