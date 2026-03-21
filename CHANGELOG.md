@@ -1,3 +1,26 @@
+# [1.2.0](https://github.com/Jisevind/dockgo/compare/v1.1.2...v1.2.0) (2026-03-21)
+
+
+### Bug Fixes
+
+* **stacks:** ensure container ownership binding on deploy ([9173bcb](https://github.com/Jisevind/dockgo/commit/9173bcbea4beebf7f059d611d237497df4e0ca13))
+* **stacks:** return empty string for missing env file ([90ce9bd](https://github.com/Jisevind/dockgo/commit/90ce9bdbfe26a2584416a0db7be345f70d7a6106))
+* **ui:** improve SSE handling reliability during updates ([7a668a7](https://github.com/Jisevind/dockgo/commit/7a668a7bab3e98f3d0f041bf06b067138552232d))
+
+
+### Features
+
+* **stacks:** add history tracking, delete support and deploy verification ([9ca27b3](https://github.com/Jisevind/dockgo/commit/9ca27b3d186aa1bd86022e1c2cda8ba26aea31e9))
+* **stacks:** add pull, restart, down actions and stack details view ([ff0d36a](https://github.com/Jisevind/dockgo/commit/ff0d36a66c4e008e87c2591cff68e2aad6106b6f))
+* **stacks:** add stack deployment and update routing ([3fc8e7c](https://github.com/Jisevind/dockgo/commit/3fc8e7c548ec44efede50b6b9ff8fb976c4d20f7))
+* **stacks:** enhance compose project matching with working dir and service ([5122860](https://github.com/Jisevind/dockgo/commit/5122860a8aa21aee12185bd23a7a168ee5008b5c))
+* **stacks:** enhance history tracking and validation ([39a7a83](https://github.com/Jisevind/dockgo/commit/39a7a83ccdd22b327ba2bb1192e58e07c8a06845))
+* **stacks:** implement container ownership tracking for stacks ([374a7d7](https://github.com/Jisevind/dockgo/commit/374a7d7e3d67f1afb92b0378f79dbe766aed9be1))
+* **stacks:** improve history pruning and validation with path resolution checks ([74c7ba9](https://github.com/Jisevind/dockgo/commit/74c7ba91d6764db28c0898f473799624023b9ab4))
+* **ui:** add dashboard and stacks view switching with statistics ([2d5563c](https://github.com/Jisevind/dockgo/commit/2d5563c8a350e7a9d723cb8ef39247b323c69fc3))
+* **ui:** add stack management UI for compose projects ([9ef2fb5](https://github.com/Jisevind/dockgo/commit/9ef2fb5cc146b65b625bca132b67a47cb799e1c4))
+* **ui:** make stack history details collapsible ([8be061e](https://github.com/Jisevind/dockgo/commit/8be061e34a3afac6d05d8993c5f80329e2c9e2fd))
+
 ## [1.1.2](https://github.com/Jisevind/dockgo/compare/v1.1.1...v1.1.2) (2026-03-08)
 
 
