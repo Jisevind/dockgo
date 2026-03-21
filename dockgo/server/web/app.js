@@ -1270,10 +1270,20 @@ document.addEventListener('DOMContentLoaded', () => {
             item.appendChild(message);
 
             if (Array.isArray(entry.details) && entry.details.length > 0) {
+                const disclosure = document.createElement('details');
+                disclosure.className = 'stack-history-disclosure';
+
+                const summary = document.createElement('summary');
+                summary.className = 'stack-history-summary';
+                summary.textContent = `Show activity log (${entry.details.length} lines)`;
+
                 const details = document.createElement('pre');
                 details.className = 'stack-history-details';
                 details.textContent = entry.details.join('\n');
-                item.appendChild(details);
+
+                disclosure.appendChild(summary);
+                disclosure.appendChild(details);
+                item.appendChild(disclosure);
             }
 
             item.appendChild(timestamp);

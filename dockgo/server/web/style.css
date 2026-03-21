@@ -539,11 +539,11 @@ h1 {
 .stack-badge {
     font-size: 0.7rem;
     padding: 0.25rem 0.25rem;
-    background: rgba(34, 197, 94, 0.1);
-    color: var(--success);
+    background: rgba(14, 165, 233, 0.12);
+    color: #7dd3fc;
     border-radius: 4px;
     font-family: monospace;
-    border: 1px solid rgba(34, 197, 94, 0.2);
+    border: 1px solid rgba(14, 165, 233, 0.28);
     white-space: nowrap;
 }
 
@@ -1060,6 +1060,33 @@ h1 {
     margin-top: 0.65rem;
     padding-top: 0.65rem;
     border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.stack-history-disclosure {
+    margin-top: 0.65rem;
+}
+
+.stack-history-summary {
+    cursor: pointer;
+    color: #7dd3fc;
+    font-size: 0.8rem;
+    user-select: none;
+    list-style: none;
+}
+
+.stack-history-summary::-webkit-details-marker {
+    display: none;
+}
+
+.stack-history-summary::before {
+    content: '▸';
+    display: inline-block;
+    margin-right: 0.45rem;
+    transition: transform 0.15s ease;
+}
+
+.stack-history-disclosure[open] .stack-history-summary::before {
+    transform: rotate(90deg);
 }
 
 .stack-history-details {
