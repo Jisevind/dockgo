@@ -1715,6 +1715,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         msgEl.textContent = 'Starting connection...';
         msgEl.classList.remove('hidden');
+        msgEl.style.color = '';
 
         try {
             const headers = getAuthHeaders();
@@ -1752,65 +1753,96 @@ document.addEventListener('DOMContentLoaded', () => {
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = '';
+            let sawTerminalEvent = false;
 
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                buffer += decoder.decode(value, { stream: true });
-                const parts = buffer.split('\n\n');
-                buffer = parts.pop();
-
-                for (const part of parts) {
-                    if (part.startsWith('data: ')) {
-                        try {
-                            const jsonStr = part.substring(6);
-                            const data = JSON.parse(jsonStr);
-
-                            if (data.type === 'start') {
-                                msgEl.textContent = data.message || 'Starting...';
-                            } else if (data.type === 'progress') {
-                                let text = data.status;
-                                if (data.percent) {
-                                    text += ` (${data.percent.toFixed(1)}%)`;
-                                }
-                                msgEl.textContent = text;
-                            } else if (data.type === 'pull_progress') {
-                                let text = data.status;
-                                if (data.percent) {
-                                    text += ` (${data.percent.toFixed(1)}%)`;
-                                }
-                                msgEl.textContent = text;
-                            } else if (data.type === 'error') {
-                                msgEl.textContent = `Error: ${data.error}`;
-                                msgEl.style.color = 'var(--danger)';
-                                if (updateSection) updateSection.classList.remove('hidden');
-                                btn.textContent = 'Retry Update';
-                                btn.disabled = false;
-                            } else if (data.type === 'done') {
-                                if (data.success) {
-                                    msgEl.textContent = 'Update successful! Refreshing...';
-                                    msgEl.style.color = 'var(--success)';
-                                    setTimeout(() => fetchContainers(), 1500);
-                                } else {
-                                    msgEl.textContent = `Failed: ${data.error || 'Unknown error'}`;
-                                    if (updateSection) updateSection.classList.remove('hidden');
-                                    btn.disabled = false;
-                                }
-                            }
-                        } catch (e) {
-                            console.error('SSE Parse Error', e);
-                        }
+            const handleUpdateEvent = (data) => {
+                if (data.type === 'start') {
+                    msgEl.textContent = data.message || 'Starting...';
+                } else if (data.type === 'progress') {
+                    let text = data.status;
+                    if (data.percent) {
+                        text += ` (${data.percent.toFixed(1)}%)`;
+                    }
+                    msgEl.textContent = text;
+                } else if (data.type === 'pull_progress') {
+                    let text = data.status;
+                    if (data.percent) {
+                        text += ` (${data.percent.toFixed(1)}%)`;
+                    }
+                    msgEl.textContent = text;
+                } else if (data.type === 'error') {
+                    sawTerminalEvent = true;
+                    msgEl.textContent = `Error: ${data.error}`;
+                    msgEl.style.color = 'var(--danger)';
+                    if (updateSection) updateSection.classList.remove('hidden');
+                    btn.textContent = 'Retry Update';
+                    btn.disabled = false;
+                } else if (data.type === 'done') {
+                    sawTerminalEvent = true;
+                    if (data.success) {
+                        msgEl.textContent = 'Update successful! Refreshing...';
+                        msgEl.style.color = 'var(--success)';
+                        setTimeout(() => fetchContainers(), 1500);
+                    } else {
+                        msgEl.textContent = `Failed: ${data.error || 'Unknown error'}`;
+                        msgEl.style.color = 'var(--danger)';
+                        if (updateSection) updateSection.classList.remove('hidden');
+                        btn.disabled = false;
                     }
                 }
+            };
+
+            const processSSEBuffer = () => {
+                const parts = buffer.split('\n\n');
+                buffer = parts.pop() || '';
+
+                for (const part of parts) {
+                    if (!part.startsWith('data: ')) {
+                        continue;
+                    }
+                    try {
+                        const jsonStr = part.substring(6);
+                        const data = JSON.parse(jsonStr);
+                        handleUpdateEvent(data);
+                    } catch (e) {
+                        console.error('SSE Parse Error', e);
+                    }
+                }
+            };
+
+            while (true) {
+                let readResult;
+                try {
+                    readResult = await reader.read();
+                } catch (streamError) {
+                    buffer += decoder.decode();
+                    processSSEBuffer();
+                    if (sawTerminalEvent) {
+                        break;
+                    }
+                    throw streamError;
+                }
+
+                const { done, value } = readResult;
+                if (done) {
+                    buffer += decoder.decode();
+                    processSSEBuffer();
+                    break;
+                }
+
+                buffer += decoder.decode(value, { stream: true });
+                processSSEBuffer();
             }
 
         } catch (error) {
             console.error('[Update] Network error:', error);
-            msgEl.textContent = `Network Error: ${error.message}`;
-            if (updateSection) updateSection.classList.remove('hidden');
-            btn.textContent = 'Retry Update';
-            btn.disabled = false;
+            if (!msgEl.textContent.includes('successful')) {
+                msgEl.textContent = `Network Error: ${error.message}`;
+                msgEl.style.color = 'var(--danger)';
+                if (updateSection) updateSection.classList.remove('hidden');
+                btn.textContent = 'Retry Update';
+                btn.disabled = false;
+            }
         } finally {
             activeUpdates--;
         }
