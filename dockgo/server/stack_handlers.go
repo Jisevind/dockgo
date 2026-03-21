@@ -53,6 +53,8 @@ type stackDiscoverCandidate struct {
 	SuggestedEnvFile     string   `json:"suggested_env_file,omitempty"`
 }
 
+const ownershipSyncTimeout = 15 * time.Second
+
 func (s *Server) handleStacks(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -96,6 +98,15 @@ func (s *Server) handleStacks(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
+		}
+		syncCtx, syncCancel := s.newOwnershipSyncContext()
+		count, err := s.syncStackManagedContainers(syncCtx, saved.ID)
+		syncCancel()
+		if err == nil && count > 0 {
+			if refreshed, ok := s.StackStore.Get(saved.ID); ok {
+				saved = refreshed
+			}
+			s.recordStackHistory(saved, "reconcile", "success", "stack ownership established from existing runtime containers")
 		}
 		s.recordStackHistory(saved, "register", "success", "stack registered")
 
@@ -245,7 +256,7 @@ func (s *Server) handleStackByID(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 		defer cancel()
 
-		if err := s.syncStackManagedContainers(ctx, stack.ID); err != nil {
+		if _, err := s.syncStackManagedContainers(ctx, stack.ID); err != nil {
 			s.recordStackHistory(stack, "reconcile", "error", err.Error())
 			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
 			return
@@ -630,26 +641,22 @@ func (s *Server) executeStackAction(
 	err := run(ctx, stack, logger)
 	completedAt := time.Now().UTC()
 	if err != nil {
-		if action == "deploy" && s.StackStore != nil {
-			_ = s.StackStore.RecordDeployStatus(stack.ID, "error", time.Now().UTC())
-		}
-		s.recordStackHistoryEntry(stacks.HistoryEntry{
-			StackID:     stack.ID,
-			StackName:   stack.Name,
-			Action:      action,
-			Status:      "error",
-			Source:      source,
-			Message:     err.Error(),
-			Details:     lines,
-			StartedAt:   startedAt,
-			CompletedAt: completedAt,
-		})
+		s.recordFailedStackAction(stack, action, source, err, lines, startedAt, completedAt)
 		return err
 	}
 
 	if action == "deploy" && s.StackStore != nil {
+		if onLine != nil {
+			onLine("Binding runtime containers to stack ownership...")
+		}
+		syncCtx, syncCancel := s.newOwnershipSyncContext()
+		boundCount, syncErr := s.syncStackManagedContainers(syncCtx, stack.ID)
+		syncCancel()
+		if bindErr := deployBindingError(s.Discovery != nil, boundCount, syncErr); bindErr != nil {
+			s.recordFailedStackAction(stack, action, source, bindErr, lines, startedAt, completedAt)
+			return bindErr
+		}
 		_ = s.StackStore.RecordDeployStatus(stack.ID, "success", time.Now().UTC())
-		_ = s.syncStackManagedContainers(ctx, stack.ID)
 	}
 	s.recordStackHistoryEntry(stacks.HistoryEntry{
 		StackID:     stack.ID,
@@ -665,19 +672,58 @@ func (s *Server) executeStackAction(
 	return nil
 }
 
-func (s *Server) syncStackManagedContainers(ctx context.Context, stackID string) error {
+func (s *Server) newOwnershipSyncContext() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), ownershipSyncTimeout)
+}
+
+func deployBindingError(discoveryAvailable bool, boundCount int, syncErr error) error {
+	if syncErr != nil {
+		return fmt.Errorf("stack deployment completed but ownership binding failed: %w", syncErr)
+	}
+	if discoveryAvailable && boundCount == 0 {
+		return fmt.Errorf("stack deployment completed but no runtime containers were bound to stack ownership")
+	}
+	return nil
+}
+
+func (s *Server) recordFailedStackAction(
+	stack stacks.Stack,
+	action string,
+	source string,
+	err error,
+	lines []string,
+	startedAt time.Time,
+	completedAt time.Time,
+) {
+	if action == "deploy" && s.StackStore != nil {
+		_ = s.StackStore.RecordDeployStatus(stack.ID, "error", time.Now().UTC())
+	}
+	s.recordStackHistoryEntry(stacks.HistoryEntry{
+		StackID:     stack.ID,
+		StackName:   stack.Name,
+		Action:      action,
+		Status:      "error",
+		Source:      source,
+		Message:     err.Error(),
+		Details:     lines,
+		StartedAt:   startedAt,
+		CompletedAt: completedAt,
+	})
+}
+
+func (s *Server) syncStackManagedContainers(ctx context.Context, stackID string) (int, error) {
 	if s.StackStore == nil || s.Discovery == nil {
-		return nil
+		return 0, nil
 	}
 
 	stack, ok := s.StackStore.Get(stackID)
 	if !ok {
-		return fmt.Errorf("stack not found")
+		return 0, fmt.Errorf("stack not found")
 	}
 
 	containers, err := s.Discovery.ListContainers(ctx)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	containerIDs := make([]string, 0)
@@ -687,7 +733,10 @@ func (s *Server) syncStackManagedContainers(ctx context.Context, stackID string)
 		}
 	}
 
-	return s.StackStore.RecordManagedContainers(stackID, containerIDs, time.Now().UTC())
+	if err := s.StackStore.RecordManagedContainers(stackID, containerIDs, time.Now().UTC()); err != nil {
+		return 0, err
+	}
+	return len(containerIDs), nil
 }
 
 func (s *Server) validateStackWithRuntime(ctx context.Context, stack stacks.Stack) stacks.ValidationResult {
