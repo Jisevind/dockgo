@@ -70,7 +70,7 @@ DockGo takes security seriously.
 > 2. **Use Network Isolation:** Run DockGo on a trusted, private local network.
 > 3. **Implement a Reverse Proxy:** If you must expose it, place it behind a secure reverse proxy (like Nginx, Traefik, or Caddy) equipped with SSL/TLS and preferably external Single Sign-On (SSO) or robust reverse-proxy-level authentication, *in addition* to DockGo's built-in authentication.
 >
-> Failing to secure this endpoint means giving anyone on the internet immediate root access to your entire server.
+> Failing to secure this endpoint is effectively equivalent to giving an attacker root-level control over the host.
 
 ---
 
@@ -130,7 +130,20 @@ Configure DockGo using environment variables:
 
 ## Documentation
 
-For deeper dives into specific integrations and features, check out our [Documentation Folder](./documentation/):
+Start with the new user documentation:
+
+- [Documentation Index](./docs/index.md)
+- [Quickstart](./docs/quickstart.md)
+- [Installation](./docs/installation.md)
+- [Configuration](./docs/configuration.md)
+- [Dashboard and Updates](./docs/dashboard-and-updates.md)
+- [Stacks](./docs/stacks.md)
+- [Notifications](./docs/notifications.md)
+- [Backup and Restore](./docs/backup-and-restore.md)
+- [Troubleshooting](./docs/troubleshooting.md)
+- [Internals](./docs/internals.md)
+
+Additional project/reference documentation:
 *   [Apprise Integration Guide](./documentation/apprise.md)
 *   [API Token Authentication](./documentation/api_token.md)
 *   [GitHub Actions Release Flow](./documentation/github_actions.md)
