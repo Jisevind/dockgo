@@ -64,6 +64,26 @@ func (s *Store) FindByComposeProject(project string) (Stack, bool) {
 	return s.FindForComposeTarget(project, "", "")
 }
 
+func (s *Store) GetByManagedContainer(containerID string) (Stack, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	containerID = strings.TrimSpace(containerID)
+	if containerID == "" {
+		return Stack{}, false
+	}
+
+	for _, stack := range s.stacks {
+		for _, ownedID := range stack.ManagedContainers {
+			if ownedID == containerID {
+				return stack, true
+			}
+		}
+	}
+
+	return Stack{}, false
+}
+
 func (s *Store) FindForComposeTarget(project string, workingDir string, service string) (Stack, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -192,6 +212,43 @@ func (s *Store) RecordDeployStatus(id string, status string, at time.Time) error
 	s.stacks[id] = stack
 
 	return s.persistLocked()
+}
+
+func (s *Store) RecordManagedContainers(id string, containerIDs []string, at time.Time) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	stack, ok := s.stacks[id]
+	if !ok {
+		return fmt.Errorf("stack not found")
+	}
+
+	stack.ManagedContainers = append([]string(nil), uniqueStrings(containerIDs)...)
+	stack.UpdatedAt = at
+	s.stacks[id] = stack
+
+	return s.persistLocked()
+}
+
+func uniqueStrings(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+
+	seen := make(map[string]struct{}, len(values))
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		out = append(out, value)
+	}
+	return out
 }
 
 func (s *Store) load() error {

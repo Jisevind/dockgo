@@ -107,3 +107,28 @@ func TestFindForComposeTargetFailsClosedOnAmbiguousProjectOnlyMatch(t *testing.T
 		t.Fatal("FindForComposeTarget() matched ambiguous project without discriminator")
 	}
 }
+
+func TestGetByManagedContainer(t *testing.T) {
+	store := &Store{
+		path: filepath.Join(t.TempDir(), "stacks.json"),
+		stacks: map[string]Stack{
+			"1": {
+				ID:                "1",
+				Name:              "bazarr",
+				ManagedContainers: []string{"container-a", "container-b"},
+			},
+		},
+	}
+
+	got, ok := store.GetByManagedContainer("container-b")
+	if !ok {
+		t.Fatal("GetByManagedContainer() did not match expected stack")
+	}
+	if got.ID != "1" {
+		t.Fatalf("matched stack ID = %q, want %q", got.ID, "1")
+	}
+
+	if _, ok := store.GetByManagedContainer("container-missing"); ok {
+		t.Fatal("GetByManagedContainer() matched unexpected container")
+	}
+}

@@ -236,6 +236,38 @@ func (s *Server) handleStackByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(parts) == 2 && parts[1] == "reconcile" {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+		defer cancel()
+
+		if err := s.syncStackManagedContainers(ctx, stack.ID); err != nil {
+			s.recordStackHistory(stack, "reconcile", "error", err.Error())
+			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+			return
+		}
+
+		updated, ok := s.StackStore.Get(stack.ID)
+		if !ok {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "stack not found after reconcile"})
+			return
+		}
+
+		s.recordStackHistory(updated, "reconcile", "success", "stack ownership reconciled")
+		writeJSON(w, http.StatusOK, stackDetailResponse{
+			Stack:          updated,
+			Validation:     validationPtr(s.validateStackWithRuntime(ctx, updated)),
+			Containers:     s.stackAssociatedContainers(ctx, updated),
+			StatusSummary:  s.stackStatusSummary(ctx, updated),
+			HistorySummary: validationHistorySummary(s.StackHistory, updated.ID),
+		})
+		return
+	}
+
 	if len(parts) == 2 && parts[1] == "history" {
 		if r.Method != http.MethodGet {
 			w.WriteHeader(http.StatusMethodNotAllowed)
@@ -488,6 +520,15 @@ func (s *Server) handleStackActionStream(
 		return
 	}
 
+	statusSummary := s.stackStatusSummary(r.Context(), stack)
+	if blocked, reason := blockedStackActionReason(statusSummary, action); blocked {
+		writeJSON(w, http.StatusConflict, map[string]any{
+			"error":          reason,
+			"status_summary": statusSummary,
+		})
+		return
+	}
+
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("X-Accel-Buffering", "no")
@@ -549,6 +590,24 @@ func (s *Server) handleStackActionStream(
 	})
 }
 
+func blockedStackActionReason(statusSummary map[string]any, action string) (bool, string) {
+	if statusSummary == nil {
+		return false, ""
+	}
+
+	state, _ := statusSummary["state"].(string)
+	if state != "drifted" && state != "unbound" {
+		return false, ""
+	}
+
+	switch action {
+	case "pull", "restart", "down":
+		return true, fmt.Sprintf("stack action '%s' is blocked while the stack is %s; deploy or reconcile the stack first", action, state)
+	default:
+		return false, ""
+	}
+}
+
 func (s *Server) executeStackAction(
 	ctx context.Context,
 	stack stacks.Stack,
@@ -590,6 +649,7 @@ func (s *Server) executeStackAction(
 
 	if action == "deploy" && s.StackStore != nil {
 		_ = s.StackStore.RecordDeployStatus(stack.ID, "success", time.Now().UTC())
+		_ = s.syncStackManagedContainers(ctx, stack.ID)
 	}
 	s.recordStackHistoryEntry(stacks.HistoryEntry{
 		StackID:     stack.ID,
@@ -603,6 +663,31 @@ func (s *Server) executeStackAction(
 		CompletedAt: completedAt,
 	})
 	return nil
+}
+
+func (s *Server) syncStackManagedContainers(ctx context.Context, stackID string) error {
+	if s.StackStore == nil || s.Discovery == nil {
+		return nil
+	}
+
+	stack, ok := s.StackStore.Get(stackID)
+	if !ok {
+		return fmt.Errorf("stack not found")
+	}
+
+	containers, err := s.Discovery.ListContainers(ctx)
+	if err != nil {
+		return err
+	}
+
+	containerIDs := make([]string, 0)
+	for _, c := range containers {
+		if containerMatchesStackProject(stack, c) {
+			containerIDs = append(containerIDs, c.ID)
+		}
+	}
+
+	return s.StackStore.RecordManagedContainers(stackID, containerIDs, time.Now().UTC())
 }
 
 func (s *Server) validateStackWithRuntime(ctx context.Context, stack stacks.Stack) stacks.ValidationResult {
@@ -727,25 +812,13 @@ func (s *Server) stackAssociatedContainers(ctx context.Context, stack stacks.Sta
 		return nil
 	}
 
-	project := stack.Discovery.ComposeProject
-	if project == "" {
-		project = stack.ProjectName
-	}
-	if project == "" {
-		return nil
-	}
-
-	containers, err := s.Discovery.ListContainers(ctx)
+	ownedContainers, _, _, err := s.stackRuntimeOwnership(ctx, stack)
 	if err != nil {
 		return nil
 	}
 
 	result := make([]map[string]string, 0)
-	for _, c := range containers {
-		if c.Labels["com.docker.compose.project"] != project {
-			continue
-		}
-
+	for _, c := range ownedContainers {
 		name := ""
 		if len(c.Names) > 0 {
 			name = strings.TrimPrefix(c.Names[0], "/")
@@ -764,21 +837,103 @@ func (s *Server) stackAssociatedContainers(ctx context.Context, stack stacks.Sta
 	return result
 }
 
+func containerMatchesStackProject(stack stacks.Stack, c types.Container) bool {
+	project := stack.Discovery.ComposeProject
+	if project == "" {
+		project = stack.ProjectName
+	}
+	if project == "" || c.Labels["com.docker.compose.project"] != project {
+		return false
+	}
+
+	workingDir := strings.TrimSpace(c.Labels["com.docker.compose.project.working_dir"])
+	if workingDir != "" {
+		candidatePaths := []string{
+			normalizeComparePath(stack.WorkingDir),
+			normalizeComparePath(stacks.ResolvePathForRuntime(stack, stack.WorkingDir)),
+		}
+		labelPath := normalizeComparePath(workingDir)
+		for _, candidatePath := range candidatePaths {
+			if candidatePath != "" && candidatePath == labelPath {
+				return true
+			}
+		}
+	}
+
+	service := strings.TrimSpace(c.Labels["com.docker.compose.service"])
+	if service != "" {
+		for _, serviceName := range stack.Discovery.ServiceNames {
+			if strings.EqualFold(strings.TrimSpace(serviceName), service) {
+				return true
+			}
+		}
+	}
+
+	return len(stack.Discovery.ServiceNames) == 0 && workingDir == ""
+}
+
+func containerMatchesStackOwnership(stack stacks.Stack, c types.Container) bool {
+	for _, ownedID := range stack.ManagedContainers {
+		if ownedID == c.ID {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Server) resolveContainerStack(c types.Container) (stacks.Stack, bool) {
+	if s.StackStore == nil {
+		return stacks.Stack{}, false
+	}
+
+	if stack, ok := s.StackStore.GetByManagedContainer(c.ID); ok {
+		return stack, true
+	}
+	return stacks.Stack{}, false
+}
+
 func (s *Server) stackStatusSummary(ctx context.Context, stack stacks.Stack) map[string]any {
-	containers := s.stackAssociatedContainers(ctx, stack)
+	ownedContainers, extraContainers, missingOwnedIDs, err := s.stackRuntimeOwnership(ctx, stack)
+	containers := summarizeContainers(ctx, s, ownedContainers)
 	summary := map[string]any{
-		"state":      "unknown",
-		"message":    "No associated containers found.",
-		"total":      len(containers),
-		"running":    0,
-		"healthy":    0,
-		"unhealthy":  0,
-		"stopped":    0,
-		"degraded":   0,
-		"containers": containers,
+		"state":              "unknown",
+		"message":            "No associated containers found.",
+		"total":              len(containers),
+		"running":            0,
+		"healthy":            0,
+		"unhealthy":          0,
+		"stopped":            0,
+		"degraded":           0,
+		"containers":         containers,
+		"ownership_mode":     "unbound",
+		"managed_total":      len(stack.ManagedContainers),
+		"missing_containers": missingOwnedIDs,
+		"extra_containers":   summarizeContainers(ctx, s, extraContainers),
+		"issues":             []string{},
+	}
+	if len(stack.ManagedContainers) > 0 {
+		summary["ownership_mode"] = "managed"
+	}
+	if err != nil {
+		summary["state"] = "unknown"
+		summary["message"] = "Failed to inspect stack runtime state."
+		summary["issues"] = []string{fmt.Sprintf("runtime inspection failed: %v", err)}
+		return summary
+	}
+
+	if len(stack.ManagedContainers) == 0 {
+		summary["state"] = "unbound"
+		summary["message"] = "Stack has no managed containers yet. Deploy or reconcile to establish ownership."
+		summary["issues"] = []string{"No managed containers are recorded for this stack."}
+		return summary
 	}
 
 	if len(containers) == 0 {
+		if len(missingOwnedIDs) > 0 {
+			summary["state"] = "drifted"
+			summary["message"] = "Stack ownership drift detected."
+			summary["issues"] = stackOwnershipIssues(missingOwnedIDs, extraContainers)
+		}
 		return summary
 	}
 
@@ -815,6 +970,9 @@ func (s *Server) stackStatusSummary(ctx context.Context, stack stacks.Stack) map
 	summary["degraded"] = degraded
 
 	switch {
+	case len(missingOwnedIDs) > 0 || len(extraContainers) > 0:
+		summary["state"] = "drifted"
+		summary["message"] = "Stack ownership drift detected."
 	case running == 0:
 		summary["state"] = "down"
 		summary["message"] = "All stack containers are stopped."
@@ -833,7 +991,94 @@ func (s *Server) stackStatusSummary(ctx context.Context, stack stacks.Stack) map
 		}
 	}
 
+	summary["issues"] = stackOwnershipIssues(missingOwnedIDs, extraContainers)
+
 	return summary
+}
+
+func (s *Server) stackRuntimeOwnership(ctx context.Context, stack stacks.Stack) ([]types.Container, []types.Container, []string, error) {
+	if s.Discovery == nil {
+		return nil, nil, nil, nil
+	}
+
+	containers, err := s.Discovery.ListContainers(ctx)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	if len(stack.ManagedContainers) == 0 {
+		return nil, nil, nil, nil
+	}
+
+	ownedByID := make(map[string]types.Container, len(stack.ManagedContainers))
+	for _, c := range containers {
+		ownedByID[c.ID] = c
+	}
+
+	owned := make([]types.Container, 0, len(stack.ManagedContainers))
+	missing := make([]string, 0)
+	for _, containerID := range stack.ManagedContainers {
+		if c, ok := ownedByID[containerID]; ok {
+			owned = append(owned, c)
+		} else {
+			missing = append(missing, containerID)
+		}
+	}
+
+	extra := make([]types.Container, 0)
+	for _, c := range containers {
+		if containsString(stack.ManagedContainers, c.ID) {
+			continue
+		}
+		if containerMatchesStackProject(stack, c) {
+			extra = append(extra, c)
+		}
+	}
+
+	return owned, extra, missing, nil
+}
+
+func containsString(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
+}
+
+func summarizeContainers(ctx context.Context, s *Server, containers []types.Container) []map[string]string {
+	result := make([]map[string]string, 0, len(containers))
+	for _, c := range containers {
+		name := ""
+		if len(c.Names) > 0 {
+			name = strings.TrimPrefix(c.Names[0], "/")
+		}
+		result = append(result, map[string]string{
+			"id":      c.ID,
+			"name":    name,
+			"service": c.Labels["com.docker.compose.service"],
+			"state":   c.State,
+			"status":  c.Status,
+			"health":  s.containerHealthState(ctx, c.ID),
+		})
+	}
+	return result
+}
+
+func stackOwnershipIssues(missingOwnedIDs []string, extraContainers []types.Container) []string {
+	issues := make([]string, 0, len(missingOwnedIDs)+len(extraContainers))
+	for _, missingID := range missingOwnedIDs {
+		issues = append(issues, fmt.Sprintf("Managed container missing: %s", missingID))
+	}
+	for _, c := range extraContainers {
+		name := c.ID
+		if len(c.Names) > 0 {
+			name = strings.TrimPrefix(c.Names[0], "/")
+		}
+		issues = append(issues, fmt.Sprintf("Runtime container not managed by this stack: %s", name))
+	}
+	return issues
 }
 
 func (s *Server) containerHealthState(ctx context.Context, containerID string) string {
