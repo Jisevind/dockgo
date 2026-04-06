@@ -984,6 +984,10 @@ h1 {
     margin-bottom: 1rem;
 }
 
+.stack-details-progress {
+    margin-bottom: 1rem;
+}
+
 .stack-card-badges {
     display: flex;
     flex-direction: column;

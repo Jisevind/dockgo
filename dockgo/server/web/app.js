@@ -188,6 +188,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const stackDetailsValidation = document.getElementById('stack-details-validation');
     const stackDetailsContainers = document.getElementById('stack-details-containers');
     const stackDetailsHistory = document.getElementById('stack-details-history');
+    const stackDetailsProgress = document.getElementById('stack-details-progress');
     const stackDetailsEditBtn = document.getElementById('stack-details-edit-btn');
     const stackDetailsValidateBtn = document.getElementById('stack-details-validate-btn');
     const stackDetailsPullBtn = document.getElementById('stack-details-pull-btn');
@@ -569,6 +570,11 @@ document.addEventListener('DOMContentLoaded', () => {
         stackDetailsValidation.textContent = '';
         stackDetailsContainers.textContent = '';
         stackDetailsHistory.textContent = '';
+        if (stackDetailsProgress) {
+            stackDetailsProgress.textContent = '';
+            stackDetailsProgress.classList.add('hidden');
+            stackDetailsProgress.classList.remove('success', 'error');
+        }
         activeStackDetails = null;
         activeStackStatusSummary = null;
         if (stackDetailsPullBtn) stackDetailsPullBtn.disabled = false;
@@ -632,30 +638,33 @@ document.addEventListener('DOMContentLoaded', () => {
         stackDetailsPullBtn.addEventListener('click', async () => {
             if (!activeStackDetails) return;
             const stackToPull = activeStackDetails;
-            closeStackDetailsModal();
             const stackCard = document.querySelector(`.stack-card[data-stack-id="${CSS.escape(stackToPull.id)}"]`);
-            await runStackAction(stackToPull, 'pull', stackCard);
-            await openStackDetails(stackToPull);
+            const result = await runStackAction(stackToPull, 'pull', stackCard);
+            if (result.attempted) {
+                await openStackDetails(stackToPull);
+            }
         });
     }
     if (stackDetailsRestartBtn) {
         stackDetailsRestartBtn.addEventListener('click', async () => {
             if (!activeStackDetails) return;
             const stackToRestart = activeStackDetails;
-            closeStackDetailsModal();
             const stackCard = document.querySelector(`.stack-card[data-stack-id="${CSS.escape(stackToRestart.id)}"]`);
-            await runStackAction(stackToRestart, 'restart', stackCard);
-            await openStackDetails(stackToRestart);
+            const result = await runStackAction(stackToRestart, 'restart', stackCard);
+            if (result.attempted) {
+                await openStackDetails(stackToRestart);
+            }
         });
     }
     if (stackDetailsDownBtn) {
         stackDetailsDownBtn.addEventListener('click', async () => {
             if (!activeStackDetails) return;
             const stackToStop = activeStackDetails;
-            closeStackDetailsModal();
             const stackCard = document.querySelector(`.stack-card[data-stack-id="${CSS.escape(stackToStop.id)}"]`);
-            await runStackAction(stackToStop, 'down', stackCard);
-            await openStackDetails(stackToStop);
+            const result = await runStackAction(stackToStop, 'down', stackCard);
+            if (result.attempted) {
+                await openStackDetails(stackToStop);
+            }
         });
     }
     if (stackDetailsReconcileBtn) {
@@ -683,10 +692,11 @@ document.addEventListener('DOMContentLoaded', () => {
         stackDetailsDeployBtn.addEventListener('click', async () => {
             if (!activeStackDetails) return;
             const stackToDeploy = activeStackDetails;
-            closeStackDetailsModal();
             const stackCard = document.querySelector(`.stack-card[data-stack-id="${CSS.escape(stackToDeploy.id)}"]`);
-            await runStackAction(stackToDeploy, 'deploy', stackCard);
-            await openStackDetails(stackToDeploy);
+            const result = await runStackAction(stackToDeploy, 'deploy', stackCard);
+            if (result.attempted) {
+                await openStackDetails(stackToDeploy);
+            }
         });
     }
     if (stackDetailsDeleteBtn) {
@@ -1520,10 +1530,43 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const setStackDetailsProgress = (message, state = '') => {
+        if (!stackDetailsProgress) return;
+        stackDetailsProgress.textContent = message;
+        stackDetailsProgress.classList.remove('hidden', 'success', 'error');
+        if (state) {
+            stackDetailsProgress.classList.add(state);
+        }
+    };
+
+    const clearStackDetailsProgress = () => {
+        if (!stackDetailsProgress) return;
+        stackDetailsProgress.textContent = '';
+        stackDetailsProgress.classList.add('hidden');
+        stackDetailsProgress.classList.remove('success', 'error');
+    };
+
     const setStackButtonsDisabled = (stackEl, disabled) => {
         if (!stackEl) return;
         stackEl.querySelectorAll('.stack-actions .btn').forEach((button) => {
             button.disabled = disabled;
+        });
+    };
+
+    const setStackDetailsActionButtonsDisabled = (disabled) => {
+        [
+            stackDetailsEditBtn,
+            stackDetailsValidateBtn,
+            stackDetailsPullBtn,
+            stackDetailsRestartBtn,
+            stackDetailsDownBtn,
+            stackDetailsReconcileBtn,
+            stackDetailsDeployBtn,
+            stackDetailsDeleteBtn
+        ].forEach((button) => {
+            if (button) {
+                button.disabled = disabled;
+            }
         });
     };
 
@@ -1560,12 +1603,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const runStackAction = async (stack, action, stackEl) => {
         const actionLabel = stackActionLabels[action] || action;
         if (!confirm(`Are you sure you want to ${actionLabel} stack ${stack.name}?`)) {
-            return;
+            return { attempted: false, success: false };
         }
+
+        let actionSucceeded = false;
 
         try {
             setStackButtonsDisabled(stackEl, true);
             setStackProgress(stackEl, stackProgressMessages[action]?.start || 'Starting stack action...');
+            if (activeStackDetails && activeStackDetails.id === stack.id && !stackDetailsModal.classList.contains('hidden')) {
+                setStackDetailsActionButtonsDisabled(true);
+                setStackDetailsProgress(stackProgressMessages[action]?.start || 'Starting stack action...');
+            }
 
             const response = await fetch(`/api/stacks/${encodeURIComponent(stack.id)}/${encodeURIComponent(action)}`, {
                 method: 'POST',
@@ -1592,15 +1641,27 @@ document.addEventListener('DOMContentLoaded', () => {
             const processStackEvent = (data) => {
                 if (data.type === 'start') {
                     setStackProgress(stackEl, data.message || stackProgressMessages[action]?.start || 'Starting stack action...');
+                    if (activeStackDetails && activeStackDetails.id === stack.id && !stackDetailsModal.classList.contains('hidden')) {
+                        setStackDetailsProgress(data.message || stackProgressMessages[action]?.start || 'Starting stack action...');
+                    }
                 } else if (data.type === 'progress') {
                     sawMeaningfulProgress = true;
                     setStackProgress(stackEl, data.status || 'Working...');
+                    if (activeStackDetails && activeStackDetails.id === stack.id && !stackDetailsModal.classList.contains('hidden')) {
+                        setStackDetailsProgress(data.status || 'Working...');
+                    }
                 } else if (data.type === 'error') {
                     sawTerminalEvent = true;
                     setStackProgress(stackEl, data.error || stackProgressMessages[action]?.failure || 'Stack action failed.', 'error');
+                    if (activeStackDetails && activeStackDetails.id === stack.id && !stackDetailsModal.classList.contains('hidden')) {
+                        setStackDetailsProgress(data.error || stackProgressMessages[action]?.failure || 'Stack action failed.', 'error');
+                    }
                 } else if (data.type === 'done') {
                     sawTerminalEvent = true;
                     setStackProgress(stackEl, stackProgressMessages[action]?.success || 'Stack action completed successfully.', 'success');
+                    if (activeStackDetails && activeStackDetails.id === stack.id && !stackDetailsModal.classList.contains('hidden')) {
+                        setStackDetailsProgress(stackProgressMessages[action]?.success || 'Stack action completed successfully.', 'success');
+                    }
                 }
             };
 
@@ -1632,6 +1693,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     if (sawMeaningfulProgress) {
                         setStackProgress(stackEl, 'Connection dropped after stack progress. Refreshing status...');
+                        if (activeStackDetails && activeStackDetails.id === stack.id && !stackDetailsModal.classList.contains('hidden')) {
+                            setStackDetailsProgress('Connection dropped after stack progress. Refreshing status...');
+                        }
                         break;
                     }
                     throw streamError;
@@ -1649,13 +1713,23 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             await Promise.all([fetchStacks(), fetchContainers(false)]);
+            actionSucceeded = true;
         } catch (error) {
             console.error(`Failed to ${action} stack`, error);
             setStackProgress(stackEl, `${stackProgressMessages[action]?.failure || 'Stack action failed'}: ${error.message}`, 'error');
+            if (activeStackDetails && activeStackDetails.id === stack.id && !stackDetailsModal.classList.contains('hidden')) {
+                setStackDetailsProgress(`${stackProgressMessages[action]?.failure || 'Stack action failed'}: ${error.message}`, 'error');
+            }
             await fetchStacks();
         } finally {
             setStackButtonsDisabled(stackEl, false);
+            if (activeStackDetails && activeStackDetails.id === stack.id && !stackDetailsModal.classList.contains('hidden')) {
+                setStackDetailsActionButtonsDisabled(false);
+                updateStackActionAvailability(activeStackStatusSummary);
+            }
         }
+
+        return { attempted: true, success: actionSucceeded };
     };
 
     const renderContainers = (containers) => {
