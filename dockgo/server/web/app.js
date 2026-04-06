@@ -1586,33 +1586,66 @@ document.addEventListener('DOMContentLoaded', () => {
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = '';
+            let sawTerminalEvent = false;
+            let sawMeaningfulProgress = false;
 
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
+            const processStackEvent = (data) => {
+                if (data.type === 'start') {
+                    setStackProgress(stackEl, data.message || stackProgressMessages[action]?.start || 'Starting stack action...');
+                } else if (data.type === 'progress') {
+                    sawMeaningfulProgress = true;
+                    setStackProgress(stackEl, data.status || 'Working...');
+                } else if (data.type === 'error') {
+                    sawTerminalEvent = true;
+                    setStackProgress(stackEl, data.error || stackProgressMessages[action]?.failure || 'Stack action failed.', 'error');
+                } else if (data.type === 'done') {
+                    sawTerminalEvent = true;
+                    setStackProgress(stackEl, stackProgressMessages[action]?.success || 'Stack action completed successfully.', 'success');
+                }
+            };
 
-                buffer += decoder.decode(value, { stream: true });
+            const processStackBuffer = () => {
                 const parts = buffer.split('\n\n');
-                buffer = parts.pop();
+                buffer = parts.pop() || '';
 
                 for (const part of parts) {
                     if (!part.startsWith('data: ')) continue;
                     const jsonStr = part.substring(6);
                     try {
                         const data = JSON.parse(jsonStr);
-                        if (data.type === 'start') {
-                            setStackProgress(stackEl, data.message || stackProgressMessages[action]?.start || 'Starting stack action...');
-                        } else if (data.type === 'progress') {
-                            setStackProgress(stackEl, data.status || 'Working...');
-                        } else if (data.type === 'error') {
-                            setStackProgress(stackEl, data.error || stackProgressMessages[action]?.failure || 'Stack action failed.', 'error');
-                        } else if (data.type === 'done') {
-                            setStackProgress(stackEl, stackProgressMessages[action]?.success || 'Stack action completed successfully.', 'success');
-                        }
+                        processStackEvent(data);
                     } catch (e) {
                         console.error('Failed to parse stack deploy event', e);
                     }
                 }
+            };
+
+            while (true) {
+                let readResult;
+                try {
+                    readResult = await reader.read();
+                } catch (streamError) {
+                    buffer += decoder.decode();
+                    processStackBuffer();
+                    if (sawTerminalEvent) {
+                        break;
+                    }
+                    if (sawMeaningfulProgress) {
+                        setStackProgress(stackEl, 'Connection dropped after stack progress. Refreshing status...');
+                        break;
+                    }
+                    throw streamError;
+                }
+
+                const { done, value } = readResult;
+                if (done) {
+                    buffer += decoder.decode();
+                    processStackBuffer();
+                    break;
+                }
+
+                buffer += decoder.decode(value, { stream: true });
+                processStackBuffer();
             }
 
             await Promise.all([fetchStacks(), fetchContainers(false)]);
@@ -1866,7 +1899,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (updateSection) updateSection.classList.remove('hidden');
                 btn.textContent = 'Retry';
                 btn.disabled = false;
-                activeUpdates--;
                 return;
             }
 
@@ -1878,17 +1910,20 @@ document.addEventListener('DOMContentLoaded', () => {
             const decoder = new TextDecoder();
             let buffer = '';
             let sawTerminalEvent = false;
+            let sawMeaningfulProgress = false;
 
             const handleUpdateEvent = (data) => {
                 if (data.type === 'start') {
                     msgEl.textContent = data.message || 'Starting...';
                 } else if (data.type === 'progress') {
+                    sawMeaningfulProgress = true;
                     let text = data.status;
                     if (data.percent) {
                         text += ` (${data.percent.toFixed(1)}%)`;
                     }
                     msgEl.textContent = text;
                 } else if (data.type === 'pull_progress') {
+                    sawMeaningfulProgress = true;
                     let text = data.status;
                     if (data.percent) {
                         text += ` (${data.percent.toFixed(1)}%)`;
@@ -1944,6 +1979,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (sawTerminalEvent) {
                         break;
                     }
+                    if (sawMeaningfulProgress) {
+                        msgEl.textContent = 'Connection dropped after update progress. Refreshing status...';
+                        msgEl.style.color = 'var(--warning)';
+                        setTimeout(() => fetchContainers(), 1500);
+                        break;
+                    }
                     throw streamError;
                 }
 
@@ -1960,7 +2001,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch (error) {
             console.error('[Update] Network error:', error);
-            if (!msgEl.textContent.includes('successful')) {
+            if (!msgEl.textContent.includes('successful') && !msgEl.textContent.includes('Refreshing status')) {
                 msgEl.textContent = `Network Error: ${error.message}`;
                 msgEl.style.color = 'var(--danger)';
                 if (updateSection) updateSection.classList.remove('hidden');

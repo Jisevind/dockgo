@@ -1304,6 +1304,38 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	doneChan := make(chan struct{})
+	var heartbeatWg sync.WaitGroup
+	heartbeatWg.Add(1)
+	defer func() {
+		close(doneChan)
+		heartbeatWg.Wait()
+	}()
+
+	go func() {
+		defer heartbeatWg.Done()
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-doneChan:
+				return
+			case <-ticker.C:
+				sseMu.Lock()
+				if _, err := w.Write([]byte(": ping\n\n")); err != nil {
+					sseMu.Unlock()
+					cancel()
+					return
+				}
+				flusher.Flush()
+				sseMu.Unlock()
+			}
+		}
+	}()
+
 	opts := engine.UpdateOptions{
 		Safe:            false,
 		PreserveNetwork: true,
