@@ -139,7 +139,17 @@
             <div class="stack-panel">
                 <div class="stack-panel-header">
                     <h2>Registered Stacks</h2>
-                    <button id="refresh-stacks-btn" class="btn secondary">Refresh</button>
+                    <div class="stack-panel-actions">
+                        <label class="stack-filter-toggle" for="filter-drifted-stacks">
+                            <input type="checkbox" id="filter-drifted-stacks">
+                            <span>Drifted</span>
+                        </label>
+                        <label class="stack-filter-toggle" for="filter-unbound-stacks">
+                            <input type="checkbox" id="filter-unbound-stacks">
+                            <span>Unbound</span>
+                        </label>
+                        <button id="refresh-stacks-btn" class="btn secondary">Refresh</button>
+                    </div>
                 </div>
                 <div id="stack-list" class="stack-list">
                     <div class="loading">Loading registered stacks...</div>
@@ -149,7 +159,13 @@
             <div class="stack-panel">
                 <div class="stack-panel-header">
                     <h2>Discovered Compose Projects</h2>
-                    <button id="discover-stacks-btn" class="btn secondary">Discover</button>
+                    <div class="stack-panel-actions">
+                        <label class="stack-filter-toggle" for="hide-registered-stacks">
+                            <input type="checkbox" id="hide-registered-stacks">
+                            <span>Hide registered</span>
+                        </label>
+                        <button id="discover-stacks-btn" class="btn secondary">Discover</button>
+                    </div>
                 </div>
                 <div id="stack-candidates" class="stack-list">
                     <div class="loading">Loading discovered projects...</div>

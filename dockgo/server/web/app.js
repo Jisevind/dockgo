@@ -12,7 +12,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusEl = document.getElementById('connection-status');
     const refreshBtn = document.getElementById('refresh-btn');
     const refreshStacksBtn = document.getElementById('refresh-stacks-btn');
+    const filterDriftedStacksEl = document.getElementById('filter-drifted-stacks');
+    const filterUnboundStacksEl = document.getElementById('filter-unbound-stacks');
     const discoverStacksBtn = document.getElementById('discover-stacks-btn');
+    const hideRegisteredStacksEl = document.getElementById('hide-registered-stacks');
     const viewDashboardBtn = document.getElementById('view-dashboard');
     const viewStacksBtn = document.getElementById('view-stacks');
     const viewGridBtn = document.getElementById('view-grid');
@@ -115,7 +118,20 @@ document.addEventListener('DOMContentLoaded', () => {
     let cachedContainers = [];
     let cachedStacks = [];
     let cachedStackCandidates = [];
+    let filterDriftedStacks = localStorage.getItem('dockgo_filter_drifted_stacks') === 'true';
+    let filterUnboundStacks = localStorage.getItem('dockgo_filter_unbound_stacks') === 'true';
+    let hideRegisteredStacks = localStorage.getItem('dockgo_hide_registered_stacks') === 'true';
     let isCurrentlyMobile = window.innerWidth <= 600;
+
+    if (filterDriftedStacksEl) {
+        filterDriftedStacksEl.checked = filterDriftedStacks;
+    }
+    if (filterUnboundStacksEl) {
+        filterUnboundStacksEl.checked = filterUnboundStacks;
+    }
+    if (hideRegisteredStacksEl) {
+        hideRegisteredStacksEl.checked = hideRegisteredStacks;
+    }
 
     window.addEventListener('resize', () => {
         const isMobileNow = window.innerWidth <= 600;
@@ -951,7 +967,20 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        stackItems.forEach((item) => {
+        const visibleStacks = stackItems.filter((item) => {
+            const state = item?.status_summary?.state || '';
+            if (!filterDriftedStacks && !filterUnboundStacks) {
+                return true;
+            }
+            return (filterDriftedStacks && state === 'drifted') || (filterUnboundStacks && state === 'unbound');
+        });
+
+        if (visibleStacks.length === 0) {
+            stackListEl.innerHTML = '<div class="loading">No registered stacks match the current filters.</div>';
+            return;
+        }
+
+        visibleStacks.forEach((item) => {
             const stack = item.stack || item;
             const recentHistory = item.recent_history || [];
             const statusSummary = item.status_summary || null;
@@ -1013,9 +1042,16 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        candidates.sort((a, b) => a.project.localeCompare(b.project));
+        const visibleCandidates = candidates
+            .filter((candidate) => !hideRegisteredStacks || !candidate.registered)
+            .sort((a, b) => a.project.localeCompare(b.project));
 
-        candidates.forEach((candidate) => {
+        if (visibleCandidates.length === 0) {
+            stackCandidatesEl.innerHTML = '<div class="loading">No unregistered Compose projects discovered.</div>';
+            return;
+        }
+
+        visibleCandidates.forEach((candidate) => {
             const clone = stackCandidateTemplate.content.cloneNode(true);
             clone.querySelector('.stack-name').textContent = candidate.project;
             clone.querySelector('.stack-path').textContent = candidate.working_dir || 'No working directory label';
@@ -1103,6 +1139,35 @@ document.addEventListener('DOMContentLoaded', () => {
     const loadStacksViewData = async () => {
         await Promise.all([fetchStacks(), fetchStackCandidates()]);
     };
+
+    const persistStackFilters = () => {
+        localStorage.setItem('dockgo_filter_drifted_stacks', String(filterDriftedStacks));
+        localStorage.setItem('dockgo_filter_unbound_stacks', String(filterUnboundStacks));
+    };
+
+    if (filterDriftedStacksEl) {
+        filterDriftedStacksEl.addEventListener('change', () => {
+            filterDriftedStacks = filterDriftedStacksEl.checked;
+            persistStackFilters();
+            renderStacks(cachedStacks);
+        });
+    }
+
+    if (filterUnboundStacksEl) {
+        filterUnboundStacksEl.addEventListener('change', () => {
+            filterUnboundStacks = filterUnboundStacksEl.checked;
+            persistStackFilters();
+            renderStacks(cachedStacks);
+        });
+    }
+
+    if (hideRegisteredStacksEl) {
+        hideRegisteredStacksEl.addEventListener('change', () => {
+            hideRegisteredStacks = hideRegisteredStacksEl.checked;
+            localStorage.setItem('dockgo_hide_registered_stacks', String(hideRegisteredStacks));
+            renderStackCandidates(cachedStackCandidates);
+        });
+    }
 
     const editStack = async (stack) => {
         openStackModal('edit', stack);

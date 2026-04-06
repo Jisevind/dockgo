@@ -134,6 +134,28 @@ main {
     font-size: 1rem;
 }
 
+.stack-panel-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.stack-filter-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    cursor: pointer;
+    user-select: none;
+}
+
+.stack-filter-toggle input {
+    margin: 0;
+}
+
 .stack-list {
     display: flex;
     flex-direction: column;
