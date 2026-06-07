@@ -187,6 +187,27 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 					)
 				}
 
+				// Locally-built images (e.g. from a Compose "build:" directive) have
+				// no RepoDigests because they were never pushed to or pulled from a
+				// registry. There is nothing to compare against remotely, so skip the
+				// registry round-trip immediately rather than burning the full
+				// containerScanTimeout on a request that will always fail or time out.
+				if len(repoDigests) == 0 {
+					upd.Status = "local"
+					scannerLog.DebugContext(ctx, "container is locally built, skipping registry check",
+						logger.String("container", name),
+						logger.String("image", upd.Image),
+					)
+					mu.Lock()
+					updates = append(updates, upd)
+					newCount := atomic.AddInt32(&processedCount, 1)
+					mu.Unlock()
+					if onProgress != nil {
+						onProgress(upd, int(newCount), totalToCheck)
+					}
+					return
+				}
+
 				imageToCheck := upd.Image
 				if strings.HasPrefix(imageToCheck, "localhost:") || strings.HasPrefix(imageToCheck, "127.0.0.1:") {
 					scannerLog.DebugContext(ctx, "rewriting localhost image for Docker",
@@ -326,7 +347,9 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 				if len(repoDigests) > 0 {
 					upd.LocalDigest = repoDigests[0]
 				}
-				if cOs != "" && cArch != "" {
+				// Same local-image guard as in the main pass: no RepoDigests means
+				// locally built, nothing to check remotely.
+				if len(repoDigests) > 0 && cOs != "" && cArch != "" {
 					imageToCheck := upd.Image
 					remoteDigest, remoteErr := registry.GetRemoteDigest(recheckCtx, imageToCheck, nil, force)
 					if remoteErr == nil {
@@ -341,6 +364,8 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 						}
 						upd.UpdateAvailable = !found
 					}
+				} else if len(repoDigests) == 0 {
+					upd.Status = "local"
 				}
 			}
 			recheckCancel()
