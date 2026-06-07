@@ -24,6 +24,7 @@ type UpdateOptions struct {
 	PreserveNetwork bool
 	AllowedPaths    []string
 	LogCallback     func(api.ProgressEvent)
+	Registry        *RegistryClient // optional: invalidated after successful pull
 }
 
 type lockEntry struct {
@@ -269,6 +270,12 @@ func updateStandalone(ctx context.Context, discovery *DiscoveryEngine, upd *api.
 
 		upd.Error = extendedErr.Error()
 		return extendedErr
+	}
+
+	// Invalidate the registry cache for this image so subsequent scans
+	// within the 10-minute TTL window fetch fresh digests.
+	if opts.Registry != nil {
+		opts.Registry.InvalidateImage(upd.Image)
 	}
 
 	if opts.Safe && isRunning {

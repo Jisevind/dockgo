@@ -70,11 +70,12 @@ type Server struct {
 	lastRegStatus    string
 	revokedSessions  map[string]time.Time
 	globalReauthTime time.Time
-	UpdatesChan      chan string
-	sessionStorePath string
-	sessionMu        sync.RWMutex
-	savePending      atomic.Bool
-	DebugEnabled     bool
+	UpdatesChan       chan string
+	sessionStorePath  string
+	sessionMu         sync.RWMutex
+	savePending       atomic.Bool
+	DebugEnabled      bool
+	lastUpdateAttempts map[string]UpdateAttemptInfo // container name → last failure
 	StackStore       *stacks.Store
 	StackHistory     *stacks.HistoryStore
 }
@@ -82,6 +83,12 @@ type Server struct {
 type RateLimiter struct {
 	count    int
 	lastSeen time.Time
+}
+
+// UpdateAttemptInfo records the most recent failed update attempt for a container.
+type UpdateAttemptInfo struct {
+	Error     string    `json:"error"`
+	Timestamp time.Time `json:"timestamp"`
 }
 
 // AuthState stores persisted authentication state.
@@ -210,8 +217,9 @@ func NewServer(port string) (*Server, error) {
 		Discovery:        disc,
 		Registry:         registry,
 		Notifier:         notify.NewAppriseNotifier(context.Background()),
-		updatesCache:     make(map[string]bool),
-		startTime:        time.Now(),
+		updatesCache:       make(map[string]bool),
+		lastUpdateAttempts: make(map[string]UpdateAttemptInfo),
+		startTime:          time.Now(),
 		loginAttempts:    make(map[string]*RateLimiter),
 		revokedSessions:  make(map[string]time.Time),
 		DebugEnabled:     debugEnabled,
@@ -900,7 +908,9 @@ func (s *Server) getRegistryStatus() string {
 		return status
 	}
 
-	err := s.Registry.Ping()
+	pingCtx, pingCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer pingCancel()
+	err := s.Registry.Ping(pingCtx)
 
 	newStatus := "reachable"
 	if err != nil {
@@ -926,6 +936,7 @@ func (s *Server) handleContainers(w http.ResponseWriter, r *http.Request) {
 
 	s.mu.RLock()
 	cache := s.updatesCache
+	lastAttempts := s.lastUpdateAttempts
 	s.mu.RUnlock()
 
 	var result []map[string]interface{}
@@ -962,7 +973,7 @@ func (s *Server) handleContainers(w http.ResponseWriter, r *http.Request) {
 			tagName = "latest"
 		}
 
-		result = append(result, map[string]interface{}{
+		containerResult := map[string]interface{}{
 			"id":                  c.ID,
 			"name":                name,
 			"image":               image,
@@ -977,7 +988,15 @@ func (s *Server) handleContainers(w http.ResponseWriter, r *http.Request) {
 			"stack_registered":    false,
 			"stack_id":            "",
 			"stack_name":          "",
-		})
+		}
+
+		// Only include failure info if a previous update attempt failed.
+		if attemptInfo, ok := lastAttempts[name]; ok {
+			containerResult["last_update_error"] = attemptInfo.Error
+			containerResult["last_update_attempt"] = attemptInfo.Timestamp
+		}
+
+		result = append(result, containerResult)
 	}
 
 	for i := range result {
@@ -1103,15 +1122,9 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 			_, _ = w.Write(errBytes)
 			_, _ = w.Write([]byte("\n\n"))
 		} else {
-			newCache := make(map[string]bool)
-			for _, u := range updates {
-				if u.UpdateAvailable {
-					newCache[u.ID] = true
-				}
-			}
+			s.applyScanResults(updates)
 
 			s.mu.Lock()
-			s.updatesCache = newCache
 			s.lastCheckTime = time.Now()
 			s.lastCheckStat = "success"
 			s.mu.Unlock()
@@ -1173,7 +1186,6 @@ func (s *Server) runScheduledScan(ctx context.Context) {
 		return
 	}
 
-	newCache := make(map[string]bool)
 	var newUpdates []string
 
 	for _, u := range updates {
@@ -1188,7 +1200,6 @@ func (s *Server) runScheduledScan(ctx context.Context) {
 					newUpdates = append(newUpdates, name)
 				}
 			}
-			newCache[u.ID] = true
 			serverLog.DebugContext(updateCtx, "Scheduler: Found update for container",
 				logger.String("container", name),
 				logger.String("container_id", u.ID),
@@ -1216,11 +1227,130 @@ func (s *Server) runScheduledScan(ctx context.Context) {
 		)
 	}
 
+	s.applyScanResults(updates)
+	s.pruneStaleCache(ctx)
+
 	s.mu.Lock()
-	s.updatesCache = newCache
 	s.lastCheckTime = time.Now()
 	s.lastCheckStat = "success"
 	s.mu.Unlock()
+}
+
+// applyScanResults updates the updatesCache per-key from scan results.
+// It sets entries to true for containers with available updates, and deletes
+// entries for containers that were scanned and found to be up-to-date.
+// Containers not in the scan results are left untouched (preserving concurrent mutations).
+func (s *Server) applyScanResults(updates []api.ContainerUpdate) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for _, u := range updates {
+		// Skip containers that were in a transitional state during the scan.
+		// Their cache entry is left untouched — it will be corrected by the
+		// next scan or by the post-update cache refresh.
+		if u.Status == "skipped" {
+			continue
+		}
+		if u.UpdateAvailable {
+			s.updatesCache[u.ID] = true
+		} else {
+			delete(s.updatesCache, u.ID)
+		}
+	}
+	// Containers not in the scan are left untouched (preserving concurrent mutations).
+}
+
+// refreshCacheAfterUpdate re-scans a container by name with force=true (bypassing
+// the registry digest cache) and updates the updatesCache with the correct state.
+// It also cleans up any stale entries for the old container ID.
+func (s *Server) refreshCacheAfterUpdate(ctx context.Context, containerName string, oldContainerID string) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	updates, err := engine.Scan(ctx, s.Discovery, s.Registry, containerName, true, nil)
+	if err != nil || len(updates) == 0 {
+		serverLog.Debug("Post-update cache refresh: scan failed or container not found",
+			logger.String("container", containerName),
+			logger.Any("error", err),
+		)
+		// Even if scan fails, still clean up the old ID
+		s.mu.Lock()
+		delete(s.updatesCache, oldContainerID)
+		s.mu.Unlock()
+		return
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Delete the old container ID (may still be in cache from a stale scan)
+	delete(s.updatesCache, oldContainerID)
+
+	// Set the new container ID(s) based on fresh scan results
+	for _, u := range updates {
+		if u.UpdateAvailable {
+			s.updatesCache[u.ID] = true
+		} else {
+			delete(s.updatesCache, u.ID)
+		}
+	}
+
+	serverLog.Debug("Post-update cache refreshed",
+		logger.String("container", containerName),
+		logger.String("old_id", oldContainerID),
+		logger.Int("new_entries", len(updates)),
+	)
+}
+
+// pruneStaleCache removes cache entries for container IDs that no longer exist
+// in the Docker daemon. Call this periodically from the scheduler to prevent
+// unbounded memory growth from orphaned entries.
+func (s *Server) pruneStaleCache(ctx context.Context) {
+	containers, err := s.Discovery.ListContainers(ctx)
+	if err != nil {
+		serverLog.Debug("Prune: failed to list containers, skipping",
+			logger.Any("error", err),
+		)
+		return
+	}
+
+	aliveIDs := make(map[string]bool, len(containers))
+	nameSet := make(map[string]bool, len(containers))
+	for _, c := range containers {
+		aliveIDs[c.ID] = true
+		if len(c.Names) > 0 {
+			name := c.Names[0]
+			if len(name) > 0 && name[0] == '/' {
+				name = name[1:]
+			}
+			nameSet[name] = true
+		}
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	before := len(s.updatesCache)
+	for id := range s.updatesCache {
+		if !aliveIDs[id] {
+			delete(s.updatesCache, id)
+		}
+	}
+	after := len(s.updatesCache)
+	removed := before - after
+
+	for name := range s.lastUpdateAttempts {
+		if !nameSet[name] {
+			delete(s.lastUpdateAttempts, name)
+		}
+	}
+
+	if removed > 0 {
+		serverLog.Debug("Pruned stale cache entries",
+			logger.Int("removed", removed),
+			logger.Int("remaining", after),
+		)
+	}
 }
 
 var validContainerName = regexp.MustCompile(`^[a-zA-Z0-9._-]{1,128}$`)
@@ -1341,6 +1471,7 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		PreserveNetwork: true,
 		AllowedPaths:    s.AllowedPaths,
 		LogCallback:     emitSSE,
+		Registry:        s.Registry,
 	}
 
 	project := targetUpdate.Labels["com.docker.compose.project"]
@@ -1410,19 +1541,15 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 			fmt.Sprintf("Container %s updated successfully", name),
 			notify.TypeSuccess,
 		)
-		if targetID != "" {
-			s.mu.Lock()
-			lenBefore := len(s.updatesCache)
-			delete(s.updatesCache, targetID)
-			lenAfter := len(s.updatesCache)
-			s.mu.Unlock()
-			serverLog.Debug("Clearing cache for container",
-				logger.String("container", name),
-				logger.String("container_id", targetID),
-				logger.Int("cache_size_before", lenBefore),
-				logger.Int("cache_size_after", lenAfter),
-			)
-		}
+
+		// Clear any previous failure record since the update succeeded.
+		s.mu.Lock()
+		delete(s.lastUpdateAttempts, name)
+		s.mu.Unlock()
+
+		// Refresh the cache using a forced re-scan to pick up the new container ID
+		// and verify the update is no longer needed.
+		go s.refreshCacheAfterUpdate(context.Background(), name, targetID)
 
 		doneBytes, _ := json.Marshal(map[string]interface{}{
 			"type":    "done",

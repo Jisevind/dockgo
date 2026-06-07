@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -29,7 +30,8 @@ func NewRegistryClient() *RegistryClient {
 }
 
 // GetRemoteDigest resolves a remote image digest.
-func (r *RegistryClient) GetRemoteDigest(image string, platform *v1.Platform, force bool) (string, error) {
+// ctx is used to cancel or time out the underlying network request.
+func (r *RegistryClient) GetRemoteDigest(ctx context.Context, image string, platform *v1.Platform, force bool) (string, error) {
 	cacheKey := image
 	if platform != nil {
 		cacheKey = fmt.Sprintf("%s|%s/%s", image, platform.OS, platform.Architecture)
@@ -48,6 +50,7 @@ func (r *RegistryClient) GetRemoteDigest(image string, platform *v1.Platform, fo
 
 	options := []crane.Option{
 		crane.WithAuthFromKeychain(authn.DefaultKeychain),
+		crane.WithContext(ctx),
 	}
 	if platform != nil {
 		options = append(options, crane.WithPlatform(platform))
@@ -78,7 +81,22 @@ func (r *RegistryClient) CheckUpdate(localDigest string, remoteDigest string) bo
 }
 
 // Ping checks registry reachability with a known image.
-func (r *RegistryClient) Ping() error {
-	_, err := r.GetRemoteDigest("library/alpine:latest", nil, true)
+func (r *RegistryClient) Ping(ctx context.Context) error {
+	_, err := r.GetRemoteDigest(ctx, "library/alpine:latest", nil, true)
 	return err
+}
+
+// InvalidateImage removes all cached digest entries whose key starts with image
+// (including platform-specific variants like "image|linux/amd64"). Call this after
+// a successful image pull so subsequent scans fetch fresh digests from the registry.
+func (r *RegistryClient) InvalidateImage(image string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	prefix := image + "|"
+	for key := range r.cache {
+		if key == image || (len(key) > len(prefix) && key[:len(prefix)] == prefix) {
+			delete(r.cache, key)
+		}
+	}
 }
