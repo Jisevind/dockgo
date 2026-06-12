@@ -93,6 +93,13 @@
                         <line x1="3" y1="18" x2="3.01" y2="18"></line>
                     </svg>
                 </button>
+                <button id="view-group" class="btn-icon" title="Group by Stack">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="3" width="20" height="5" rx="1"></rect>
+                        <rect x="2" y="10" width="20" height="5" rx="1"></rect>
+                        <rect x="2" y="17" width="20" height="5" rx="1"></rect>
+                    </svg>
+                </button>
             </div>
         </div>
 
@@ -478,6 +485,52 @@
             <div class="stack-meta"></div>
             <div class="stack-actions">
                 <button class="btn primary register-stack-btn">Register Stack</button>
+            </div>
+        </div>
+    </template>
+
+    <!-- Template for stack group card (grid view) -->
+    <template id="stack-group-card-template">
+        <div class="card stack-group-card">
+            <div class="card-header">
+                <div class="stack-group-title">
+                    <h3 class="container-name stack-group-name"></h3>
+                    <span class="stack-group-count-badge"></span>
+                </div>
+                <div class="header-actions">
+                    <span class="status-badge stack-group-status"></span>
+                </div>
+            </div>
+            <div class="card-body">
+                <p class="stack-group-services image-name"></p>
+                <div class="update-section hidden">
+                    <span class="update-badge">Stack Update Available</span>
+                    <button class="btn-update">Update Stack</button>
+                </div>
+                <div class="update-message hidden"></div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Template for stack group list item (list view) -->
+    <template id="stack-group-list-template">
+        <div class="list-item stack-group-list-item">
+            <div class="list-col-name">
+                <div class="stack-group-title">
+                    <h3 class="container-name stack-group-name"></h3>
+                    <span class="stack-group-count-badge"></span>
+                </div>
+                <p class="stack-group-services image-name"></p>
+            </div>
+            <div class="list-col-status">
+                <span class="status-badge stack-group-status"></span>
+            </div>
+            <div class="list-col-actions">
+                <div class="update-section hidden">
+                    <span class="update-badge">Stack Update Available</span>
+                    <button class="btn-update">Update Stack</button>
+                </div>
+                <div class="update-message hidden"></div>
             </div>
         </div>
     </template>

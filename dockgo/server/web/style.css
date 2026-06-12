@@ -1190,3 +1190,44 @@ h1 {
     color: var(--text-primary);
     background-color: var(--bg-hover);
 }
+
+/* ── Stack Group Cards ─────────────────────────────────────────── */
+.stack-group-card {
+    border-left: 3px solid var(--accent);
+}
+
+.stack-group-list-item {
+    border-left: 3px solid var(--accent);
+}
+
+.stack-group-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.stack-group-count-badge {
+    flex-shrink: 0;
+    font-size: 0.65rem;
+    padding: 0.2rem 0.55rem;
+    background: rgba(59, 130, 246, 0.14);
+    color: var(--accent);
+    border: 1px solid rgba(59, 130, 246, 0.28);
+    border-radius: 999px;
+    white-space: nowrap;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+}
+
+.stack-group-status {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+    #view-group {
+        display: none !important;
+    }
+}

@@ -7,6 +7,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const listEl = document.getElementById('container-list');
     const cardTemplate = document.getElementById('container-card-template');
     const listTemplate = document.getElementById('container-list-template');
+    const stackGroupCardTemplate = document.getElementById('stack-group-card-template');
+    const stackGroupListTemplate = document.getElementById('stack-group-list-template');
     const stackCardTemplate = document.getElementById('stack-card-template');
     const stackCandidateTemplate = document.getElementById('stack-candidate-template');
     const statusEl = document.getElementById('connection-status');
@@ -20,6 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const viewStacksBtn = document.getElementById('view-stacks');
     const viewGridBtn = document.getElementById('view-grid');
     const viewListBtn = document.getElementById('view-list');
+    const viewGroupBtn = document.getElementById('view-group');
     const stackListEl = document.getElementById('stack-list');
     const stackCandidatesEl = document.getElementById('stack-candidates');
     const dashboardViewEl = document.getElementById('dashboard-view');
@@ -31,6 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // View State
     let currentView = localStorage.getItem('dockgo_view') || 'grid';
     let currentPrimaryView = localStorage.getItem('dockgo_primary_view') || 'dashboard';
+    let groupByStack = localStorage.getItem('dockgo_group_stack') === 'true';
 
     const updatePrimaryViewUI = () => {
         const showingStacks = currentPrimaryView === 'stacks';
@@ -52,6 +56,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (viewListBtn) {
             viewListBtn.classList.toggle('hidden', showingStacks);
         }
+        if (viewGroupBtn) {
+            viewGroupBtn.classList.toggle('hidden', showingStacks);
+        }
     };
 
     const updateViewUI = () => {
@@ -65,6 +72,9 @@ document.addEventListener('DOMContentLoaded', () => {
             listEl.classList.remove('list-view');
             viewGridBtn.classList.add('active');
             viewListBtn.classList.remove('active');
+        }
+        if (viewGroupBtn) {
+            viewGroupBtn.classList.toggle('active', groupByStack);
         }
     };
 
@@ -120,6 +130,21 @@ document.addEventListener('DOMContentLoaded', () => {
             fetchContainers();
         }
     });
+
+    if (viewGroupBtn) {
+        viewGroupBtn.addEventListener('click', () => {
+            groupByStack = !groupByStack;
+            localStorage.setItem('dockgo_group_stack', String(groupByStack));
+            updateViewUI();
+            // Same guard: skip re-render while an update is active.
+            if (activeUpdates > 0) return;
+            if (cachedContainers.length > 0) {
+                renderContainers(cachedContainers);
+            } else {
+                fetchContainers();
+            }
+        });
+    }
 
     let cachedContainers = [];
     let cachedStacks = [];
@@ -1879,6 +1904,90 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         };
 
+        // -- Grouped rendering --
+        if (groupByStack) {
+            // Partition: fully-registered stack containers vs everything else
+            const stackGroups = new Map();
+            const ungrouped = [];
+
+            containers.forEach(c => {
+                if (c.stack_registered && c.stack_id) {
+                    if (!stackGroups.has(c.stack_id)) {
+                        stackGroups.set(c.stack_id, { stackId: c.stack_id, stackName: c.stack_name, containers: [] });
+                    }
+                    stackGroups.get(c.stack_id).containers.push(c);
+                } else {
+                    ungrouped.push(c);
+                }
+            });
+
+            const sortedGroups = Array.from(stackGroups.values()).sort((a, b) => a.stackName.localeCompare(b.stackName));
+            const groupsWithUpdates = sortedGroups.filter(g => g.containers.some(c => c.update_available));
+            const groupsWithoutUpdates = sortedGroups.filter(g => !g.containers.some(c => c.update_available));
+
+            const ungroupedWithUpdates = ungrouped.filter(c => c.update_available).sort((a, b) => a.name.localeCompare(b.name));
+            const ungroupedWithout = ungrouped.filter(c => !c.update_available).sort((a, b) => a.name.localeCompare(b.name));
+
+            const hasAnyUpdates = groupsWithUpdates.length > 0 || ungroupedWithUpdates.length > 0;
+            const hasAnyWithout = groupsWithoutUpdates.length > 0 || ungroupedWithout.length > 0;
+
+            const groupTemplate = (currentView === 'list' && !isMobile) ? stackGroupListTemplate : stackGroupCardTemplate;
+
+            const renderGroup = (group) => {
+                const clone = groupTemplate.content.cloneNode(true);
+                const groupEl = clone.querySelector('.stack-group-card') || clone.querySelector('.stack-group-list-item');
+
+                clone.querySelector('.stack-group-name').textContent = group.stackName;
+
+                const total = group.containers.length;
+                const running = group.containers.filter(c => c.state === 'running').length;
+                clone.querySelector('.stack-group-count-badge').textContent = `${total} container${total !== 1 ? 's' : ''}`;
+                const statusBadge = clone.querySelector('.stack-group-status');
+                statusBadge.textContent = `${running}/${total} running`;
+                if (running === total && total > 0) {
+                    statusBadge.classList.add('status-running');
+                } else if (running === 0) {
+                    statusBadge.classList.add('status-exited');
+                } else {
+                    statusBadge.classList.add('status-other');
+                }
+
+                const services = [...new Set(group.containers.map(c => c.compose_service).filter(Boolean))];
+                clone.querySelector('.stack-group-services').textContent = services.length > 0
+                    ? `Services: ${services.join(', ')}`
+                    : group.containers.map(c => c.name).join(', ');
+
+                const hasUpdate = group.containers.some(c => c.update_available);
+                if (hasUpdate) {
+                    const updateSection = clone.querySelector('.update-section');
+                    if (updateSection) {
+                        updateSection.classList.remove('hidden');
+                        const btn = updateSection.querySelector('.btn-update');
+                        btn.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            handleStackGroupUpdate(group.stackId, group.stackName, groupEl);
+                        });
+                    }
+                }
+
+                listEl.appendChild(clone);
+            };
+
+            groupsWithUpdates.forEach(renderGroup);
+            renderBatch(ungroupedWithUpdates);
+
+            if (hasAnyUpdates && hasAnyWithout) {
+                const hr = document.createElement('hr');
+                hr.className = 'container-divider';
+                listEl.appendChild(hr);
+            }
+
+            groupsWithoutUpdates.forEach(renderGroup);
+            renderBatch(ungroupedWithout);
+            return;
+        }
+
+
         renderBatch(withUpdates);
 
         if (withUpdates.length > 0 && withoutUpdates.length > 0) {
@@ -2088,6 +2197,94 @@ document.addEventListener('DOMContentLoaded', () => {
                 btn.textContent = 'Retry Update';
                 btn.disabled = false;
             }
+        } finally {
+            activeUpdates--;
+        }
+    };
+
+    const handleStackGroupUpdate = async (stackId, stackName, groupEl) => {
+        if (!confirm(`Are you sure you want to update stack ${stackName}?`)) {
+            return;
+        }
+
+        const msgEl = groupEl ? groupEl.querySelector('.update-message') : null;
+        const updateSection = groupEl ? groupEl.querySelector('.update-section') : null;
+        const btn = updateSection ? updateSection.querySelector('.btn-update') : null;
+
+        if (msgEl) {
+            msgEl.textContent = 'Starting stack update...';
+            msgEl.classList.remove('hidden');
+            msgEl.style.color = '';
+        }
+        if (btn) btn.disabled = true;
+
+        activeUpdates++;
+
+        try {
+            const response = await fetch(`/api/stacks/${encodeURIComponent(stackId)}/deploy`, {
+                method: 'POST',
+                headers: getAuthHeaders()
+            });
+
+            if (!response.ok) {
+                let errorMessage = `Deploy failed (${response.status})`;
+                try {
+                    const data = await response.json();
+                    errorMessage = data.error || errorMessage;
+                } catch (e) { /* keep fallback */ }
+                throw new Error(errorMessage);
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            const processEvent = (data) => {
+                if (data.type === 'start' || data.type === 'progress') {
+                    if (msgEl) msgEl.textContent = data.message || data.status || 'Working...';
+                } else if (data.type === 'error') {
+                    if (msgEl) {
+                        msgEl.textContent = `Error: ${data.error || 'Stack update failed.'}`;
+                        msgEl.style.color = 'var(--danger)';
+                    }
+                    if (btn) btn.disabled = false;
+                } else if (data.type === 'done') {
+                    if (msgEl) {
+                        msgEl.textContent = 'Stack update completed successfully!';
+                        msgEl.style.color = 'var(--success)';
+                    }
+                    setTimeout(() => fetchContainers(false), 1500);
+                }
+            };
+
+            const processBuffer = () => {
+                const parts = buffer.split('\n\n');
+                buffer = parts.pop() || '';
+                for (const part of parts) {
+                    if (!part.startsWith('data: ')) continue;
+                    try {
+                        processEvent(JSON.parse(part.substring(6)));
+                    } catch (e) {
+                        console.error('SSE parse error (stack group update)', e);
+                    }
+                }
+            };
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) { buffer += decoder.decode(); processBuffer(); break; }
+                buffer += decoder.decode(value, { stream: true });
+                processBuffer();
+            }
+
+            await Promise.all([fetchStacks(), fetchContainers(false)]);
+        } catch (error) {
+            console.error('[Stack Group Update] Error:', error);
+            if (msgEl) {
+                msgEl.textContent = `Error: ${error.message}`;
+                msgEl.style.color = 'var(--danger)';
+            }
+            if (btn) btn.disabled = false;
         } finally {
             activeUpdates--;
         }
