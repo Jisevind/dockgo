@@ -96,6 +96,10 @@ document.addEventListener('DOMContentLoaded', () => {
         currentView = 'grid';
         localStorage.setItem('dockgo_view', 'grid');
         updateViewUI();
+        // Do not re-render the DOM while an update is in progress — the active
+        // update holds references into the current DOM nodes. updateViewUI() has
+        // already switched the CSS class, which is enough for the visual change.
+        if (activeUpdates > 0) return;
         if (cachedContainers.length > 0) {
             renderContainers(cachedContainers);
         } else {
@@ -108,6 +112,8 @@ document.addEventListener('DOMContentLoaded', () => {
         currentView = 'list';
         localStorage.setItem('dockgo_view', 'list');
         updateViewUI();
+        // Same guard: skip re-render while an update is active.
+        if (activeUpdates > 0) return;
         if (cachedContainers.length > 0) {
             renderContainers(cachedContainers);
         } else {

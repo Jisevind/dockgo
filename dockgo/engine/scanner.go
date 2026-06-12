@@ -19,7 +19,9 @@ var scannerLog = logger.WithSubsystem("scanner")
 // containerScanTimeout is the maximum time allowed to check a single container.
 // It bounds the blast radius of slow or unreachable registries so that one
 // container cannot stall the entire scan indefinitely.
-const containerScanTimeout = 60 * time.Second
+const (
+	containerScanTimeout = 10 * time.Second
+)
 
 // isContainerGone returns true if the error indicates the container no longer exists
 // (e.g., was renamed or removed during a concurrent RecreateContainer).
@@ -70,6 +72,9 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 		if filter != "" && filter != "all" && cName != filter {
 			continue
 		}
+		if strings.Contains(cName, "_old_") {
+			continue
+		}
 		totalToCheck++
 	}
 
@@ -91,6 +96,9 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 		}
 
 		if filter != "" && filter != "all" && cName != filter {
+			continue
+		}
+		if strings.Contains(cName, "_old_") {
 			continue
 		}
 
