@@ -228,6 +228,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const stackDetailsReconcileBtn = document.getElementById('stack-details-reconcile-btn');
     const stackDetailsDeployBtn = document.getElementById('stack-details-deploy-btn');
     const stackDetailsDeleteBtn = document.getElementById('stack-details-delete-btn');
+    const stackContainersModal = document.getElementById('stack-containers-modal');
+    const closeStackContainersBtn = document.getElementById('close-stack-containers-btn');
+    const stackContainersList = document.getElementById('stack-containers-list');
+    const stackContainersTitle = document.getElementById('stack-containers-title');
     let stackFormMode = 'create';
     let editingStackId = null;
     let activeStackDetails = null;
@@ -519,6 +523,94 @@ document.addEventListener('DOMContentLoaded', () => {
         startup_grace_seconds: Number.parseInt(stackHealthStartupGraceInput.value, 10) || 20
     });
 
+    const openStackContainersModal = (stackName, containers) => {
+        stackContainersTitle.textContent = `Containers in ${stackName}`;
+        stackContainersList.innerHTML = '';
+
+        containers.forEach(container => {
+            const clone = listTemplate.content.cloneNode(true);
+            const containerEl = clone.querySelector('.list-item');
+
+            const containerNameEl = clone.querySelector('.container-name');
+            containerNameEl.textContent = container.name;
+
+            clone.querySelector('.image-name').textContent = container.image;
+
+            const tagBadge = clone.querySelector('.tag-badge');
+            if (container.tag && container.tag !== 'latest' && container.tag !== '(digest)') {
+                tagBadge.textContent = container.tag;
+                tagBadge.classList.remove('hidden');
+            } else if (container.tag === 'latest') {
+                tagBadge.textContent = 'latest';
+                tagBadge.classList.remove('hidden');
+            }
+
+            const statusBadge = clone.querySelector('.status-badge');
+            statusBadge.textContent = container.state;
+
+            if (container.state === 'running') {
+                statusBadge.classList.add('status-running');
+            } else if (container.state === 'exited' || container.state === 'dead') {
+                statusBadge.classList.add('status-exited');
+            } else {
+                statusBadge.classList.add('status-other');
+            }
+
+            // Setup Action Menu
+            const menuBtn = clone.querySelector('.menu-btn');
+            const menuDropdown = clone.querySelector('.menu-dropdown');
+            if (menuBtn && menuDropdown) {
+                menuBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    document.querySelectorAll('.menu-dropdown').forEach(d => {
+                        if (d !== menuDropdown) d.classList.add('hidden');
+                    });
+                    menuDropdown.classList.toggle('hidden');
+                });
+
+                const startBtn = menuDropdown.querySelector('[data-action="start"]');
+                const stopBtn = menuDropdown.querySelector('[data-action="stop"]');
+                const restartBtn = menuDropdown.querySelector('[data-action="restart"]');
+                const viewStackBtn = menuDropdown.querySelector('[data-action="view-stack"]');
+
+                if (container.state === 'running') {
+                    startBtn.disabled = true;
+                } else if (container.state === 'exited' || container.state === 'created' || container.state === 'dead') {
+                    stopBtn.disabled = true;
+                    restartBtn.disabled = true;
+                }
+
+                if (viewStackBtn && container.stack_managed && container.stack_id) {
+                    viewStackBtn.classList.remove('hidden');
+                }
+
+                menuDropdown.querySelectorAll('.menu-action-btn').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        e.preventDefault();
+                        menuDropdown.classList.add('hidden');
+                        const action = e.target.dataset.action;
+                        if (action === 'logs') {
+                            closeStackContainersModal();
+                            openLogsModal(container.name);
+                        } else if (action === 'view-stack' && container.stack_id) {
+                            closeStackContainersModal();
+                            await openStackDetails({
+                                id: container.stack_id,
+                                name: container.stack_name
+                            });
+                        } else {
+                            await handleContainerAction(container.name, action, containerEl);
+                        }
+                    });
+                });
+            }
+
+            stackContainersList.appendChild(clone);
+        });
+
+        stackContainersModal.classList.remove('hidden');
+    };
+
     const openStackModal = (mode, stack = null, candidate = null) => {
         stackFormMode = mode;
         editingStackId = stack ? stack.id : null;
@@ -592,6 +684,18 @@ document.addEventListener('DOMContentLoaded', () => {
         stackForm.reset();
         editingStackId = null;
     };
+
+
+    const closeStackContainersModal = () => {
+        stackContainersModal.classList.add('hidden');
+    };
+
+    closeStackContainersBtn.addEventListener('click', closeStackContainersModal);
+    stackContainersModal.addEventListener('click', (e) => {
+        if (e.target === stackContainersModal) {
+            closeStackContainersModal();
+        }
+    });
 
     const closeStackDetailsModal = () => {
         stackDetailsModal.classList.add('hidden');
@@ -1956,6 +2060,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 clone.querySelector('.stack-group-services').textContent = services.length > 0
                     ? `Services: ${services.join(', ')}`
                     : group.containers.map(c => c.name).join(', ');
+
+
+                // Make the group clickable to open modal
+                groupEl.addEventListener('click', (e) => {
+                    if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
+                    openStackContainersModal(group.stackName, group.containers);
+                });
 
                 const hasUpdate = group.containers.some(c => c.update_available);
                 if (hasUpdate) {

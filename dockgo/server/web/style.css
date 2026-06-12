@@ -333,10 +333,11 @@ main {
     border-radius: 8px;
     padding: 1rem;
     display: grid;
-    grid-template-columns: 1fr 140px 1fr;
+    grid-template-columns: 1fr 140px auto;
     align-items: center;
     gap: 1rem;
 }
+
 
 .list-col-name h3 {
     margin: 0;
@@ -1230,4 +1231,37 @@ h1 {
     #view-group {
         display: none !important;
     }
+}
+
+.stack-group-services {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+}
+
+.stack-group-card {
+    cursor: pointer;
+}
+.stack-group-card:hover {
+    background-color: var(--bg-hover);
+}
+
+.stack-group-list-item {
+    cursor: pointer;
+}
+.stack-group-list-item:hover {
+    background-color: var(--bg-hover);
+}
+
+/* Modal styles for stack containers */
+.stack-containers-modal-content {
+    max-width: 600px;
+}
+.stack-container-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 50vh;
+    overflow-y: auto;
 }
