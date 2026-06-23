@@ -660,6 +660,12 @@ h1 {
     background-color: #334155;
 }
 
+.btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
 .update-section {
     display: flex;
     justify-content: space-between;

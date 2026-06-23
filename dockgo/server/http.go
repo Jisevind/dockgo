@@ -1529,6 +1529,7 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("data: "))
 		_, _ = w.Write(errBytes)
 		_, _ = w.Write([]byte("\n\n"))
+		flusher.Flush()
 		sseMu.Unlock()
 		s.Notifier.Notify(
 			"DockGo Update Failed",
@@ -1561,12 +1562,9 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("data: "))
 		_, _ = w.Write(doneBytes)
 		_, _ = w.Write([]byte("\n\n"))
+		flusher.Flush()
 		sseMu.Unlock()
 	}
-
-	sseMu.Lock()
-	flusher.Flush()
-	sseMu.Unlock()
 }
 
 func (s *Server) handleContainerAction(w http.ResponseWriter, r *http.Request) {

@@ -2349,17 +2349,20 @@ document.addEventListener('DOMContentLoaded', () => {
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = '';
+            let sawTerminalEvent = false;
 
             const processEvent = (data) => {
                 if (data.type === 'start' || data.type === 'progress') {
                     if (msgEl) msgEl.textContent = data.message || data.status || 'Working...';
                 } else if (data.type === 'error') {
+                    sawTerminalEvent = true;
                     if (msgEl) {
                         msgEl.textContent = `Error: ${data.error || 'Stack update failed.'}`;
                         msgEl.style.color = 'var(--danger)';
                     }
                     if (btn) btn.disabled = false;
                 } else if (data.type === 'done') {
+                    sawTerminalEvent = true;
                     if (msgEl) {
                         msgEl.textContent = 'Stack update completed successfully!';
                         msgEl.style.color = 'var(--success)';
@@ -2382,7 +2385,18 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             while (true) {
-                const { done, value } = await reader.read();
+                let readResult;
+                try {
+                    readResult = await reader.read();
+                } catch (streamError) {
+                    buffer += decoder.decode();
+                    processBuffer();
+                    if (sawTerminalEvent) {
+                        break;
+                    }
+                    throw streamError;
+                }
+                const { done, value } = readResult;
                 if (done) { buffer += decoder.decode(); processBuffer(); break; }
                 buffer += decoder.decode(value, { stream: true });
                 processBuffer();
@@ -2392,8 +2406,10 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             console.error('[Stack Group Update] Error:', error);
             if (msgEl) {
-                msgEl.textContent = `Error: ${error.message}`;
-                msgEl.style.color = 'var(--danger)';
+                if (!msgEl.textContent.includes('completed successfully') && !msgEl.textContent.includes('Refreshing')) {
+                    msgEl.textContent = `Error: ${error.message}`;
+                    msgEl.style.color = 'var(--danger)';
+                }
             }
             if (btn) btn.disabled = false;
         } finally {
