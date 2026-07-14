@@ -70,6 +70,11 @@ func lockContainer(id string) func() {
 	return globalLocks.Lock(id)
 }
 
+// LockProject acquires a lock for a compose project to prevent concurrent stack/project operations.
+func LockProject(project string) func() {
+	return globalLocks.Lock("compose:" + project)
+}
+
 // DetectOrchestrator identifies the orchestrator managing a container based on its labels.
 func DetectOrchestrator(labels map[string]string) OrchestratorType {
 	if _, ok := labels["com.docker.stack.namespace"]; ok {
@@ -179,8 +184,12 @@ func PerformComposeProjectUpdate(ctx context.Context, projData ComposeProjectUpd
 	)
 
 	targetContainer := ""
+	serviceName := ""
 	if len(projData.Containers) > 0 {
 		targetContainer = projData.Containers[0].Name
+	}
+	if len(projData.Containers) == 1 {
+		serviceName = projData.Containers[0].Labels["com.docker.compose.service"]
 	}
 
 	composeLogger := func(line string) {
@@ -193,27 +202,43 @@ func PerformComposeProjectUpdate(ctx context.Context, projData ComposeProjectUpd
 
 	var err error
 	if opts.Safe {
-		emitLog(api.ProgressEvent{
-			Type:      "progress",
-			Status:    fmt.Sprintf("🛡️  Safe Mode (Compose): Skipping project recreation in '%s'. Pulling only.", projData.WorkingDir),
-			Container: targetContainer,
-		})
-		err = ComposePull(ctxCompose, projData.WorkingDir, "", opts.AllowedPaths, composeLogger)
+		if serviceName != "" {
+			emitLog(api.ProgressEvent{
+				Type:      "progress",
+				Status:    fmt.Sprintf("🛡️  Safe Mode (Compose): Skipping service recreation for '%s' in '%s'. Pulling only.", serviceName, projData.WorkingDir),
+				Container: targetContainer,
+			})
+		} else {
+			emitLog(api.ProgressEvent{
+				Type:      "progress",
+				Status:    fmt.Sprintf("🛡️  Safe Mode (Compose): Skipping project recreation in '%s'. Pulling only.", projData.WorkingDir),
+				Container: targetContainer,
+			})
+		}
+		err = ComposePull(ctxCompose, projData.WorkingDir, serviceName, opts.AllowedPaths, composeLogger)
 		if err == nil {
 			emitLog(api.ProgressEvent{
 				Type:      "progress",
-				Status:    "✅ Compose project images pulled (no restart)",
+				Status:    "✅ Compose images pulled (no restart)",
 				Container: targetContainer,
 			})
 		}
 	} else {
-		err = ComposeUpdate(ctxCompose, projData.WorkingDir, "", opts.AllowedPaths, composeLogger)
+		err = ComposeUpdate(ctxCompose, projData.WorkingDir, serviceName, opts.AllowedPaths, composeLogger)
 		if err == nil {
-			emitLog(api.ProgressEvent{
-				Type:      "progress",
-				Status:    fmt.Sprintf("✅ Compose project updated fully in %s", projData.WorkingDir),
-				Container: targetContainer,
-			})
+			if serviceName != "" {
+				emitLog(api.ProgressEvent{
+					Type:      "progress",
+					Status:    fmt.Sprintf("✅ Compose service '%s' updated fully in %s", serviceName, projData.WorkingDir),
+					Container: targetContainer,
+				})
+			} else {
+				emitLog(api.ProgressEvent{
+					Type:      "progress",
+					Status:    fmt.Sprintf("✅ Compose project updated fully in %s", projData.WorkingDir),
+					Container: targetContainer,
+				})
+			}
 		}
 	}
 

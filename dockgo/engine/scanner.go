@@ -46,8 +46,9 @@ func emitSkipped(name, id string, labels map[string]string, updates *[]api.Conta
 	}
 	mu.Lock()
 	*updates = append(*updates, upd)
-	newCount := atomic.AddInt32(processedCount, 1)
 	mu.Unlock()
+	
+	newCount := atomic.AddInt32(processedCount, 1)
 	if onProgress != nil {
 		onProgress(upd, int(newCount), totalToCheck)
 	}
@@ -208,8 +209,8 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 					)
 					mu.Lock()
 					updates = append(updates, upd)
-					newCount := atomic.AddInt32(&processedCount, 1)
 					mu.Unlock()
+					newCount := atomic.AddInt32(&processedCount, 1)
 					if onProgress != nil {
 						onProgress(upd, int(newCount), totalToCheck)
 					}
@@ -297,8 +298,8 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 
 			mu.Lock()
 			updates = append(updates, upd)
-			newCount := atomic.AddInt32(&processedCount, 1)
 			mu.Unlock()
+			newCount := atomic.AddInt32(&processedCount, 1)
 
 			if onProgress != nil {
 				onProgress(upd, int(newCount), totalToCheck)
@@ -378,12 +379,14 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 			}
 			recheckCancel()
 
+			totalToCheck++
 			mu.Lock()
 			updates = append(updates, upd)
 			mu.Unlock()
+			newCount := atomic.AddInt32(&processedCount, 1)
 
 			if onProgress != nil {
-				onProgress(upd, int(atomic.AddInt32(&processedCount, 1)), totalToCheck)
+				onProgress(upd, int(newCount), totalToCheck)
 			}
 		}
 	}
