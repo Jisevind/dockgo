@@ -1550,7 +1550,15 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 
 		// Refresh the cache using a forced re-scan to pick up the new container ID
 		// and verify the update is no longer needed.
-		go s.refreshCacheAfterUpdate(context.Background(), name, targetID)
+		s.refreshCacheAfterUpdate(context.Background(), name, targetID)
+
+		if project != "" && s.StackStore != nil {
+			syncCtx, syncCancel := s.newOwnershipSyncContext()
+			for _, pStack := range s.StackStore.FindAllByComposeProject(project) {
+				_, _ = s.syncStackManagedContainers(syncCtx, pStack.ID)
+			}
+			syncCancel()
+		}
 
 		doneBytes, _ := json.Marshal(map[string]interface{}{
 			"type":    "done",

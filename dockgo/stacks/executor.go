@@ -158,7 +158,7 @@ func composeBaseArgs(stack Stack) []string {
 			args = append(args, "--profile", profile)
 		}
 	}
-	return args
+	return args[:len(args):len(args)]
 }
 
 func streamCommand(ctx context.Context, dir string, log Logger, name string, args ...string) error {

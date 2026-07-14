@@ -141,6 +141,25 @@ func (s *Store) FindForComposeTarget(project string, workingDir string, service 
 	return Stack{}, false
 }
 
+// FindAllByComposeProject returns all stacks associated with the given Compose project name.
+func (s *Store) FindAllByComposeProject(project string) []Stack {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	project = strings.TrimSpace(project)
+	if project == "" {
+		return nil
+	}
+
+	projectMatches := make([]Stack, 0)
+	for _, stack := range s.stacks {
+		if stack.Discovery.ComposeProject == project || stack.ProjectName == project || stack.Name == project {
+			projectMatches = append(projectMatches, stack)
+		}
+	}
+	return projectMatches
+}
+
 func normalizeMatchPath(path string) string {
 	path = strings.TrimSpace(path)
 	path = strings.ReplaceAll(path, "\\", "/")

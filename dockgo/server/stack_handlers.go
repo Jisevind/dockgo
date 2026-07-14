@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"dockgo/engine"
 	"dockgo/stacks"
 
 	"github.com/docker/docker/api/types"
@@ -627,6 +628,19 @@ func (s *Server) executeStackAction(
 	run func(context.Context, stacks.Stack, stacks.Logger) error,
 	onLine func(string),
 ) error {
+	project := stack.Discovery.ComposeProject
+	if project == "" {
+		project = stack.ProjectName
+	}
+	
+	var unlock func()
+	if project != "" {
+		unlock = engine.LockProject(project)
+	} else {
+		unlock = engine.LockProject(stack.ID)
+	}
+	defer unlock()
+
 	startedAt := time.Now().UTC()
 	lines := make([]string, 0, 50)
 	logger := func(line string) {
