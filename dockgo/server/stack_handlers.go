@@ -576,6 +576,38 @@ func (s *Server) handleStackActionStream(
 		flusher.Flush()
 	}
 
+	doneChan := make(chan struct{})
+	var heartbeatWg sync.WaitGroup
+	heartbeatWg.Add(1)
+	defer func() {
+		close(doneChan)
+		heartbeatWg.Wait()
+	}()
+
+	go func() {
+		defer heartbeatWg.Done()
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-doneChan:
+				return
+			case <-ticker.C:
+				writeMu.Lock()
+				if _, err := w.Write([]byte(": ping\n\n")); err != nil {
+					writeMu.Unlock()
+					cancel()
+					return
+				}
+				flusher.Flush()
+				writeMu.Unlock()
+			}
+		}
+	}()
+
 	err := s.executeStackAction(ctx, stack, action, "stacks_view", run, func(line string) {
 		emit(map[string]any{
 			"type":   "progress",
