@@ -3,11 +3,18 @@ package stacks
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 )
+
+// dockerCallTimeout is the maximum time a single Docker API call may take
+// before being considered stalled. This prevents a slow daemon response
+// (common right after container recreation) from consuming the entire
+// verification budget.
+const dockerCallTimeout = 30 * time.Second
 
 func VerifyDeployment(ctx context.Context, stack Stack, log Logger) error {
 	if log == nil {
@@ -18,7 +25,12 @@ func VerifyDeployment(ctx context.Context, stack Stack, log Logger) error {
 	if timeoutSeconds <= 0 {
 		timeoutSeconds = 120
 	}
-	verifyCtx, cancel := context.WithTimeout(ctx, time.Duration(timeoutSeconds)*time.Second)
+
+	// Use context.Background so the verification gets its full timeout budget
+	// regardless of how much time was consumed by prior phases (pull, deploy,
+	// compose --wait). Parent cancellation is still respected by monitoring
+	// ctx.Done() in the loop below.
+	verifyCtx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutSeconds)*time.Second)
 	defer cancel()
 
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -42,20 +54,23 @@ func VerifyDeployment(ctx context.Context, stack Stack, log Logger) error {
 
 	var lastStateErr error
 	for {
-		containers, err := cli.ContainerList(verifyCtx, container.ListOptions{
-			All: true,
-			Filters: labelFilter(map[string]string{
-				"com.docker.compose.project": project,
-			}),
-		})
+		containers, err := dockerContainerList(verifyCtx, cli, project)
 		if err != nil {
-			lastStateErr = fmt.Errorf("failed to list project containers: %w", err)
+			if isTransientDockerErr(err) {
+				lastStateErr = fmt.Errorf("failed to list project containers: %w", err)
+			} else {
+				return fmt.Errorf("failed to list project containers: %w", err)
+			}
 		} else if len(containers) == 0 {
 			lastStateErr = fmt.Errorf("no containers found for compose project %s", project)
 		} else {
 			allGood, detailErr := verifyContainersOnce(verifyCtx, cli, containers, stack)
 			if detailErr != nil {
-				lastStateErr = detailErr
+				if isTransientDockerErr(detailErr) {
+					lastStateErr = detailErr
+				} else {
+					return fmt.Errorf("stack verification failed: %w", detailErr)
+				}
 			} else if allGood {
 				log("Stack verification passed.")
 				return nil
@@ -63,6 +78,9 @@ func VerifyDeployment(ctx context.Context, stack Stack, log Logger) error {
 		}
 
 		select {
+		case <-ctx.Done():
+			// Parent context cancelled (e.g. client disconnected).
+			return fmt.Errorf("stack verification cancelled")
 		case <-verifyCtx.Done():
 			if lastStateErr != nil {
 				return fmt.Errorf("stack verification failed: %w", lastStateErr)
@@ -73,6 +91,29 @@ func VerifyDeployment(ctx context.Context, stack Stack, log Logger) error {
 	}
 }
 
+// dockerContainerList wraps cli.ContainerList with a per-call timeout so a
+// single slow Docker daemon response does not consume the entire verification
+// budget.
+func dockerContainerList(ctx context.Context, cli *client.Client, project string) ([]container.Summary, error) {
+	callCtx, callCancel := context.WithTimeout(ctx, dockerCallTimeout)
+	defer callCancel()
+
+	return cli.ContainerList(callCtx, container.ListOptions{
+		All: true,
+		Filters: labelFilter(map[string]string{
+			"com.docker.compose.project": project,
+		}),
+	})
+}
+
+// dockerContainerInspect wraps cli.ContainerInspect with a per-call timeout.
+func dockerContainerInspect(ctx context.Context, cli *client.Client, containerID string) (container.InspectResponse, error) {
+	callCtx, callCancel := context.WithTimeout(ctx, dockerCallTimeout)
+	defer callCancel()
+
+	return cli.ContainerInspect(callCtx, containerID)
+}
+
 func verifyContainersOnce(ctx context.Context, cli *client.Client, containers []container.Summary, stack Stack) (bool, error) {
 	graceSeconds := stack.HealthPolicy.StartupGrace
 	if graceSeconds <= 0 {
@@ -80,7 +121,7 @@ func verifyContainersOnce(ctx context.Context, cli *client.Client, containers []
 	}
 
 	for _, c := range containers {
-		inspect, err := cli.ContainerInspect(ctx, c.ID)
+		inspect, err := dockerContainerInspect(ctx, cli, c.ID)
 		if err != nil {
 			return false, fmt.Errorf("failed to inspect container %s: %w", c.ID[:12], err)
 		}
@@ -124,8 +165,11 @@ func waitRunning(ctx context.Context, cli *client.Client, containerID string) (b
 		case <-ctx.Done():
 			return true, nil
 		case <-ticker.C:
-			inspect, err := cli.ContainerInspect(ctx, containerID)
+			inspect, err := dockerContainerInspect(ctx, cli, containerID)
 			if err != nil {
+				if isTransientDockerErr(err) {
+					continue
+				}
 				return false, fmt.Errorf("failed to inspect container %s during stability wait: %w", containerID[:12], err)
 			}
 			if inspect.State == nil || !inspect.State.Running {
@@ -136,6 +180,21 @@ func waitRunning(ctx context.Context, cli *client.Client, containerID string) (b
 			}
 		}
 	}
+}
+
+// isTransientDockerErr returns true for errors that are likely transient Docker
+// daemon hiccups (socket contention, momentary overload after container
+// recreation) and can be retried on the next ticker iteration.
+func isTransientDockerErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "context deadline exceeded") ||
+		strings.Contains(msg, "connection refused") ||
+		strings.Contains(msg, "i/o timeout") ||
+		strings.Contains(msg, "connection reset by peer") ||
+		strings.Contains(msg, "resource temporarily unavailable")
 }
 
 func trimName(name string) string {
