@@ -34,6 +34,9 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/google/uuid"
+	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/disk"
+	"github.com/shirou/gopsutil/v3/mem"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -237,6 +240,7 @@ func (s *Server) Start() error {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/api/health", s.handleHealth)
+	mux.HandleFunc("/api/server/stats", s.enableCors(s.requireAuth(s.handleServerStats)))
 	mux.HandleFunc("/api/containers", s.enableCors(s.requireAuth(s.handleContainers)))
 	mux.HandleFunc("/api/stream/check", s.enableCors(s.requireAuth(s.handleStreamCheck)))
 	mux.HandleFunc("/api/update/", s.enableCors(s.requireAuth(s.handleUpdate)))
@@ -1791,4 +1795,43 @@ func (sw *streamWriter) Write(p []byte) (n int, err error) {
 	}
 
 	return len(p), nil
+}
+
+func (s *Server) handleServerStats(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	cpuPercent, _ := cpu.Percent(0, false)
+	vMem, _ := mem.VirtualMemory()
+	diskStat, _ := disk.Usage("/")
+
+	var c float64
+	if len(cpuPercent) > 0 {
+		c = cpuPercent[0]
+	}
+
+	var dUsed, dTotal uint64
+	if diskStat != nil {
+		dUsed = diskStat.Used
+		dTotal = diskStat.Total
+	}
+
+	var rUsed, rTotal uint64
+	if vMem != nil {
+		rUsed = vMem.Used
+		rTotal = vMem.Total
+	}
+
+	stats := map[string]interface{}{
+		"cpu_percent": c,
+		"ram_used":    rUsed,
+		"ram_total":   rTotal,
+		"disk_used":   dUsed,
+		"disk_total":  dTotal,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(stats)
 }

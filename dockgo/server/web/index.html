@@ -68,7 +68,6 @@
         </header>
 
         <div class="sub-header">
-            <span id="connection-status" class="status-indicator">Connecting...</span>
 
             <div class="control-group">
                 <div class="view-switch" role="tablist" aria-label="Primary Views">
@@ -114,6 +113,19 @@
         </div>
 
         <main id="dashboard-view" class="page-view">
+            <div id="server-stats-row" class="server-stats-bar hidden">
+                <div class="server-stats-status">
+                    <span id="connection-status" class="status-indicator">Connecting...</span>
+                </div>
+                <div class="server-stats-metrics">
+                    <span class="stat-item"><span class="stat-label">CPU:</span> <strong id="stat-cpu">--%</strong></span>
+                    <span class="stat-divider"></span>
+                    <span class="stat-item"><span class="stat-label">RAM:</span> <strong id="stat-ram">-- / --</strong></span>
+                    <span class="stat-divider"></span>
+                    <span class="stat-item"><span class="stat-label">Disk:</span> <strong id="stat-disk">-- / --</strong></span>
+                </div>
+            </div>
+
             <div id="container-list" class="grid-list">
                 <!-- Containers will be injected here -->
                 <div class="loading">Loading containers...</div>

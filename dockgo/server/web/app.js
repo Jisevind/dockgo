@@ -2531,9 +2531,36 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const formatBytes = (bytes) => {
+        if (bytes === 0 || !bytes) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    };
+
+    const fetchServerStats = async () => {
+        try {
+            const response = await fetch('/api/server/stats', { headers: getAuthHeaders() });
+            if (response.ok) {
+                const data = await response.json();
+                document.getElementById('stat-cpu').textContent = data.cpu_percent.toFixed(1) + '%';
+                document.getElementById('stat-ram').textContent = `${formatBytes(data.ram_used)} / ${formatBytes(data.ram_total)}`;
+                document.getElementById('stat-disk').textContent = `${formatBytes(data.disk_used)} / ${formatBytes(data.disk_total)}`;
+                
+                const statsRow = document.getElementById('server-stats-row');
+                if (statsRow) {
+                    statsRow.classList.remove('hidden');
+                }
+            }
+        } catch (e) {
+            console.error('Failed to fetch server stats', e);
+        }
+    };
+
     // Initial load
     Promise.all([checkAuthStatus(), fetchHealth()]).then(() => {
-        Promise.all([fetchContainers()]).then(() => {
+        Promise.all([fetchContainers(), fetchServerStats()]).then(() => {
             if (currentPrimaryView === 'stacks') {
                 loadStacksViewData();
             }
@@ -2547,6 +2574,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(() => {
         if (activeUpdates === 0 && (isLoggedIn || !authEnabled)) {
             fetchContainers(false);
+            fetchServerStats();
             if (currentPrimaryView === 'stacks') {
                 loadStacksViewData();
             }
