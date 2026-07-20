@@ -1,3 +1,20 @@
+# [1.3.0](https://github.com/Jisevind/dockgo/compare/v1.2.0...v1.3.0) (2026-06-23)
+
+
+### Bug Fixes
+
+* **engine:** reduce scan timeout to 10s, skip _old_ containers ([e682179](https://github.com/Jisevind/dockgo/commit/e682179c7e91fff079803ca6ff9153fb5a60776a))
+* **ui,server:** visually dim disabled buttons and flush terminal SSE events ([b19641c](https://github.com/Jisevind/dockgo/commit/b19641c10f5251dccc229009b977d08a19076d48))
+
+
+### Features
+
+* **server:** implement sse heartbeat and resilient stack event parsing ([828db7d](https://github.com/Jisevind/dockgo/commit/828db7d7b6e26bef7238b2f010e8729f71632d5a))
+* **ui:** add stack containers modal, truncate services text, and adjust grid layout ([304b633](https://github.com/Jisevind/dockgo/commit/304b633471c021d6d2eda17d4e477a8133ba2e35))
+* **ui:** add stack filtering controls and localStorage persistence ([f921b14](https://github.com/Jisevind/dockgo/commit/f921b148fdbdab07851166c62cc17b86d48d9000))
+* **ui:** implement stack grouping, status badges, and SSE updates ([90ea4c3](https://github.com/Jisevind/dockgo/commit/90ea4c398ebfe5701bb3c1837086f6055a882d67))
+* **ui:** introduce stack-details-progress element and state handling ([7fcd1d9](https://github.com/Jisevind/dockgo/commit/7fcd1d91b03ed737a4e0383e913400d7045f9de7))
+
 # [1.2.0](https://github.com/Jisevind/dockgo/compare/v1.1.2...v1.2.0) (2026-03-21)
 
 
