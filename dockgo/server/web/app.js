@@ -1084,6 +1084,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             statusEl.textContent = 'Connected';
             statusEl.style.color = 'var(--success)';
+            fetchServerStats();
         } catch (error) {
             console.error('Error:', error);
             statusEl.textContent = 'Error connecting';
@@ -2560,7 +2561,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial load
     Promise.all([checkAuthStatus(), fetchHealth()]).then(() => {
-        Promise.all([fetchContainers(), fetchServerStats()]).then(() => {
+        Promise.all([fetchContainers()]).then(() => {
             if (currentPrimaryView === 'stacks') {
                 loadStacksViewData();
             }
@@ -2574,7 +2575,6 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(() => {
         if (activeUpdates === 0 && (isLoggedIn || !authEnabled)) {
             fetchContainers(false);
-            fetchServerStats();
             if (currentPrimaryView === 'stacks') {
                 loadStacksViewData();
             }
