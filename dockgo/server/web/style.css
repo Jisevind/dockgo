@@ -483,6 +483,15 @@ h1 {
     display: none;
 }
 
+/* Elevate the z-index of any card that has an active menu, so it shows above hovered cards */
+.card:has(.menu-dropdown:not(.hidden)),
+.list-item:has(.menu-dropdown:not(.hidden)),
+.stack-card:has(.menu-dropdown:not(.hidden)),
+.stack-group-card:has(.menu-dropdown:not(.hidden)) {
+    z-index: 50;
+    position: relative;
+}
+
 .menu-action-btn {
     background: none;
     border: none;
