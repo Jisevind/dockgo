@@ -1106,12 +1106,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const renderStacks = (stackItems) => {
-        stackListEl.innerHTML = '';
+        const currentScrollY = window.scrollY;
+        const currentHeight = stackListEl.offsetHeight;
+        stackListEl.style.minHeight = `${currentHeight}px`;
 
-        if (!Array.isArray(stackItems) || stackItems.length === 0) {
-            stackListEl.innerHTML = '<div class="loading">No registered stacks yet.</div>';
-            return;
-        }
+        try {
+            stackListEl.innerHTML = '';
+
+            if (!Array.isArray(stackItems) || stackItems.length === 0) {
+                stackListEl.innerHTML = '<div class="loading">No registered stacks yet.</div>';
+                return;
+            }
 
         const visibleStacks = stackItems.filter((item) => {
             const state = item?.status_summary?.state || '';
@@ -1178,6 +1183,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             stackListEl.appendChild(clone);
         });
+        } finally {
+            stackListEl.style.minHeight = '';
+            if (currentScrollY > 0) {
+                window.scrollTo(0, currentScrollY);
+            }
+        }
     };
 
     const renderStackCandidates = (candidates) => {
@@ -1869,12 +1880,17 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const renderContainers = (containers) => {
-        listEl.innerHTML = '';
+        const currentScrollY = window.scrollY;
+        const currentHeight = listEl.offsetHeight;
+        listEl.style.minHeight = `${currentHeight}px`;
 
-        if (containers.length === 0) {
-            listEl.innerHTML = '<div class="loading">No containers found.</div>';
-            return;
-        }
+        try {
+            listEl.innerHTML = '';
+
+            if (containers.length === 0) {
+                listEl.innerHTML = '<div class="loading">No containers found.</div>';
+                return;
+            }
 
         // Split into two groups
         const withUpdates = containers.filter(c => c.update_available);
@@ -2109,6 +2125,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         renderBatch(withoutUpdates);
+        } finally {
+            listEl.style.minHeight = '';
+            if (currentScrollY > 0) {
+                window.scrollTo(0, currentScrollY);
+            }
+        }
     };
 
     // Track active updates to prevent auto-refresh from nuking the DOM
