@@ -1,3 +1,16 @@
+# [1.4.0](https://github.com/Jisevind/dockgo/compare/v1.3.0...v1.4.0) (2026-07-21)
+
+
+### Bug Fixes
+
+* prevent scroll jumping when data refreshes ([d418d7e](https://github.com/Jisevind/dockgo/commit/d418d7e84403cb019af65b365bdd02c068e0259f))
+* server stats not loading after auth ([d99ef74](https://github.com/Jisevind/dockgo/commit/d99ef74e85a78ec85143f058dbe5dd671cd7692e))
+
+
+### Features
+
+* add server stats row to dashboard ([04a6739](https://github.com/Jisevind/dockgo/commit/04a67392316d3a7e468d3e25bda7832b8ec66cda))
+
 # [1.3.0](https://github.com/Jisevind/dockgo/compare/v1.2.0...v1.3.0) (2026-06-23)
 
 
