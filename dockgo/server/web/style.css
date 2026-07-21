@@ -386,11 +386,6 @@ main {
     .container {
         padding: 1rem;
     }
-
-    #view-grid,
-    #view-list {
-        display: none !important;
-    }
 }
 
 header {
@@ -1233,11 +1228,7 @@ h1 {
     white-space: nowrap;
 }
 
-@media (max-width: 600px) {
-    #view-group {
-        display: none !important;
-    }
-}
+
 
 .stack-group-services {
     white-space: nowrap;
