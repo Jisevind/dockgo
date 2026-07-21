@@ -1334,6 +1334,15 @@ h1 {
     .server-stats-bar {
         flex-direction: column;
         align-items: flex-start;
+        gap: 0.8rem;
+    }
+    .server-stats-metrics {
+        flex-direction: column;
+        align-items: flex-start;
         gap: 0.5rem;
+        width: 100%;
+    }
+    .stat-divider {
+        display: none;
     }
 }
