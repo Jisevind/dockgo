@@ -36,6 +36,40 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentPrimaryView = localStorage.getItem('dockgo_primary_view') || 'dashboard';
     let groupByStack = localStorage.getItem('dockgo_group_stack') === 'true';
 
+    // Search State
+    let currentSearchQuery = '';
+    const searchInputEl = document.getElementById('search-input');
+
+    const showConfirmModal = (message) => {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('confirm-modal');
+            const msgEl = document.getElementById('confirm-modal-message');
+            const okBtn = document.getElementById('confirm-modal-ok');
+            const cancelBtn = document.getElementById('confirm-modal-cancel');
+            
+            if (!modal || !msgEl || !okBtn || !cancelBtn) {
+                // Fallback to native
+                resolve(confirm(message));
+                return;
+            }
+
+            msgEl.textContent = message;
+            modal.classList.remove('hidden');
+
+            const cleanup = () => {
+                modal.classList.add('hidden');
+                okBtn.removeEventListener('click', onOk);
+                cancelBtn.removeEventListener('click', onCancel);
+            };
+
+            const onOk = () => { cleanup(); resolve(true); };
+            const onCancel = () => { cleanup(); resolve(false); };
+
+            okBtn.addEventListener('click', onOk);
+            cancelBtn.addEventListener('click', onCancel);
+        });
+    };
+
     const updatePrimaryViewUI = () => {
         const showingStacks = currentPrimaryView === 'stacks';
         if (dashboardViewEl) {
@@ -87,6 +121,16 @@ document.addEventListener('DOMContentLoaded', () => {
             currentPrimaryView = 'dashboard';
             localStorage.setItem('dockgo_primary_view', currentPrimaryView);
             updatePrimaryViewUI();
+            // Re-render what we have
+            renderContainers(cachedContainers);
+        });
+    }
+
+    if (searchInputEl) {
+        searchInputEl.addEventListener('input', (e) => {
+            currentSearchQuery = e.target.value.trim().toLowerCase();
+            renderContainers(cachedContainers);
+            renderStacks(cachedStacks);
         });
     }
 
@@ -322,7 +366,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     logoutBtn.addEventListener('click', async () => {
-        if (!confirm('Are you sure you want to logout?')) return;
+        if (!(await showConfirmModal('Are you sure you want to logout?'))) return;
         try {
             await fetch('/api/logout', {
                 method: 'POST',
@@ -336,7 +380,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     logoutAllBtn.addEventListener('click', async () => {
-        if (!confirm('Are you sure you want to forcefully logout ALL devices?')) return;
+        if (!(await showConfirmModal('Are you sure you want to forcefully logout ALL devices?'))) return;
         try {
             await fetch('/api/logout-all', {
                 method: 'POST',
@@ -957,6 +1001,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 hideLoginModal();
                 fetchContainers(true); // Refresh data
                 checkAuthStatus(); // Refresh UI state (logout button)
+                if (currentPrimaryView === 'stacks') {
+                    loadStacksViewData();
+                }
             } else {
                 loginError.textContent = 'Invalid credentials';
                 loginError.classList.remove('hidden');
@@ -1054,13 +1101,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     statusEl.textContent = 'Authentication Required';
                     statusEl.style.color = 'var(--danger)';
                     return;
-                } else if (authEnabled && !isLoggedIn && !showProgress) {
-                    // Initial load or background poll failed
-                    // If initial load (listEl has loading or empty), show login
-                    if (listEl.querySelector('.loading')) {
-                        showLoginModal();
+                } else if (authEnabled) {
+                    if (isLoggedIn) {
+                        statusEl.textContent = 'Session Expired';
+                    } else {
+                        statusEl.textContent = 'Auth Required';
                     }
-                    statusEl.textContent = 'Auth Required';
+                    isLoggedIn = false;
+                    logoutBtn.classList.add('hidden');
+                    logoutAllBtn.classList.add('hidden');
+                    showLoginModal();
                     statusEl.style.color = 'var(--warning)';
                     return;
                 } else if (!authEnabled) {
@@ -1118,13 +1168,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-        const visibleStacks = stackItems.filter((item) => {
+        let visibleStacks = stackItems.filter((item) => {
             const state = item?.status_summary?.state || '';
             if (!filterDriftedStacks && !filterUnboundStacks) {
                 return true;
             }
             return (filterDriftedStacks && state === 'drifted') || (filterUnboundStacks && state === 'unbound');
         });
+
+        if (currentSearchQuery) {
+            visibleStacks = visibleStacks.filter((item) => {
+                const stack = item.stack || item;
+                const nameMatch = (stack.name || '').toLowerCase().includes(currentSearchQuery);
+                const projMatch = (stack.project_name || '').toLowerCase().includes(currentSearchQuery);
+                return nameMatch || projMatch;
+            });
+        }
 
         if (visibleStacks.length === 0) {
             stackListEl.innerHTML = '<div class="loading">No registered stacks match the current filters.</div>';
@@ -1637,7 +1696,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const deleteStack = async (stack) => {
-        if (!confirm(`Delete registered stack ${stack.name}? This will remove the registration only.`)) {
+        if (!(await showConfirmModal(`Delete registered stack ${stack.name}? This will remove the registration only.`))) {
             return;
         }
 
@@ -1749,7 +1808,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const runStackAction = async (stack, action, stackEl) => {
         const actionLabel = stackActionLabels[action] || action;
-        if (!confirm(`Are you sure you want to ${actionLabel} stack ${stack.name}?`)) {
+        if (!(await showConfirmModal(`Are you sure you want to ${actionLabel} stack ${stack.name}?`))) {
             return { attempted: false, success: false };
         }
 
@@ -1892,9 +1951,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+        let displayContainers = containers;
+        if (currentSearchQuery && !groupByStack) {
+            displayContainers = displayContainers.filter(c => {
+                const cName = c.name ? c.name.toLowerCase() : '';
+                return cName.includes(currentSearchQuery);
+            });
+        }
+
         // Split into two groups
-        const withUpdates = containers.filter(c => c.update_available);
-        const withoutUpdates = containers.filter(c => !c.update_available);
+        const withUpdates = displayContainers.filter(c => c.update_available);
+        const withoutUpdates = displayContainers.filter(c => !c.update_available);
 
         // Sort each group alphabetically
         withUpdates.sort((a, b) => a.name.localeCompare(b.name));
@@ -2042,12 +2109,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
-            const sortedGroups = Array.from(stackGroups.values()).sort((a, b) => a.stackName.localeCompare(b.stackName));
+            let sortedGroups = Array.from(stackGroups.values()).sort((a, b) => a.stackName.localeCompare(b.stackName));
+            let ungroupedItems = ungrouped;
+
+            if (currentSearchQuery) {
+                sortedGroups = sortedGroups.filter(g => {
+                    if (g.stackName.toLowerCase().includes(currentSearchQuery)) return true;
+                    return g.containers.some(c => (c.name || '').toLowerCase().includes(currentSearchQuery));
+                });
+                ungroupedItems = ungroupedItems.filter(c => {
+                    return (c.name || '').toLowerCase().includes(currentSearchQuery);
+                });
+            }
+
             const groupsWithUpdates = sortedGroups.filter(g => g.containers.some(c => c.update_available));
             const groupsWithoutUpdates = sortedGroups.filter(g => !g.containers.some(c => c.update_available));
 
-            const ungroupedWithUpdates = ungrouped.filter(c => c.update_available).sort((a, b) => a.name.localeCompare(b.name));
-            const ungroupedWithout = ungrouped.filter(c => !c.update_available).sort((a, b) => a.name.localeCompare(b.name));
+            const ungroupedWithUpdates = ungroupedItems.filter(c => c.update_available).sort((a, b) => a.name.localeCompare(b.name));
+            const ungroupedWithout = ungroupedItems.filter(c => !c.update_available).sort((a, b) => a.name.localeCompare(b.name));
 
             const hasAnyUpdates = groupsWithUpdates.length > 0 || ungroupedWithUpdates.length > 0;
             const hasAnyWithout = groupsWithoutUpdates.length > 0 || ungroupedWithout.length > 0;
@@ -2148,7 +2227,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        if (!confirm(`Are you sure you want to update ${name}?`)) {
+        if (!(await showConfirmModal(`Are you sure you want to update ${name}?`))) {
             return;
         }
 
@@ -2337,7 +2416,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const handleStackGroupUpdate = async (stackId, stackName, groupEl) => {
-        if (!confirm(`Are you sure you want to update stack ${stackName}?`)) {
+        if (!(await showConfirmModal(`Are you sure you want to update stack ${stackName}?`))) {
             return;
         }
 
