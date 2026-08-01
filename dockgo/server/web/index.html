@@ -69,6 +69,10 @@
 
         <div class="sub-header">
 
+            <div class="control-group search-group">
+                <input type="text" id="search-input" class="search-input" placeholder="Search by name...">
+            </div>
+
             <div class="control-group">
                 <div class="view-switch" role="tablist" aria-label="Primary Views">
                     <button id="view-dashboard" class="btn secondary active" type="button">Dashboard</button>
@@ -397,6 +401,22 @@
                     <div id="stack-containers-list" class="stack-container-list">
                         <!-- Containers injected here -->
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Modal -->
+    <div id="confirm-modal" class="modal-overlay hidden" style="z-index: 2000;">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="confirm-modal-title">Confirm</h2>
+            </div>
+            <div class="modal-body" style="text-align: center;">
+                <p id="confirm-modal-message"></p>
+                <div style="display: flex; gap: 10px; justify-content: center;">
+                    <button id="confirm-modal-cancel" class="btn secondary" style="min-width: 100px;">Cancel</button>
+                    <button id="confirm-modal-ok" class="btn primary" style="min-width: 100px;">OK</button>
                 </div>
             </div>
         </div>

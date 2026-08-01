@@ -391,6 +391,17 @@ main {
     #view-list {
         display: none !important;
     }
+
+    .sub-header {
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 1rem;
+    }
+
+    .search-group {
+        width: 100%;
+        max-width: none;
+    }
 }
 
 header {
@@ -622,6 +633,11 @@ h1 {
     margin-bottom: 1.5rem;
 }
 
+.search-group {
+    flex: 1;
+    max-width: 300px;
+}
+
 .header-controls {
     display: flex;
     align-items: center;
@@ -811,7 +827,7 @@ h1 {
 }
 
 .modal-header {
-    padding: 1.5rem;
+    padding: 0.6rem;
     border-bottom: 1px solid var(--border);
     display: flex;
     justify-content: space-between;
@@ -820,13 +836,18 @@ h1 {
 
 .modal-header h2 {
     margin: 0;
-    font-size: 1.25rem;
+    font-size: 1.1rem;
     color: var(--text-primary);
 }
 
 .modal-body {
-    padding: 1.5rem;
+    padding: 0.6rem;
     overflow-y: auto;
+}
+
+#confirm-modal-message {
+    margin-bottom: 20px; 
+    font-size: 0.95em;
 }
 
 .form-group {
@@ -849,7 +870,23 @@ h1 {
     color: var(--text-primary);
     font-size: 1rem;
     box-sizing: border-box;
-    /* Ensure padding doesn't overflow */
+}
+
+.search-input {
+    width: 100%;
+    padding: 0.4rem 0.6rem;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    box-sizing: border-box;
+    outline: none;
+}
+
+.search-input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 1px var(--primary);
 }
 
 .form-group select {
