@@ -301,7 +301,7 @@ main {
 }
 
 .host-selector option {
-    background: var(--bg-card);
+    background: var(--card-bg);
     color: var(--text-primary);
 }
 
@@ -942,6 +942,11 @@ h1 {
     color: var(--text-primary);
     font-size: 1rem;
     box-sizing: border-box;
+}
+
+.form-group select option {
+    background: var(--card-bg);
+    color: var(--text-primary);
 }
 
 .form-group textarea {
