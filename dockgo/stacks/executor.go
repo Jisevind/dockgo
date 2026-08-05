@@ -188,6 +188,13 @@ func streamCommand(ctx context.Context, dir string, log Logger, name string, arg
 	var wg sync.WaitGroup
 	wg.Add(2)
 
+	// Retain the last few stderr lines so a failing command's error message can
+	// surface the underlying tool's diagnostic (e.g. "image not found") instead
+	// of a bare "exit status 1".
+	const maxErrLines = 5
+	var errMu sync.Mutex
+	errLines := make([]string, 0, maxErrLines)
+
 	go func() {
 		defer wg.Done()
 		scanner := bufio.NewScanner(stdout)
@@ -208,10 +215,27 @@ func streamCommand(ctx context.Context, dir string, log Logger, name string, arg
 			line := strings.TrimSpace(scanner.Text())
 			if line != "" {
 				log(line)
+				errMu.Lock()
+				if len(errLines) == maxErrLines {
+					copy(errLines, errLines[1:])
+					errLines[maxErrLines-1] = line
+				} else {
+					errLines = append(errLines, line)
+				}
+				errMu.Unlock()
 			}
 		}
 	}()
 
 	wg.Wait()
-	return cmd.Wait()
+	if err := cmd.Wait(); err != nil {
+		errMu.Lock()
+		lines := append([]string(nil), errLines...)
+		errMu.Unlock()
+		if len(lines) > 0 {
+			return fmt.Errorf("%w: %s", err, strings.Join(lines, " | "))
+		}
+		return err
+	}
+	return nil
 }
