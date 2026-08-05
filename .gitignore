@@ -12,6 +12,7 @@ CODEBASE.md
 .env
 *.exe
 docker-compose.yml
+docker-compose-agent.yml
 dockgo/dockgo
 tmp
 
