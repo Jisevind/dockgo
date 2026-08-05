@@ -188,6 +188,54 @@ func TestAgentStackListFiltersByAgent(t *testing.T) {
 	}
 }
 
+func TestLocalStackListExcludesAgentHosted(t *testing.T) {
+	srv, _ := newTestServerWithAgent(t)
+
+	if _, err := srv.StackStore.Save(stacks.Stack{
+		Name:         "agent-stack",
+		ProjectName:  "agent-proj",
+		WorkingDir:   "/opt/stacks/agent",
+		ComposeFiles: []string{"/opt/stacks/agent/compose.yaml"},
+		PathMode:     stacks.PathModeHostNative,
+		AgentID:      "agent-a",
+	}); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+	localStack, err := srv.StackStore.Save(stacks.Stack{
+		Name:         "local-stack",
+		ProjectName:  "local-proj",
+		WorkingDir:   t.TempDir(),
+		ComposeFiles: []string{filepath.Join(t.TempDir(), "compose.yaml")},
+		PathMode:     stacks.PathModeHostNative,
+	})
+	if err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/stacks", nil)
+	rr := httptest.NewRecorder()
+	srv.handleStacks(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rr.Code)
+	}
+
+	var resp struct {
+		Stacks []struct {
+			Stack stacks.Stack `json:"stack"`
+		} `json:"stacks"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	if len(resp.Stacks) != 1 {
+		t.Fatalf("stack count = %d, want 1 (local-host filtered)", len(resp.Stacks))
+	}
+	if resp.Stacks[0].Stack.ID != localStack.ID {
+		t.Fatalf("stack id = %q, want %q (agent-hosted stack must be excluded)", resp.Stacks[0].Stack.ID, localStack.ID)
+	}
+}
+
 func TestAgentStackRegisteredScopedToAgent(t *testing.T) {
 	srv, _ := newTestServerWithAgent(t)
 

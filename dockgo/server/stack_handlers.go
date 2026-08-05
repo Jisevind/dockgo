@@ -66,6 +66,8 @@ func (s *Server) handleStacks(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case http.MethodGet:
+		// The local-host view shows only stacks hosted on this server;
+		// stacks bound to a remote agent are listed under that agent.
 		stackList := s.StackStore.List()
 		type stackListItem struct {
 			Stack          stacks.Stack          `json:"stack"`
@@ -75,6 +77,9 @@ func (s *Server) handleStacks(w http.ResponseWriter, r *http.Request) {
 		}
 		items := make([]stackListItem, 0, len(stackList))
 		for _, stack := range stackList {
+			if stack.AgentID != "" {
+				continue
+			}
 			items = append(items, stackListItem{
 				Stack:          stack,
 				RecentHistory:  s.StackHistory.ListByStack(stack.ID, 3),
