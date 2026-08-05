@@ -1,0 +1,34 @@
+# Build Stage
+FROM golang:1.25-alpine AS builder
+WORKDIR /build
+
+# Copy source
+COPY dockgo .
+
+# Build
+# Accept version arg from GitHub Actions, defaulting to "dev"
+ARG VERSION=dev
+RUN go mod download
+RUN go build -ldflags "-X 'dockgo/agent.Version=${VERSION}'" -o dockgo-agent ./cmd/dockgo-agent
+
+# Final Stage
+FROM alpine:latest
+
+WORKDIR /app
+
+# Install Docker CLI, Compose, and su-exec (for permission handling)
+RUN apk add --no-cache docker-cli docker-cli-compose su-exec dos2unix
+
+# Create non-root user (but don't switch to it yet)
+RUN adduser -D dockgo
+
+# Copy binary
+COPY --from=builder /build/dockgo-agent ./dockgo-agent
+
+# Environment defaults
+ENV DOCKGO_SERVER_URL=
+ENV AGENT_KEY=
+
+# The agent needs no inbound ports; it dials out to the server.
+
+ENTRYPOINT ["./dockgo-agent"]

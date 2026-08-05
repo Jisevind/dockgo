@@ -36,6 +36,320 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentPrimaryView = localStorage.getItem('dockgo_primary_view') || 'dashboard';
     let groupByStack = localStorage.getItem('dockgo_group_stack') === 'true';
 
+    // Agent / Host State
+    let currentAgentID = localStorage.getItem('dockgo_agent_id') || '';
+    let cachedAgents = [];
+
+    const hostSelector = document.getElementById('host-selector');
+    const viewAgentsBtn = document.getElementById('view-agents');
+    const agentsViewEl = document.getElementById('agents-view');
+    const agentListEl = document.getElementById('agent-list');
+    const addAgentBtn = document.getElementById('add-agent-btn');
+    const refreshAgentsBtn = document.getElementById('refresh-agents-btn');
+    const agentModal = document.getElementById('agent-modal');
+    const agentForm = document.getElementById('agent-form');
+    const agentNameInput = document.getElementById('agent-name');
+    const closeAgentBtn = document.getElementById('close-agent-btn');
+    const agentCancelBtn = document.getElementById('agent-cancel-btn');
+    const agentFormError = document.getElementById('agent-form-error');
+    const agentKeyModal = document.getElementById('agent-key-modal');
+    const agentKeyValue = document.getElementById('agent-key-value');
+    const agentKeyCopyBtn = document.getElementById('agent-key-copy-btn');
+    const agentKeyCloseBtn = document.getElementById('agent-key-close-btn');
+    const closeAgentKeyBtn = document.getElementById('close-agent-key-btn');
+    const agentsRegisteredStatEl = document.getElementById('agents-stat-registered');
+    const agentsOnlineStatEl = document.getElementById('agents-stat-online');
+
+    // Builds a query-suffix for agent-aware API calls ('' for local host).
+    const agentQuery = () => (currentAgentID ? `?agent=${encodeURIComponent(currentAgentID)}` : '');
+    // Appends the agent suffix to a URL that may already contain a query string.
+    const withAgentQuery = (url) => {
+        if (!currentAgentID) return url;
+        const sep = url.includes('?') ? '&' : '?';
+        return `${url}${sep}agent=${encodeURIComponent(currentAgentID)}`;
+    };
+
+    const updateHostSelector = (agents) => {
+        if (!hostSelector) return;
+        const previous = hostSelector.value;
+        hostSelector.innerHTML = '';
+        const localOption = document.createElement('option');
+        localOption.value = '';
+        localOption.textContent = 'Local host';
+        hostSelector.appendChild(localOption);
+
+        agents.forEach((agentRec) => {
+            const option = document.createElement('option');
+            option.value = agentRec.id;
+            const status = agentRec.status === 'online' ? '●' : '○';
+            option.textContent = `${status} ${agentRec.name}${agentRec.hostname ? ` (${agentRec.hostname})` : ''}`;
+            hostSelector.appendChild(option);
+        });
+
+        // Restore selection, falling back to local if the agent no longer exists.
+        if (previous && agents.some((a) => a.id === previous)) {
+            hostSelector.value = previous;
+        } else {
+            hostSelector.value = currentAgentID && agents.some((a) => a.id === currentAgentID) ? currentAgentID : '';
+        }
+    };
+
+    const fetchAgents = async () => {
+        try {
+            const response = await fetch('/api/agents', { headers: getAuthHeaders() });
+            if (!response.ok) {
+                throw new Error(`Failed to fetch agents (${response.status})`);
+            }
+            const data = await response.json();
+            cachedAgents = data.agents || [];
+            updateHostSelector(cachedAgents);
+            renderAgents(cachedAgents);
+        } catch (error) {
+            console.error('Failed to fetch agents', error);
+            if (agentListEl) {
+                agentListEl.innerHTML = '<div class="loading">Failed to load agents.</div>';
+            }
+        }
+    };
+
+    const renderAgents = (agents) => {
+        if (!agentListEl) return;
+        if (!Array.isArray(agents) || agents.length === 0) {
+            agentListEl.innerHTML = '<div class="loading">No agents registered yet. Click "Add Agent".</div>';
+            updateAgentsOverview(agents);
+            return;
+        }
+
+        agentListEl.innerHTML = '';
+        agents.forEach((agentRec) => {
+            const item = document.createElement('div');
+            item.className = 'stack-card';
+
+            const header = document.createElement('div');
+            header.className = 'stack-card-header';
+            const titleBlock = document.createElement('div');
+            const name = document.createElement('h3');
+            name.className = 'stack-name';
+            name.textContent = agentRec.name;
+            titleBlock.appendChild(name);
+            if (agentRec.hostname) {
+                const host = document.createElement('p');
+                host.className = 'stack-path';
+                host.textContent = agentRec.hostname;
+                titleBlock.appendChild(host);
+            }
+            header.appendChild(titleBlock);
+
+            const statusBadge = document.createElement('span');
+            statusBadge.className = 'stack-status-badge';
+            statusBadge.textContent = agentRec.status || 'offline';
+            statusBadge.classList.add(`status-${agentRec.status || 'offline'}`);
+            header.appendChild(statusBadge);
+            item.appendChild(header);
+
+            const meta = document.createElement('p');
+            meta.className = 'stack-meta';
+            const metaLines = [
+                `Version: ${agentRec.version || 'unknown'}`,
+                `Last seen: ${agentRec.last_seen ? new Date(agentRec.last_seen).toLocaleString() : 'never'}`,
+                agentRec.disabled ? 'Status: disabled' : ''
+            ].filter(Boolean);
+            meta.textContent = metaLines.join('\n');
+            item.appendChild(meta);
+
+            const actions = document.createElement('div');
+            actions.className = 'stack-actions';
+
+            const rotateBtn = document.createElement('button');
+            rotateBtn.type = 'button';
+            rotateBtn.className = 'btn secondary';
+            rotateBtn.textContent = 'Rotate Key';
+            rotateBtn.addEventListener('click', async () => {
+                if (!(await showConfirmModal(`Rotate the key for agent ${agentRec.name}?`))) return;
+                try {
+                    const response = await fetch(`/api/agents/${encodeURIComponent(agentRec.id)}/rotate-key`, {
+                        method: 'POST',
+                        headers: getAuthHeaders()
+                    });
+                    const data = await response.json();
+                    if (!response.ok) {
+                        throw new Error(data.error || 'Failed to rotate key');
+                    }
+                    showAgentKey(data.key);
+                    await fetchAgents();
+                } catch (error) {
+                    alert(`Failed to rotate key: ${error.message}`);
+                }
+            });
+            actions.appendChild(rotateBtn);
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.type = 'button';
+            deleteBtn.className = 'btn danger';
+            deleteBtn.textContent = 'Delete';
+            deleteBtn.addEventListener('click', async () => {
+                if (!(await showConfirmModal(`Delete agent ${agentRec.name}? This will disconnect it permanently.`))) return;
+                try {
+                    const response = await fetch(`/api/agents/${encodeURIComponent(agentRec.id)}`, {
+                        method: 'DELETE',
+                        headers: getAuthHeaders()
+                    });
+                    if (!response.ok) {
+                        const data = await response.json().catch(() => ({}));
+                        throw new Error(data.error || 'Failed to delete agent');
+                    }
+                    if (currentAgentID === agentRec.id) {
+                        currentAgentID = '';
+                        localStorage.removeItem('dockgo_agent_id');
+                        hostSelector.value = '';
+                    }
+                    await fetchAgents();
+                    await Promise.all([fetchContainers(false), fetchStacks(), fetchStackCandidates()]);
+                } catch (error) {
+                    alert(`Failed to delete agent: ${error.message}`);
+                }
+            });
+            actions.appendChild(deleteBtn);
+
+            item.appendChild(actions);
+            agentListEl.appendChild(item);
+        });
+
+        updateAgentsOverview(agents);
+    };
+
+    const updateAgentsOverview = (agents) => {
+        if (!agentsRegisteredStatEl || !agentsOnlineStatEl) return;
+        agentsRegisteredStatEl.textContent = String((agents || []).length);
+        agentsOnlineStatEl.textContent = String((agents || []).filter((a) => a.status === 'online').length);
+    };
+
+    const showAgentKey = (key) => {
+        if (agentKeyValue) {
+            agentKeyValue.textContent = key;
+        }
+        if (agentKeyModal) {
+            agentKeyModal.classList.remove('hidden');
+        }
+    };
+
+    const hideAgentKey = () => {
+        if (agentKeyModal) {
+            agentKeyModal.classList.add('hidden');
+        }
+    };
+
+    const openAgentModal = () => {
+        if (!agentModal) return;
+        agentForm.reset();
+        if (agentFormError) agentFormError.classList.add('hidden');
+        agentModal.classList.remove('hidden');
+        agentNameInput.focus();
+    };
+
+    const closeAgentModal = () => {
+        if (agentModal) agentModal.classList.add('hidden');
+    };
+
+    if (viewAgentsBtn) {
+        viewAgentsBtn.addEventListener('click', () => {
+            if (currentPrimaryView === 'agents') return;
+            currentPrimaryView = 'agents';
+            localStorage.setItem('dockgo_primary_view', currentPrimaryView);
+            updatePrimaryViewUI();
+            fetchAgents();
+        });
+    }
+
+    if (addAgentBtn) {
+        addAgentBtn.addEventListener('click', openAgentModal);
+    }
+    if (refreshAgentsBtn) {
+        refreshAgentsBtn.addEventListener('click', fetchAgents);
+    }
+    if (closeAgentBtn) {
+        closeAgentBtn.addEventListener('click', closeAgentModal);
+    }
+    if (agentCancelBtn) {
+        agentCancelBtn.addEventListener('click', closeAgentModal);
+    }
+    if (agentModal) {
+        agentModal.addEventListener('click', (e) => {
+            if (e.target === agentModal) closeAgentModal();
+        });
+    }
+    if (agentKeyCloseBtn) {
+        agentKeyCloseBtn.addEventListener('click', hideAgentKey);
+    }
+    if (closeAgentKeyBtn) {
+        closeAgentKeyBtn.addEventListener('click', hideAgentKey);
+    }
+    if (agentKeyModal) {
+        agentKeyModal.addEventListener('click', (e) => {
+            if (e.target === agentKeyModal) hideAgentKey();
+        });
+    }
+    if (agentKeyCopyBtn) {
+        agentKeyCopyBtn.addEventListener('click', async () => {
+            const key = agentKeyValue ? agentKeyValue.textContent : '';
+            if (!key) return;
+            try {
+                await navigator.clipboard.writeText(key);
+                agentKeyCopyBtn.textContent = 'Copied!';
+                setTimeout(() => { agentKeyCopyBtn.textContent = 'Copy Key'; }, 2000);
+            } catch (e) {
+                agentKeyCopyBtn.textContent = 'Copy failed';
+                setTimeout(() => { agentKeyCopyBtn.textContent = 'Copy Key'; }, 2000);
+            }
+        });
+    }
+
+    if (agentForm) {
+        agentForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (agentFormError) agentFormError.classList.add('hidden');
+            const name = agentNameInput.value.trim();
+            if (!name) return;
+
+            try {
+                const response = await fetch('/api/agents', {
+                    method: 'POST',
+                    headers: getAuthHeaders(true),
+                    body: JSON.stringify({ name })
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to create agent');
+                }
+                closeAgentModal();
+                showAgentKey(data.key);
+                await fetchAgents();
+            } catch (error) {
+                if (agentFormError) {
+                    agentFormError.textContent = error.message;
+                    agentFormError.classList.remove('hidden');
+                }
+            }
+        });
+    }
+
+    if (hostSelector) {
+        hostSelector.addEventListener('change', () => {
+            currentAgentID = hostSelector.value;
+            if (currentAgentID) {
+                localStorage.setItem('dockgo_agent_id', currentAgentID);
+            } else {
+                localStorage.removeItem('dockgo_agent_id');
+            }
+            // Refresh all host-scoped data for the newly selected host.
+            fetchContainers(false);
+            if (currentPrimaryView === 'stacks') {
+                loadStacksViewData();
+            }
+            fetchServerStats();
+        });
+    }
+
     // Search State
     let currentSearchQuery = '';
     const searchInputEl = document.getElementById('search-input');
@@ -72,26 +386,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const updatePrimaryViewUI = () => {
         const showingStacks = currentPrimaryView === 'stacks';
+        const showingAgents = currentPrimaryView === 'agents';
         if (dashboardViewEl) {
-            dashboardViewEl.classList.toggle('hidden', showingStacks);
+            dashboardViewEl.classList.toggle('hidden', showingStacks || showingAgents);
         }
         if (stacksViewEl) {
             stacksViewEl.classList.toggle('hidden', !showingStacks);
         }
+        if (agentsViewEl) {
+            agentsViewEl.classList.toggle('hidden', !showingAgents);
+        }
         if (viewDashboardBtn) {
-            viewDashboardBtn.classList.toggle('active', !showingStacks);
+            viewDashboardBtn.classList.toggle('active', !showingStacks && !showingAgents);
         }
         if (viewStacksBtn) {
             viewStacksBtn.classList.toggle('active', showingStacks);
         }
+        if (viewAgentsBtn) {
+            viewAgentsBtn.classList.toggle('active', showingAgents);
+        }
         if (viewGridBtn) {
-            viewGridBtn.classList.toggle('hidden', showingStacks);
+            viewGridBtn.classList.toggle('hidden', showingStacks || showingAgents);
         }
         if (viewListBtn) {
-            viewListBtn.classList.toggle('hidden', showingStacks);
+            viewListBtn.classList.toggle('hidden', showingStacks || showingAgents);
         }
         if (viewGroupBtn) {
-            viewGroupBtn.classList.toggle('hidden', showingStacks);
+            viewGroupBtn.classList.toggle('hidden', showingStacks || showingAgents);
         }
     };
 
@@ -851,7 +1172,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!activeStackDetails) return;
             const stackToReconcile = activeStackDetails;
             try {
-                const response = await fetch(`/api/stacks/${encodeURIComponent(stackToReconcile.id)}/reconcile`, {
+                const response = await fetch(withAgentQuery(`/api/stacks/${encodeURIComponent(stackToReconcile.id)}/reconcile`), {
                     method: 'POST',
                     headers: getAuthHeaders()
                 });
@@ -924,7 +1245,7 @@ document.addEventListener('DOMContentLoaded', () => {
         logsModal.classList.remove('hidden');
         userScrolledUp = false;
 
-        let streamUrl = `/api/logs/${safeName}`;
+        let streamUrl = withAgentQuery(`/api/logs/${safeName}`);
 
         const token = sessionStorage.getItem('dockgo_token');
         if (token && !isLoggedIn) {
@@ -1039,7 +1360,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Construct URL with token if needed (for legacy auth SSE)
             let streamUrl = '/api/stream/check';
-            if (forceRefresh) streamUrl += '?force=true';
+            const queryParts = [];
+            if (forceRefresh) queryParts.push('force=true');
+            if (currentAgentID) queryParts.push(`agent=${encodeURIComponent(currentAgentID)}`);
+            if (queryParts.length > 0) {
+                streamUrl += `?${queryParts.join('&')}`;
+            }
 
             const token = sessionStorage.getItem('dockgo_token');
             if (token && !isLoggedIn) {
@@ -1089,7 +1415,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            const response = await fetch('/api/containers', { headers: getAuthHeaders() });
+            const response = await fetch(`/api/containers${agentQuery()}`, { headers: getAuthHeaders() });
 
             if (response.status === 401 || response.status === 403) {
                 // Unauthorized or Forbidden
@@ -1302,7 +1628,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const fetchStacks = async () => {
         try {
-            const response = await fetch('/api/stacks', { headers: getAuthHeaders() });
+            const response = await fetch(`/api/stacks${agentQuery()}`, { headers: getAuthHeaders() });
             if (!response.ok) {
                 throw new Error(`Failed to fetch stacks (${response.status})`);
             }
@@ -1318,7 +1644,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const fetchStackCandidates = async () => {
         try {
-            const response = await fetch('/api/stacks/discover', {
+            const response = await fetch(withAgentQuery('/api/stacks/discover'), {
                 method: 'POST',
                 headers: getAuthHeaders()
             });
@@ -1397,6 +1723,7 @@ document.addEventListener('DOMContentLoaded', () => {
             name: stackNameInput.value.trim(),
             project_name: stackProjectNameInput.value.trim(),
             kind: stackFormKind,
+            agent_id: currentAgentID,
             compose_files: [stackComposeFileInput.value.trim()],
             env_files: stackEnvFileInput.value.trim() ? [stackEnvFileInput.value.trim()] : [],
             working_dir: stackWorkingDirInput.value.trim(),
@@ -1423,8 +1750,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const url = stackFormMode === 'edit'
-            ? `/api/stacks/${encodeURIComponent(editingStackId)}`
-            : '/api/stacks';
+            ? withAgentQuery(`/api/stacks/${encodeURIComponent(editingStackId)}`)
+            : withAgentQuery('/api/stacks');
         const method = stackFormMode === 'edit' ? 'PUT' : 'POST';
 
         try {
@@ -1452,7 +1779,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const validateStack = async (stack) => {
         try {
-            const response = await fetch(`/api/stacks/${encodeURIComponent(stack.id)}/validate`, {
+            const response = await fetch(withAgentQuery(`/api/stacks/${encodeURIComponent(stack.id)}/validate`), {
                 method: 'POST',
                 headers: getAuthHeaders()
             });
@@ -1649,8 +1976,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const openStackDetails = async (stack) => {
         try {
             const [detailResponse, historyResponse] = await Promise.all([
-                fetch(`/api/stacks/${encodeURIComponent(stack.id)}`, { headers: getAuthHeaders() }),
-                fetch(`/api/stacks/${encodeURIComponent(stack.id)}/history`, { headers: getAuthHeaders() })
+                fetch(withAgentQuery(`/api/stacks/${encodeURIComponent(stack.id)}`), { headers: getAuthHeaders() }),
+                fetch(withAgentQuery(`/api/stacks/${encodeURIComponent(stack.id)}/history`), { headers: getAuthHeaders() })
             ]);
 
             const detailData = await detailResponse.json();
@@ -1701,7 +2028,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            const response = await fetch(`/api/stacks/${encodeURIComponent(stack.id)}`, {
+            const response = await fetch(withAgentQuery(`/api/stacks/${encodeURIComponent(stack.id)}`), {
                 method: 'DELETE',
                 headers: getAuthHeaders()
             });
@@ -1822,7 +2149,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 setStackDetailsProgress(stackProgressMessages[action]?.start || 'Starting stack action...');
             }
 
-            const response = await fetch(`/api/stacks/${encodeURIComponent(stack.id)}/${encodeURIComponent(action)}`, {
+            const response = await fetch(withAgentQuery(`/api/stacks/${encodeURIComponent(stack.id)}/${encodeURIComponent(action)}`), {
                 method: 'POST',
                 headers: getAuthHeaders()
             });
@@ -2282,7 +2609,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers['Authorization'] = `Bearer ${token}`;
             }
 
-            const response = await fetch(`/api/update/${safeName}`, {
+            const response = await fetch(withAgentQuery(`/api/update/${safeName}`), {
                 method: 'POST',
                 headers: headers
             });
@@ -2434,7 +2761,7 @@ document.addEventListener('DOMContentLoaded', () => {
         activeUpdates++;
 
         try {
-            const response = await fetch(`/api/stacks/${encodeURIComponent(stackId)}/deploy`, {
+            const response = await fetch(withAgentQuery(`/api/stacks/${encodeURIComponent(stackId)}/deploy`), {
                 method: 'POST',
                 headers: getAuthHeaders()
             });
@@ -2589,7 +2916,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers['X-CSRF-Token'] = getCsrfToken();
             }
 
-            const response = await fetch(`/api/container/${safeName}/action`, {
+            const response = await fetch(withAgentQuery(`/api/container/${safeName}/action`), {
                 method: 'POST',
                 headers: headers,
                 body: JSON.stringify({ action: action })
@@ -2643,7 +2970,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const fetchServerStats = async () => {
         try {
-            const response = await fetch('/api/server/stats', { headers: getAuthHeaders() });
+            const response = await fetch(withAgentQuery('/api/server/stats'), { headers: getAuthHeaders() });
             if (response.ok) {
                 const data = await response.json();
                 document.getElementById('stat-cpu').textContent = data.cpu_percent.toFixed(1) + '%';
@@ -2662,9 +2989,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial load
     Promise.all([checkAuthStatus(), fetchHealth()]).then(() => {
+        fetchAgents();
         Promise.all([fetchContainers()]).then(() => {
             if (currentPrimaryView === 'stacks') {
                 loadStacksViewData();
+            }
+            if (currentPrimaryView === 'agents') {
+                fetchAgents();
             }
             if (isLoggedIn || !authEnabled) {
                 fetchContainers(true);
@@ -2678,6 +3009,9 @@ document.addEventListener('DOMContentLoaded', () => {
             fetchContainers(false);
             if (currentPrimaryView === 'stacks') {
                 loadStacksViewData();
+            }
+            if (currentPrimaryView === 'agents') {
+                fetchAgents();
             }
         }
     }, 30000);

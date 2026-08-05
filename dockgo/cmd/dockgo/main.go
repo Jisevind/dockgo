@@ -23,7 +23,7 @@ func main() {
 		logger.SetLevel(logLevel)
 	}
 
-		var cmd string
+	var cmd string
 	var args []string
 
 	if len(os.Args) < 2 {

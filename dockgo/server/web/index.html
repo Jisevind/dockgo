@@ -38,6 +38,11 @@
                     style="font-family: monospace; color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.2rem;"></span>
             </div>
             <div class="header-controls">
+                <div class="control-group host-selector-group">
+                    <select id="host-selector" title="Select host" class="host-selector">
+                        <option value="">Local host</option>
+                    </select>
+                </div>
                 <div class="control-group">
                     <button id="refresh-btn" class="btn-icon" title="Refresh Checks">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -103,6 +108,7 @@
                         <rect x="2" y="17" width="20" height="5" rx="1"></rect>
                     </svg>
                 </button>
+                <button id="view-agents" class="btn secondary" type="button" title="Manage agents">Agents</button>
             </div>
         </div>
 
@@ -192,6 +198,40 @@
                 </div>
                 <div id="stack-candidates" class="stack-list">
                     <div class="loading">Loading discovered projects...</div>
+                </div>
+            </div>
+        </section>
+
+        <section id="agents-view" class="page-view hidden">
+            <div class="stacks-overview">
+                <div>
+                    <p class="stacks-kicker">Multi-Host Management</p>
+                    <h2>Agents</h2>
+                    <p class="stacks-description">Register remote Docker hosts as agents. Agents dial out to this
+                        server over an encrypted channel; the dashboard then operates on their containers and stacks.
+                    </p>
+                </div>
+                <div class="stacks-overview-stats">
+                    <div class="stacks-stat">
+                        <span class="stacks-stat-label">Registered</span>
+                        <strong id="agents-stat-registered">0</strong>
+                    </div>
+                    <div class="stacks-stat">
+                        <span class="stacks-stat-label">Online</span>
+                        <strong id="agents-stat-online">0</strong>
+                    </div>
+                </div>
+            </div>
+            <div class="stack-panel">
+                <div class="stack-panel-header">
+                    <h2>Registered Agents</h2>
+                    <div class="stack-panel-actions">
+                        <button id="refresh-agents-btn" class="btn secondary">Refresh</button>
+                        <button id="add-agent-btn" class="btn primary">Add Agent</button>
+                    </div>
+                </div>
+                <div id="agent-list" class="stack-list">
+                    <div class="loading">Loading agents...</div>
                 </div>
             </div>
         </section>
@@ -401,6 +441,50 @@
                     <div id="stack-containers-list" class="stack-container-list">
                         <!-- Containers injected here -->
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Agent Create Modal -->
+    <div id="agent-modal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="agent-modal-title">Add Agent</h2>
+                <button id="close-agent-btn" class="close-btn" title="Close">✕</button>
+            </div>
+            <div class="modal-body">
+                <form id="agent-form">
+                    <div class="form-group">
+                        <label for="agent-name">Agent Name</label>
+                        <input type="text" id="agent-name" name="agent_name" required
+                            placeholder="e.g. media-server">
+                        <small class="form-hint">Used to identify this host in the dashboard and in agent registration.</small>
+                    </div>
+                    <div id="agent-form-error" class="error-message hidden"></div>
+                    <div class="stack-form-actions">
+                        <button type="button" id="agent-cancel-btn" class="btn secondary">Cancel</button>
+                        <button type="submit" class="btn primary">Create Agent</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Agent Key Display Modal -->
+    <div id="agent-key-modal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Agent Key Created</h2>
+                <button id="close-agent-key-btn" class="close-btn" title="Close">✕</button>
+            </div>
+            <div class="modal-body" style="text-align: center;">
+                <p>Set this as <code>AGENT_KEY</code> on the remote host. It is shown only once.</p>
+                <pre id="agent-key-value" class="stack-details-pre" style="user-select: all;"></pre>
+                <p class="stacks-description">Agent keys are bcrypt-hashed at rest. Rotate from the Agents page if it leaks.</p>
+                <div style="display: flex; gap: 10px; justify-content: center;">
+                    <button id="agent-key-copy-btn" class="btn primary">Copy Key</button>
+                    <button id="agent-key-close-btn" class="btn secondary">Done</button>
                 </div>
             </div>
         </div>

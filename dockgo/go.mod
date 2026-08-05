@@ -3,7 +3,9 @@ module dockgo
 go 1.25.7
 
 require (
+	github.com/coder/websocket v1.8.15
 	github.com/docker/docker v28.5.2+incompatible
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/go-containerregistry v0.20.7
 	github.com/google/uuid v1.6.0
 	github.com/natefinch/lumberjack/v3 v3.0.0-alpha

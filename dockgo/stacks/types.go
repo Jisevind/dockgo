@@ -53,6 +53,7 @@ type Stack struct {
 	Name              string            `json:"name"`
 	ProjectName       string            `json:"project_name"`
 	Kind              Kind              `json:"kind"`
+	AgentID           string            `json:"agent_id,omitempty"`
 	ComposeFiles      []string          `json:"compose_files"`
 	EnvFiles          []string          `json:"env_files,omitempty"`
 	WorkingDir        string            `json:"working_dir"`

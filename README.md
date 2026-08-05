@@ -125,6 +125,30 @@ Configure DockGo using environment variables:
 | `APPRISE_URL` | Apprise notification endpoint (e.g., `ntfy://...`) | *(empty)* |
 | `APPRISE_QUEUE_SIZE` | Buffer size for outbound notification events | `200` |
 | `SCAN_INTERVAL` | Background update polling schedule (`s`, `m`, `h`) | `24h` |
+| `AGENT_STORE_PATH` | JSON file persisting registered agent records | `/app/data/agents.json` |
+| `AGENT_MAX_CONCURRENT` | Per-agent concurrent operation cap | `8` |
+| `AGENT_JWT_TTL` | Lifetime of the agent channel JWT | `1h` |
+| `AGENT_JWT_SECRET` | JWT signing secret for agent channels | `AUTH_SECRET` |
+
+---
+
+## Multi-Host Management (Agents)
+
+DockGo can manage containers and Compose stacks on **multiple remote hosts**
+from one dashboard. A lightweight agent runs on each managed host, dials **out**
+to the server over a secure WebSocket channel, and the server relays the
+dashboard operations to it. No inbound ports are required on agent hosts.
+
+- Create agents on the dashboard's **Agents** view; the server returns a
+  one-time key (`AGENT_KEY`) for the remote host.
+- Use the **host selector** in the dashboard header to switch between the local
+  host and each agent.
+- Containers, stats, scans, updates, logs, and stacks all operate on the
+  selected host.
+- Git-kind stacks are not supported on remote agents.
+
+See [Multi-Host Management with DockGo Agents](./docs/agents.md) for full setup,
+security, and key-rotation instructions.
 
 ---
 
@@ -138,6 +162,7 @@ Start with the new user documentation:
 - [Configuration](./docs/configuration.md)
 - [Dashboard and Updates](./docs/dashboard-and-updates.md)
 - [Stacks](./docs/stacks.md)
+- [Multi-Host Management (Agents)](./docs/agents.md)
 - [Notifications](./docs/notifications.md)
 - [Backup and Restore](./docs/backup-and-restore.md)
 - [Troubleshooting](./docs/troubleshooting.md)

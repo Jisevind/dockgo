@@ -22,6 +22,7 @@ type stackPayload struct {
 	Name         string                   `json:"name"`
 	ProjectName  string                   `json:"project_name"`
 	Kind         stacks.Kind              `json:"kind"`
+	AgentID      string                   `json:"agent_id"`
 	ComposeFiles []string                 `json:"compose_files"`
 	EnvFiles     []string                 `json:"env_files"`
 	WorkingDir   string                   `json:"working_dir"`
@@ -57,6 +58,12 @@ type stackDiscoverCandidate struct {
 const ownershipSyncTimeout = 15 * time.Second
 
 func (s *Server) handleStacks(w http.ResponseWriter, r *http.Request) {
+	if agentID, ok := agentQueryAgentID(r); ok {
+		s.handleAgentStacksRoute(w, r)
+		_ = agentID
+		return
+	}
+
 	switch r.Method {
 	case http.MethodGet:
 		stackList := s.StackStore.List()
@@ -121,6 +128,11 @@ func (s *Server) handleStacks(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleStackByID(w http.ResponseWriter, r *http.Request) {
+	if _, ok := agentQueryAgentID(r); ok {
+		s.handleAgentStacksRoute(w, r)
+		return
+	}
+
 	path := strings.TrimPrefix(r.URL.Path, "/api/stacks/")
 	path = strings.Trim(path, "/")
 	if path == "" {
@@ -364,6 +376,7 @@ func stackFromPayload(existing stacks.Stack, payload stackPayload) stacks.Stack 
 	stack.Name = payload.Name
 	stack.ProjectName = payload.ProjectName
 	stack.Kind = payload.Kind
+	stack.AgentID = payload.AgentID
 	stack.ComposeFiles = payload.ComposeFiles
 	stack.EnvFiles = payload.EnvFiles
 	stack.WorkingDir = payload.WorkingDir
@@ -664,7 +677,7 @@ func (s *Server) executeStackAction(
 	if project == "" {
 		project = stack.ProjectName
 	}
-	
+
 	var unlock func()
 	if project != "" {
 		unlock = engine.LockProject(project)

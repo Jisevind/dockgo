@@ -6,6 +6,8 @@ import (
 	"crypto/hmac"
 	cryptorand "crypto/rand"
 	"crypto/sha256"
+	"dockgo/agentmanager"
+	"dockgo/agentstore"
 	"dockgo/api"
 	"dockgo/engine"
 	"dockgo/logger"
@@ -49,38 +51,44 @@ var content embed.FS
 var Version = "dev"
 
 type Server struct {
-	Port             string
-	CorsOrigin       string
-	APIToken         string `json:"-"`
-	AuthUsername     string
-	AuthPasswordHash []byte `json:"-"`
-	AuthSecret       string `json:"-"`
-	AllowedPaths     []string
-	Discovery        *engine.DiscoveryEngine
-	Registry         *engine.RegistryClient
-	Notifier         *notify.AppriseNotifier
-	updatesCache     map[string]bool
-	cacheUnix        int64
-	mu               sync.RWMutex
-	lastCheckTime    time.Time
-	lastCheckStat    string
-	startTime        time.Time
-	registryStatus   string
-	registryPingTime time.Time
+	Port               string
+	CorsOrigin         string
+	APIToken           string `json:"-"`
+	AuthUsername       string
+	AuthPasswordHash   []byte `json:"-"`
+	AuthSecret         string `json:"-"`
+	AllowedPaths       []string
+	Discovery          *engine.DiscoveryEngine
+	Registry           *engine.RegistryClient
+	Notifier           *notify.AppriseNotifier
+	updatesCache       map[string]bool
+	agentUpdatesCache  map[string]map[string]bool // agentID -> containerID -> update available
+	cacheUnix          int64
+	mu                 sync.RWMutex
+	lastCheckTime      time.Time
+	lastCheckStat      string
+	startTime          time.Time
+	registryStatus     string
+	registryPingTime   time.Time
 	loginAttempts    map[string]*RateLimiter
 	loginMu          sync.Mutex
+	// agentRegAttempts tracks failed agent handshakes per IP. The loginMu
+	// protects this map too, so no extra mutex is needed.
+	agentRegAttempts map[string]*RateLimiter
 	lastDockerStatus string
-	lastRegStatus    string
-	revokedSessions  map[string]time.Time
-	globalReauthTime time.Time
-	UpdatesChan       chan string
-	sessionStorePath  string
-	sessionMu         sync.RWMutex
-	savePending       atomic.Bool
-	DebugEnabled      bool
+	lastRegStatus      string
+	revokedSessions    map[string]time.Time
+	globalReauthTime   time.Time
+	UpdatesChan        chan string
+	sessionStorePath   string
+	sessionMu          sync.RWMutex
+	savePending        atomic.Bool
+	DebugEnabled       bool
 	lastUpdateAttempts map[string]UpdateAttemptInfo // container name → last failure
-	StackStore       *stacks.Store
-	StackHistory     *stacks.HistoryStore
+	StackStore         *stacks.Store
+	StackHistory       *stacks.HistoryStore
+	AgentStore         *agentstore.Store
+	AgentManager       *agentmanager.Manager
 }
 
 type RateLimiter struct {
@@ -119,6 +127,7 @@ func NewServer(port string) (*Server, error) {
 	sessionPath := os.Getenv("SESSION_STORE_PATH")
 	stackStorePath := os.Getenv("STACK_STORE_PATH")
 	stackHistoryPath := os.Getenv("STACK_HISTORY_PATH")
+	agentStorePath := os.Getenv("AGENT_STORE_PATH")
 	allowedPathsStr := os.Getenv("ALLOWED_COMPOSE_PATHS")
 	debugEnabled := os.Getenv("DOCKGO_DEBUG") == "true"
 
@@ -130,6 +139,9 @@ func NewServer(port string) (*Server, error) {
 	}
 	if stackHistoryPath == "" {
 		stackHistoryPath = "/app/data/stack_history.json"
+	}
+	if agentStorePath == "" {
+		agentStorePath = "/app/data/agents.json"
 	}
 
 	if authSecret == "" {
@@ -208,26 +220,70 @@ func NewServer(port string) (*Server, error) {
 		return nil, fmt.Errorf("failed to initialize stack history store: %w", err)
 	}
 
+	agentStore, err := agentstore.NewStore(agentStorePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize agent store: %w", err)
+	}
+
+	agentJWTSecret := os.Getenv("AGENT_JWT_SECRET")
+	if agentJWTSecret == "" {
+		agentJWTSecret = authSecret
+	}
+	agentJWTTTL := time.Hour
+	if ttlStr := os.Getenv("AGENT_JWT_TTL"); ttlStr != "" {
+		if ttl, err := time.ParseDuration(ttlStr); err == nil && ttl > 0 {
+			agentJWTTTL = ttl
+		} else {
+			serverLog.Warn("Invalid AGENT_JWT_TTL, falling back to 1h",
+				logger.String("provided_ttl", ttlStr),
+			)
+		}
+	}
+	maxConcurrent := 8
+	if capStr := os.Getenv("AGENT_MAX_CONCURRENT"); capStr != "" {
+		if cap, err := strconv.Atoi(capStr); err == nil && cap > 0 {
+			maxConcurrent = cap
+		} else {
+			serverLog.Warn("Invalid AGENT_MAX_CONCURRENT, falling back to 8",
+				logger.String("provided_cap", capStr),
+			)
+		}
+	}
+
+	agentManager, err := agentmanager.New(agentmanager.Config{
+		Store:         agentStore,
+		JWTSecret:     agentJWTSecret,
+		JWTTTL:        agentJWTTTL,
+		MaxConcurrent: maxConcurrent,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize agent manager: %w", err)
+	}
+
 	srv := &Server{
-		Port:             port,
-		CorsOrigin:       corsOrigin,
-		APIToken:         token,
-		AuthUsername:     authUser,
-		AuthPasswordHash: passHash,
-		AuthSecret:       authSecret,
-		AllowedPaths:     allowedPaths,
-		sessionStorePath: sessionPath,
-		Discovery:        disc,
-		Registry:         registry,
-		Notifier:         notify.NewAppriseNotifier(context.Background()),
+		Port:               port,
+		CorsOrigin:         corsOrigin,
+		APIToken:           token,
+		AuthUsername:       authUser,
+		AuthPasswordHash:   passHash,
+		AuthSecret:         authSecret,
+		AllowedPaths:       allowedPaths,
+		sessionStorePath:   sessionPath,
+		Discovery:          disc,
+		Registry:           registry,
+		Notifier:           notify.NewAppriseNotifier(context.Background()),
 		updatesCache:       make(map[string]bool),
+		agentUpdatesCache:  make(map[string]map[string]bool),
 		lastUpdateAttempts: make(map[string]UpdateAttemptInfo),
 		startTime:          time.Now(),
 		loginAttempts:    make(map[string]*RateLimiter),
+		agentRegAttempts: make(map[string]*RateLimiter),
 		revokedSessions:  make(map[string]time.Time),
-		DebugEnabled:     debugEnabled,
-		StackStore:       stackStore,
-		StackHistory:     stackHistory,
+		DebugEnabled:       debugEnabled,
+		StackStore:         stackStore,
+		StackHistory:       stackHistory,
+		AgentStore:         agentStore,
+		AgentManager:       agentManager,
 	}
 
 	srv.loadAuthState()
@@ -248,6 +304,11 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/logs/", s.enableCors(s.requireAuth(s.handleContainerLogs)))
 	mux.HandleFunc("/api/stacks", s.enableCors(s.requireAuth(s.handleStacks)))
 	mux.HandleFunc("/api/stacks/", s.enableCors(s.requireAuth(s.handleStackByID)))
+
+	mux.HandleFunc("/api/agents", s.enableCors(s.requireAuth(s.handleAgents)))
+	mux.HandleFunc("/api/agents/", s.enableCors(s.requireAuth(s.handleAgentByID)))
+	mux.HandleFunc("/api/ws/agent", s.handleAgentWebSocket)
+	mux.HandleFunc("/api/agent/", s.enableCors(s.requireAuth(s.handleAgentRoute)))
 
 	mux.HandleFunc("/api/login", s.enableCors(s.handleLogin))
 	mux.HandleFunc("/api/logout", s.enableCors(s.handleLogout))
@@ -508,6 +569,57 @@ func (s *Server) checkRateLimit(remoteAddr string) bool {
 	return allowed
 }
 
+// checkAgentRegistrationRate returns false when an IP has exceeded the cap of
+// failed agent handshakes within the window. Successful handshakes never
+// increment it, so healthy reconnects are never throttled.
+func (s *Server) checkAgentRegistrationRate(remoteAddr string) bool {
+	s.loginMu.Lock()
+	defer s.loginMu.Unlock()
+
+	ip := rateLimitIP(remoteAddr)
+	limiter, exists := s.agentRegAttempts[ip]
+	if !exists {
+		limiter = &RateLimiter{}
+		s.agentRegAttempts[ip] = limiter
+	}
+
+	if time.Since(limiter.lastSeen) > time.Minute {
+		limiter.count = 0
+	}
+
+	allowed := limiter.count < 5
+	if !allowed {
+		serverLog.Warn("Agent registration rate limit exceeded for IP",
+			logger.String("ip", ip),
+			logger.Int("failed_attempts", limiter.count),
+		)
+	}
+	return allowed
+}
+
+// recordAgentRegistrationFailure counts a failed handshake for the caller's IP.
+func (s *Server) recordAgentRegistrationFailure(remoteAddr string) {
+	s.loginMu.Lock()
+	defer s.loginMu.Unlock()
+
+	ip := rateLimitIP(remoteAddr)
+	limiter, exists := s.agentRegAttempts[ip]
+	if !exists {
+		limiter = &RateLimiter{}
+		s.agentRegAttempts[ip] = limiter
+	}
+	limiter.count++
+	limiter.lastSeen = time.Now()
+}
+
+func rateLimitIP(remoteAddr string) string {
+	ip, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		return remoteAddr
+	}
+	return ip
+}
+
 func (s *Server) cleanupRateLimiters(ctx context.Context) {
 	ticker := time.NewTicker(10 * time.Minute)
 	defer ticker.Stop()
@@ -521,6 +633,11 @@ func (s *Server) cleanupRateLimiters(ctx context.Context) {
 			for ip, limiter := range s.loginAttempts {
 				if time.Since(limiter.lastSeen) > 10*time.Minute {
 					delete(s.loginAttempts, ip)
+				}
+			}
+			for ip, limiter := range s.agentRegAttempts {
+				if time.Since(limiter.lastSeen) > 10*time.Minute {
+					delete(s.agentRegAttempts, ip)
 				}
 			}
 			s.loginMu.Unlock()
@@ -930,6 +1047,11 @@ func (s *Server) getRegistryStatus() string {
 }
 
 func (s *Server) handleContainers(w http.ResponseWriter, r *http.Request) {
+	if _, ok := agentQueryAgentID(r); ok {
+		s.handleAgentContainers(w, r)
+		return
+	}
+
 	w.Header().Set("Cache-Control", "no-cache")
 
 	containers, err := s.Discovery.ListContainers(context.Background())
@@ -1017,6 +1139,11 @@ func (s *Server) handleContainers(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
+	if _, ok := agentQueryAgentID(r); ok {
+		s.handleAgentStreamCheck(w, r)
+		return
+	}
+
 	serverLog.Debug("Stream request started")
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -1365,6 +1492,11 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		logger.String("container", name),
 	)
 
+	if _, ok := agentQueryAgentID(r); ok {
+		s.handleAgentUpdate(w, r)
+		return
+	}
+
 	if name == "" {
 		http.Error(w, "Container name required", http.StatusBadRequest)
 		return
@@ -1580,6 +1712,11 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleContainerAction(w http.ResponseWriter, r *http.Request) {
+	if _, ok := agentQueryAgentID(r); ok {
+		s.handleAgentContainerAction(w, r)
+		return
+	}
+
 	if r.Method != "POST" {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -1688,6 +1825,11 @@ func (s *Server) handleContainerLogs(w http.ResponseWriter, r *http.Request) {
 	serverLog.Debug("Received logs request",
 		logger.String("container", name),
 	)
+
+	if _, ok := agentQueryAgentID(r); ok {
+		s.handleAgentContainerLogs(w, r)
+		return
+	}
 
 	if name == "" || !validContainerName.MatchString(name) {
 		http.Error(w, "Invalid container name", http.StatusBadRequest)
@@ -1798,6 +1940,11 @@ func (sw *streamWriter) Write(p []byte) (n int, err error) {
 }
 
 func (s *Server) handleServerStats(w http.ResponseWriter, r *http.Request) {
+	if _, ok := agentQueryAgentID(r); ok {
+		s.handleAgentServerStats(w, r)
+		return
+	}
+
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return

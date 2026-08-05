@@ -1,0 +1,76 @@
+---
+services:
+#  dockgo-dev:
+#    build: .
+#    container_name: dockgo-dev
+#    restart: unless-stopped
+
+    # Expose DockGo on the host
+    # Host Port : Container Port
+#    ports:
+#      - "3838:3131"
+
+    # Load environment variables from .env file
+#    env_file:
+#      - .env
+
+#    volumes:
+      # Required: Docker socket access for container discovery and updates.
+      # WARNING: Grants Docker-level privileges to DockGo.
+#      - /var/run/docker.sock:/var/run/docker.sock
+
+      # Required: Persistent data (sessions, cache, etc.)
+#      - ./data:/app/data
+      # Required for Compose: Mount host compose directories for path mapping
+      # - /home/user/docker:/compose
+#      - D:\Docker:/compose
+
+  ########################################
+  # Optional: DockGo Agent (remote host)
+  #
+  # Runs on each host whose Docker daemon you want to manage from the
+  # DockGo server dashboard. Create the agent on the server's "Agents"
+  # page first and set its key here. The agent dials OUT to the server,
+  # so no inbound ports are required on this host.
+  #
+  # Run with:
+  #   docker compose -f docker-compose.yml -f docker-compose.agent.yml up -d
+  # or uncomment this block in this file.
+  ########################################
+
+  dockgo-agent-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
+    container_name: dockgo-agent-dev
+    restart: unless-stopped
+    environment:
+      - DOCKGO_SERVER_URL=ws://192.168.1.220:3838/api/ws/agent
+      - AGENT_KEY=dg_COrxklRwT6pOL5jUshAWmH5rNBdlTwZzLjV8NWrjzRE
+      - AGENT_NAME=media-server
+      # Maps Windows host compose paths to the in-container mount point so
+      # the agent can resolve paths like D:\Docker\test-apps\1.
+      - COMPOSE_PATH_MAPPING=D:\Docker:/compose
+    volumes:
+      # Required: Docker socket access for container discovery and updates.
+      # WARNING: Grants Docker-level privileges to this agent.
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Mount compose directories this agent should manage, mapped via
+      # COMPOSE_PATH_MAPPING (D:\Docker -> /compose).
+      - D:\Docker:/compose
+      - D:\code\workspace:/ws-compose
+      # Persistent agent-local data (agent stack store etc.).
+      - ./data:/app/data
+
+  ########################################
+  # Optional: Apprise API Container
+  ########################################
+
+#  apprise-dev:
+#    image: caronc/apprise
+#    container_name: apprise-dev
+#    restart: unless-stopped
+#    ports:
+#      - "4848:8000"
+#    environment:
+#      - APPRISE_WORKER_COUNT=2
