@@ -425,8 +425,9 @@ func (a *Agent) opStackDiscover(ctx context.Context, conn *websocket.Conn, env E
 		entry, ok := grouped[project]
 		if !ok {
 			entry = &StackDiscoverCandidate{
-				Project:    project,
-				WorkingDir: c.Labels["com.docker.compose.project.working_dir"],
+				Project:     project,
+				WorkingDir:  c.Labels["com.docker.compose.project.working_dir"],
+				ConfigFiles: agentSplitConfigFiles(c.Labels["com.docker.compose.project.config_files"]),
 			}
 			grouped[project] = entry
 		}
@@ -438,7 +439,8 @@ func (a *Agent) opStackDiscover(ctx context.Context, conn *websocket.Conn, env E
 
 	out := make([]StackDiscoverCandidate, 0, len(grouped))
 	for _, entry := range grouped {
-		entry.SuggestedComposeFile = agentSuggestComposeFile(entry.WorkingDir)
+		entry.ComposeFiles = agentSuggestComposeFiles(entry.WorkingDir, entry.ConfigFiles)
+		entry.SuggestedComposeFile = agentFirstOrEmpty(entry.ComposeFiles)
 		entry.SuggestedEnvFile = agentSuggestEnvFile(entry.WorkingDir)
 		if a.store != nil {
 			_, entry.Registered = a.store.FindForComposeTarget(entry.Project, entry.WorkingDir, agentFirstOrEmpty(entry.Services))
@@ -600,18 +602,70 @@ func agentFirstOrEmpty(values []string) string {
 	return values[0]
 }
 
+// agentSuggestComposeFile returns the first suggested compose file for a
+// working dir, or empty when none is found. It never fabricates a path.
 func agentSuggestComposeFile(workingDir string) string {
-	if strings.TrimSpace(workingDir) == "" {
-		return ""
+	return agentFirstOrEmpty(agentSuggestComposeFiles(workingDir, nil))
+}
+
+// agentSuggestComposeFiles returns the compose file(s) actually used by a
+// running project on the agent host. The authoritative source is the
+// com.docker.compose.project.config_files label (comma-separated, present since
+// Compose v2.20), which holds the exact paths even for unusual file names and is
+// written by Compose on the daemon host. Label paths are trusted as-is and are
+// NOT existence-checked here: the agent container only has its configured mounts
+// (COMPOSE_PATH_MAPPING), so a valid host path like /root/docker/gotify may
+// legitimately fail os.Stat inside the agent container. When the label is
+// missing the helper falls back to probing the standard compose file names under
+// workingDir, and returns an empty slice when nothing is found.
+func agentSuggestComposeFiles(workingDir string, configFiles []string) []string {
+	seen := make(map[string]struct{})
+	result := make([]string, 0, len(configFiles))
+
+	for _, rawPath := range configFiles {
+		path := strings.TrimSpace(rawPath)
+		if path == "" {
+			continue
+		}
+		if _, dup := seen[path]; dup {
+			continue
+		}
+		seen[path] = struct{}{}
+		result = append(result, path)
 	}
-	candidates := []string{"compose.yml", "compose.yaml", "docker-compose.yml", "docker-compose.yaml"}
-	for _, name := range candidates {
+
+	if len(result) > 0 {
+		return result
+	}
+
+	if strings.TrimSpace(workingDir) == "" {
+		return nil
+	}
+
+	for _, name := range []string{"compose.yml", "compose.yaml", "docker-compose.yml", "docker-compose.yaml"} {
 		p := agentJoinPath(workingDir, name)
 		if _, err := os.Stat(p); err == nil {
-			return p
+			result = append(result, p)
 		}
 	}
-	return agentJoinPath(workingDir, "docker-compose.yml")
+
+	return result
+}
+
+// agentSplitConfigFiles splits the raw com.docker.compose.project.config_files
+// label value into individual paths, trimming whitespace and dropping empties.
+func agentSplitConfigFiles(rawValue string) []string {
+	if strings.TrimSpace(rawValue) == "" {
+		return nil
+	}
+	parts := strings.Split(rawValue, ",")
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if trimmed := strings.TrimSpace(part); trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
 }
 
 func agentSuggestEnvFile(workingDir string) string {

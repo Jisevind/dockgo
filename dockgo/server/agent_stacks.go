@@ -810,7 +810,10 @@ func (s *Server) dispatchAgentStackDiscover(w http.ResponseWriter, r *http.Reque
 		// The agent reports candidates from its own runtime, but the server
 		// holds the authoritative stack store. Recompute the "registered" flag
 		// for each candidate against stacks registered for this agent so the
-		// discovery list reflects the central registry.
+		// discovery list reflects the central registry. The agent-computed
+		// config_files / compose_files fields are authoritative: they are read
+		// from container labels and the agent host filesystem, which the server
+		// cannot probe directly.
 		var result struct {
 			Candidates []agent.StackDiscoverCandidate `json:"candidates"`
 		}

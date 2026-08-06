@@ -17,33 +17,58 @@ import (
 	"github.com/docker/docker/api/types"
 )
 
-func TestSuggestComposeFilePrefersComposeYamlVariants(t *testing.T) {
+func TestSuggestComposeFilesTrustsConfigFilesLabel(t *testing.T) {
+	tempDir := t.TempDir()
+	labelFile := filepath.Join(tempDir, "docker-compose-agent.yml")
+	if err := os.WriteFile(labelFile, []byte("services: {}"), 0600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempDir, "compose.yml"), []byte("services: {}"), 0600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	got := suggestComposeFiles(tempDir, []string{labelFile, "", "  " + labelFile})
+
+	if len(got) != 1 || got[0] != labelFile {
+		t.Fatalf("suggestComposeFiles() = %v, want [%q] (label path wins, deduped)", got, labelFile)
+	}
+}
+
+func TestSuggestComposeFilesTrustsLabelEvenWhenNotVisibleToRuntime(t *testing.T) {
+	// The config_files label is written by Compose on the daemon host and is
+	// authoritative even when the path is not mounted inside the DockGo runtime
+	// (e.g. an agent host path). It must not be discarded just because os.Stat
+	// fails here.
+	labelFile := `/root/docker/gotify/compose.yaml`
+
+	got := suggestComposeFiles("/root/docker/gotify", []string{labelFile})
+
+	if len(got) != 1 || got[0] != labelFile {
+		t.Fatalf("suggestComposeFiles() = %v, want [%q] (label trusted without existence check)", got, labelFile)
+	}
+}
+
+func TestSuggestComposeFilesFallsBackToProbingWhenNoLabel(t *testing.T) {
 	tempDir := t.TempDir()
 	composePath := filepath.Join(tempDir, "compose.yaml")
 	if err := os.WriteFile(composePath, []byte("services: {}"), 0600); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(tempDir, "docker-compose.yml"), []byte("services: {}"), 0600); err != nil {
-		t.Fatalf("WriteFile() error = %v", err)
-	}
 
-	srv := &Server{}
-	got := srv.suggestComposeFile(tempDir)
+	got := suggestComposeFiles(tempDir, nil)
 
-	if got != composePath {
-		t.Fatalf("suggestComposeFile() = %q, want %q", got, composePath)
+	if len(got) != 1 || got[0] != composePath {
+		t.Fatalf("suggestComposeFiles() = %v, want [%q] via probing fallback", got, composePath)
 	}
 }
 
-func TestSuggestComposeFileFallsBackToDockerComposeYml(t *testing.T) {
+func TestSuggestComposeFilesReturnsEmptyWhenNothingExists(t *testing.T) {
 	tempDir := t.TempDir()
-	srv := &Server{}
 
-	got := srv.suggestComposeFile(tempDir)
-	want := filepath.Join(tempDir, "docker-compose.yml")
+	got := suggestComposeFiles(tempDir, nil)
 
-	if got != want {
-		t.Fatalf("suggestComposeFile() = %q, want %q", got, want)
+	if len(got) != 0 {
+		t.Fatalf("suggestComposeFiles() = %v, want empty slice", got)
 	}
 }
 
@@ -433,13 +458,48 @@ func TestBuildStackDiscoverCandidatesMarksExactMatchRegistered(t *testing.T) {
 				"com.docker.compose.service":             "bazarr",
 			},
 		},
-	}, store, func(dir string) string { return dir + `/compose.yaml` }, func(dir string) string { return dir + `/.env` })
+	}, store, func(dir string) string { return dir + `/.env` })
 
 	if len(candidates) != 1 {
 		t.Fatalf("candidates len = %d, want 1", len(candidates))
 	}
 	if !candidates[0].Registered {
 		t.Fatalf("candidate = %+v, want registered", candidates[0])
+	}
+}
+
+func TestBuildStackDiscoverCandidatesUsesConfigFilesLabel(t *testing.T) {
+	tempDir := t.TempDir()
+	labelFile := filepath.Join(tempDir, "docker-compose-agent.yml")
+	if err := os.WriteFile(labelFile, []byte("services: {}"), 0600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	hostOnlyFile := `/root/docker/gotify/compose.yaml`
+
+	candidates := buildStackDiscoverCandidates([]types.Container{
+		{
+			Labels: map[string]string{
+				"com.docker.compose.project":               "media",
+				"com.docker.compose.project.working_dir":   tempDir,
+				"com.docker.compose.project.config_files":  labelFile + ", " + hostOnlyFile,
+				"com.docker.compose.service":               "bazarr",
+			},
+		},
+	}, nil, func(dir string) string { return "" })
+
+	if len(candidates) != 1 {
+		t.Fatalf("candidates len = %d, want 1", len(candidates))
+	}
+	if len(candidates[0].ConfigFiles) != 2 {
+		t.Fatalf("ConfigFiles = %v, want 2 entries", candidates[0].ConfigFiles)
+	}
+	// Label paths are authoritative and trusted as-is, even when they are not
+	// mounted inside the DockGo runtime (e.g. agent host paths).
+	if len(candidates[0].ComposeFiles) != 2 || candidates[0].ComposeFiles[0] != labelFile || candidates[0].ComposeFiles[1] != hostOnlyFile {
+		t.Fatalf("ComposeFiles = %v, want [%q %q] (label paths trusted)", candidates[0].ComposeFiles, labelFile, hostOnlyFile)
+	}
+	if candidates[0].SuggestedComposeFile != labelFile {
+		t.Fatalf("SuggestedComposeFile = %q, want %q (first compose file)", candidates[0].SuggestedComposeFile, labelFile)
 	}
 }
 
@@ -474,7 +534,7 @@ func TestBuildStackDiscoverCandidatesFailsClosedOnAmbiguousProject(t *testing.T)
 				"com.docker.compose.service":             "web",
 			},
 		},
-	}, store, func(dir string) string { return dir + `/compose.yaml` }, func(dir string) string { return dir + `/.env` })
+	}, store, func(dir string) string { return dir + `/.env` })
 
 	if len(candidates) != 1 {
 		t.Fatalf("candidates len = %d, want 1", len(candidates))
@@ -522,7 +582,7 @@ func TestBuildStackDiscoverCandidatesUsesServiceTieBreakWhenAvailable(t *testing
 				"com.docker.compose.service":             "sonarr",
 			},
 		},
-	}, store, func(dir string) string { return dir + `/compose.yaml` }, func(dir string) string { return dir + `/.env` })
+	}, store, func(dir string) string { return dir + `/.env` })
 
 	if len(candidates) != 1 {
 		t.Fatalf("candidates len = %d, want 1", len(candidates))

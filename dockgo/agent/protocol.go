@@ -294,6 +294,8 @@ type StackDiscoverCandidate struct {
 	WorkingDir           string   `json:"working_dir"`
 	Services             []string `json:"services"`
 	Registered           bool     `json:"registered"`
+	ConfigFiles          []string `json:"config_files,omitempty"`
+	ComposeFiles         []string `json:"compose_files,omitempty"`
 	SuggestedComposeFile string   `json:"suggested_compose_file,omitempty"`
 	SuggestedEnvFile     string   `json:"suggested_env_file,omitempty"`
 }

@@ -51,6 +51,8 @@ type stackDiscoverCandidate struct {
 	WorkingDir           string   `json:"working_dir"`
 	Services             []string `json:"services"`
 	Registered           bool     `json:"registered"`
+	ConfigFiles          []string `json:"config_files,omitempty"`
+	ComposeFiles         []string `json:"compose_files,omitempty"`
 	SuggestedComposeFile string   `json:"suggested_compose_file,omitempty"`
 	SuggestedEnvFile     string   `json:"suggested_env_file,omitempty"`
 }
@@ -330,14 +332,13 @@ func (s *Server) handleStackDiscover(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
-		"candidates": buildStackDiscoverCandidates(containers, s.StackStore, s.suggestComposeFile, s.suggestEnvFile),
+		"candidates": buildStackDiscoverCandidates(containers, s.StackStore, s.suggestEnvFile),
 	})
 }
 
 func buildStackDiscoverCandidates(
 	containers []types.Container,
 	store *stacks.Store,
-	suggestComposeFile func(string) string,
 	suggestEnvFile func(string) string,
 ) []stackDiscoverCandidate {
 	grouped := make(map[string]*stackDiscoverCandidate)
@@ -353,6 +354,7 @@ func buildStackDiscoverCandidates(
 			entry = &stackDiscoverCandidate{
 				Project:    project,
 				WorkingDir: c.Labels["com.docker.compose.project.working_dir"],
+				ConfigFiles: splitConfigFiles(c.Labels["com.docker.compose.project.config_files"]),
 			}
 			grouped[project] = entry
 		}
@@ -365,7 +367,8 @@ func buildStackDiscoverCandidates(
 
 	out := make([]stackDiscoverCandidate, 0, len(grouped))
 	for _, entry := range grouped {
-		entry.SuggestedComposeFile = suggestComposeFile(entry.WorkingDir)
+		entry.ComposeFiles = suggestComposeFiles(entry.WorkingDir, entry.ConfigFiles)
+		entry.SuggestedComposeFile = firstOrEmpty(entry.ComposeFiles)
 		entry.SuggestedEnvFile = suggestEnvFile(entry.WorkingDir)
 		if store != nil {
 			_, entry.Registered = store.FindForComposeTarget(entry.Project, entry.WorkingDir, firstOrEmpty(entry.Services))
@@ -451,9 +454,38 @@ func normalizeComparePath(path string) string {
 	return strings.ToLower(path)
 }
 
-func (s *Server) suggestComposeFile(workingDir string) string {
+// suggestComposeFiles returns the compose file(s) that were actually used by
+// the running project. The authoritative source is the
+// com.docker.compose.project.config_files label (comma-separated, present since
+// Compose v2.20), which holds the exact paths even for unusual file names and is
+// written by Compose on the daemon host. Label paths are trusted as-is and are
+// NOT existence-checked here: when discovery runs on an agent host, those paths
+// are only valid on the agent host, not inside the DockGo runtime. When the
+// label is missing the helper falls back to probing the standard compose file
+// names under workingDir, and returns an empty slice when nothing is found so
+// callers never receive a bogus non-existent path.
+func suggestComposeFiles(workingDir string, configFiles []string) []string {
+	seen := make(map[string]struct{})
+	result := make([]string, 0, len(configFiles))
+
+	for _, rawPath := range configFiles {
+		path := strings.TrimSpace(rawPath)
+		if path == "" {
+			continue
+		}
+		if _, dup := seen[path]; dup {
+			continue
+		}
+		seen[path] = struct{}{}
+		result = append(result, path)
+	}
+
+	if len(result) > 0 {
+		return result
+	}
+
 	if strings.TrimSpace(workingDir) == "" {
-		return ""
+		return nil
 	}
 
 	candidates := []string{
@@ -466,11 +498,27 @@ func (s *Server) suggestComposeFile(workingDir string) string {
 	for _, name := range candidates {
 		hostPath := joinPathForDiscovery(workingDir, name)
 		if discoveryPathExists(hostPath) {
-			return hostPath
+			result = append(result, hostPath)
 		}
 	}
 
-	return joinPathForDiscovery(workingDir, "docker-compose.yml")
+	return result
+}
+
+// splitConfigFiles splits the raw com.docker.compose.project.config_files label
+// value into individual paths, trimming whitespace and dropping empty entries.
+func splitConfigFiles(rawValue string) []string {
+	if strings.TrimSpace(rawValue) == "" {
+		return nil
+	}
+	parts := strings.Split(rawValue, ",")
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if trimmed := strings.TrimSpace(part); trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
 }
 
 func (s *Server) suggestEnvFile(workingDir string) string {

@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"dockgo/stacks"
@@ -153,5 +154,70 @@ func TestAgentContainerMatchesStackWindowsPathMapping(t *testing.T) {
 
 	if !agentContainerMatchesStack(stack, c) {
 		t.Fatal("container with mapped runtime working_dir should match via ResolvePathForRuntime")
+	}
+}
+
+func TestAgentSuggestComposeFilesTrustsConfigFilesLabel(t *testing.T) {
+	tempDir := t.TempDir()
+	labelFile := tempDir + "/docker-compose-agent.yml"
+	if err := os.WriteFile(labelFile, []byte("services: {}"), 0600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	if err := os.WriteFile(tempDir+"/compose.yml", []byte("services: {}"), 0600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	// All label paths are trusted as-is and deduped; the missing.yml entry is
+	// kept because the label is authoritative even when not mounted locally.
+	got := agentSuggestComposeFiles(tempDir, []string{labelFile, tempDir + "/missing.yml", labelFile})
+
+	if len(got) != 2 || got[0] != labelFile || got[1] != tempDir+"/missing.yml" {
+		t.Fatalf("agentSuggestComposeFiles() = %v, want [%q %q] (label paths trusted, deduped)", got, labelFile, tempDir+"/missing.yml")
+	}
+}
+
+func TestAgentSuggestComposeFilesTrustsLabelNotMountedInAgentContainer(t *testing.T) {
+	// The config_files label is written by Compose on the daemon host and is
+	// authoritative even when the path is not mounted inside the agent container
+	// (which only mounts COMPOSE_PATH_MAPPING paths). It must not be discarded
+	// just because os.Stat fails here.
+	hostOnlyFile := `/root/docker/gotify/compose.yaml`
+
+	got := agentSuggestComposeFiles("/root/docker/gotify", []string{hostOnlyFile})
+
+	if len(got) != 1 || got[0] != hostOnlyFile {
+		t.Fatalf("agentSuggestComposeFiles() = %v, want [%q] (label trusted without existence check)", got, hostOnlyFile)
+	}
+}
+
+func TestAgentSuggestComposeFilesFallsBackToProbing(t *testing.T) {
+	tempDir := t.TempDir()
+	composePath := agentJoinPath(tempDir, "compose.yaml")
+	if err := os.WriteFile(composePath, []byte("services: {}"), 0600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	got := agentSuggestComposeFiles(tempDir, nil)
+
+	if len(got) != 1 || got[0] != composePath {
+		t.Fatalf("agentSuggestComposeFiles() = %v, want [%q] via probing fallback", got, composePath)
+	}
+}
+
+func TestAgentSuggestComposeFilesReturnsEmptyWhenNothingExists(t *testing.T) {
+	tempDir := t.TempDir()
+
+	got := agentSuggestComposeFiles(tempDir, nil)
+
+	if len(got) != 0 {
+		t.Fatalf("agentSuggestComposeFiles() = %v, want empty slice", got)
+	}
+}
+
+func TestAgentSuggestComposeFileNeverFabricatesPath(t *testing.T) {
+	tempDir := t.TempDir()
+
+	if got := agentSuggestComposeFile(tempDir); got != "" {
+		t.Fatalf("agentSuggestComposeFile() = %q, want empty string for missing files", got)
 	}
 }

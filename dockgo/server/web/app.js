@@ -676,16 +676,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return headers;
     };
 
-    const joinDiscoveredPath = (basePath, leaf) => {
-        if (!basePath) return leaf;
-
-        const isWindowsPath = /^[a-zA-Z]:\\/.test(basePath) || basePath.includes('\\');
-        const separator = isWindowsPath ? '\\' : '/';
-        const trimmedBase = basePath.replace(/[\\/]+$/, '');
-        const trimmedLeaf = leaf.replace(/^[\\/]+/, '');
-        return `${trimmedBase}${separator}${trimmedLeaf}`;
-    };
-
     logoutBtn.addEventListener('click', async () => {
         if (!(await showConfirmModal('Are you sure you want to logout?'))) return;
         try {
@@ -1007,7 +997,9 @@ document.addEventListener('DOMContentLoaded', () => {
             stackModalTitle.textContent = 'Register Stack';
             const workingDir = candidate ? (candidate.working_dir || '') : '';
             const composeGuess = candidate
-                ? (candidate.suggested_compose_file || (workingDir ? joinDiscoveredPath(workingDir, 'docker-compose.yml') : ''))
+                ? ((candidate.compose_files && candidate.compose_files[0])
+                    || candidate.suggested_compose_file
+                    || '')
                 : '';
             const envGuess = candidate
                 ? (candidate.suggested_env_file || '')
@@ -1603,7 +1595,9 @@ document.addEventListener('DOMContentLoaded', () => {
             stateBadge.textContent = candidate.registered ? 'registered' : 'unregistered';
             stateBadge.classList.add(candidate.registered ? 'registered' : 'unregistered');
 
-            const composeFileGuess = candidate.suggested_compose_file || (candidate.working_dir ? joinDiscoveredPath(candidate.working_dir, 'docker-compose.yml') : '');
+            const composeFileGuess = (candidate.compose_files && candidate.compose_files.length)
+                ? candidate.compose_files.join(', ')
+                : (candidate.suggested_compose_file || '');
             const envFileGuess = candidate.suggested_env_file || '';
             const metaLines = [
                 `Suggested compose file: ${composeFileGuess || 'unknown'}`,
