@@ -35,6 +35,34 @@ func TestResolvePathForRuntimeMappedWithoutMatchKeepsOriginal(t *testing.T) {
 	}
 }
 
+func TestTranslatePathForRuntimeAppliesDefaultMappings(t *testing.T) {
+	t.Setenv("COMPOSE_PATH_MAPPING", "/root/docker:/compose")
+
+	got := TranslatePathForRuntime(`/root/docker/umami/compose.yaml`)
+	want := `/compose/umami/compose.yaml`
+	if strings.ReplaceAll(got, `\`, `/`) != want {
+		t.Fatalf("TranslatePathForRuntime() = %q, want %q", got, want)
+	}
+}
+
+func TestTranslatePathForRuntimeKeepsUnmatchedPath(t *testing.T) {
+	t.Setenv("COMPOSE_PATH_MAPPING", "/root/docker:/compose")
+
+	got := TranslatePathForRuntime(`/srv/apps/umami/compose.yaml`)
+	if got != `/srv/apps/umami/compose.yaml` {
+		t.Fatalf("TranslatePathForRuntime() = %q, want unchanged", got)
+	}
+}
+
+func TestTranslatePathForRuntimeNoMappingEnv(t *testing.T) {
+	t.Setenv("COMPOSE_PATH_MAPPING", "")
+
+	got := TranslatePathForRuntime(`/root/docker/umami/compose.yaml`)
+	if got != `/root/docker/umami/compose.yaml` {
+		t.Fatalf("TranslatePathForRuntime() = %q, want unchanged when no mappings configured", got)
+	}
+}
+
 func TestNormalizeStackForStorageReverseTranslatesMappedPaths(t *testing.T) {
 	stack := Stack{
 		PathMode:   PathModeMapped,

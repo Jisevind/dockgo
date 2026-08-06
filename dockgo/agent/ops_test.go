@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 
 	"dockgo/stacks"
@@ -187,6 +188,41 @@ func TestAgentSuggestComposeFilesTrustsLabelNotMountedInAgentContainer(t *testin
 
 	if len(got) != 1 || got[0] != hostOnlyFile {
 		t.Fatalf("agentSuggestComposeFiles() = %v, want [%q] (label trusted without existence check)", got, hostOnlyFile)
+	}
+}
+
+func TestTranslateAgentConfigFilesAppliesPathMapping(t *testing.T) {
+	t.Setenv("COMPOSE_PATH_MAPPING", "/root/docker:/compose")
+
+	got := translateAgentConfigFiles([]string{`/root/docker/umami/compose.yaml`, `/root/docker/umami/compose.override.yml`})
+
+	want := []string{`/compose/umami/compose.yaml`, `/compose/umami/compose.override.yml`}
+	if len(got) != len(want) {
+		t.Fatalf("translateAgentConfigFiles() = %v, want %v", got, want)
+	}
+	for i := range want {
+		if strings.ReplaceAll(got[i], `\`, `/`) != want[i] {
+			t.Fatalf("translateAgentConfigFiles() = %v, want %v", got, want)
+		}
+	}
+}
+
+func TestTranslateAgentConfigFilesKeepsUnmatchedPaths(t *testing.T) {
+	t.Setenv("COMPOSE_PATH_MAPPING", "/root/docker:/compose")
+
+	got := translateAgentConfigFiles([]string{`/srv/apps/umami/compose.yaml`})
+
+	if len(got) != 1 || got[0] != `/srv/apps/umami/compose.yaml` {
+		t.Fatalf("translateAgentConfigFiles() = %v, want [/srv/apps/umami/compose.yaml] (no match)", got)
+	}
+}
+
+func TestTranslateAgentConfigFilesEmpty(t *testing.T) {
+	if got := translateAgentConfigFiles(nil); got != nil {
+		t.Fatalf("translateAgentConfigFiles(nil) = %v, want nil", got)
+	}
+	if got := translateAgentConfigFiles([]string{}); got != nil {
+		t.Fatalf("translateAgentConfigFiles(empty) = %v, want nil", got)
 	}
 }
 

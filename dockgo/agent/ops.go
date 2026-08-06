@@ -424,10 +424,14 @@ func (a *Agent) opStackDiscover(ctx context.Context, conn *websocket.Conn, env E
 		}
 		entry, ok := grouped[project]
 		if !ok {
+			// Labels carry host paths (e.g. /root/docker/umami); translate them
+			// through COMPOSE_PATH_MAPPING so the suggested paths are visible
+			// inside the agent container (/compose/umami).
+			workingDir := stacks.TranslatePathForRuntime(c.Labels["com.docker.compose.project.working_dir"])
 			entry = &StackDiscoverCandidate{
 				Project:     project,
-				WorkingDir:  c.Labels["com.docker.compose.project.working_dir"],
-				ConfigFiles: agentSplitConfigFiles(c.Labels["com.docker.compose.project.config_files"]),
+				WorkingDir:  workingDir,
+				ConfigFiles: translateAgentConfigFiles(agentSplitConfigFiles(c.Labels["com.docker.compose.project.config_files"])),
 			}
 			grouped[project] = entry
 		}
@@ -664,6 +668,19 @@ func agentSplitConfigFiles(rawValue string) []string {
 		if trimmed := strings.TrimSpace(part); trimmed != "" {
 			result = append(result, trimmed)
 		}
+	}
+	return result
+}
+
+// translateAgentConfigFiles maps host-side config file paths through
+// COMPOSE_PATH_MAPPING so they resolve inside the agent container.
+func translateAgentConfigFiles(configFiles []string) []string {
+	if len(configFiles) == 0 {
+		return nil
+	}
+	result := make([]string, 0, len(configFiles))
+	for _, path := range configFiles {
+		result = append(result, stacks.TranslatePathForRuntime(path))
 	}
 	return result
 }

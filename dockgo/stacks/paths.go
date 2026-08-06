@@ -138,3 +138,12 @@ func normalizeStackForStorage(stack Stack) Stack {
 func ResolvePathForRuntime(stack Stack, path string) string {
 	return resolvePathForRuntime(stack, path)
 }
+
+// TranslatePathForRuntime maps a path through the default COMPOSE_PATH_MAPPING
+// mappings (or returns it unchanged when no mapping matches). It is used where
+// only a path is available and no stack-context mappings exist yet — e.g.
+// translating container label paths during discovery so the suggested compose
+// file is visible inside the DockGo runtime.
+func TranslatePathForRuntime(path string) string {
+	return translatePath(path, defaultMappings())
+}

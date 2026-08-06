@@ -110,7 +110,14 @@ func (s *Store) FindForComposeTarget(project string, workingDir string, service 
 	if workingDir = normalizeMatchPath(workingDir); workingDir != "" {
 		exactWorkingDirMatches := make([]Stack, 0)
 		for _, stack := range projectMatches {
-			if normalizeMatchPath(stack.WorkingDir) == workingDir {
+			// Match either the stored (host-side) path or its runtime-resolved
+			// form, so a candidate working dir translated through
+			// COMPOSE_PATH_MAPPING still resolves to its registered stack.
+			matches := normalizeMatchPath(stack.WorkingDir) == workingDir
+			if !matches && stack.PathMode == PathModeMapped {
+				matches = normalizeMatchPath(resolvePathForRuntime(stack, stack.WorkingDir)) == workingDir
+			}
+			if matches {
 				exactWorkingDirMatches = append(exactWorkingDirMatches, stack)
 			}
 		}

@@ -469,6 +469,7 @@ func TestBuildStackDiscoverCandidatesMarksExactMatchRegistered(t *testing.T) {
 }
 
 func TestBuildStackDiscoverCandidatesUsesConfigFilesLabel(t *testing.T) {
+	t.Setenv("COMPOSE_PATH_MAPPING", "/root/docker:/compose")
 	tempDir := t.TempDir()
 	labelFile := filepath.Join(tempDir, "docker-compose-agent.yml")
 	if err := os.WriteFile(labelFile, []byte("services: {}"), 0600); err != nil {
@@ -480,8 +481,8 @@ func TestBuildStackDiscoverCandidatesUsesConfigFilesLabel(t *testing.T) {
 		{
 			Labels: map[string]string{
 				"com.docker.compose.project":               "media",
-				"com.docker.compose.project.working_dir":   tempDir,
-				"com.docker.compose.project.config_files":  labelFile + ", " + hostOnlyFile,
+				"com.docker.compose.project.working_dir":   `/root/docker/gotify`,
+				"com.docker.compose.project.config_files":  hostOnlyFile,
 				"com.docker.compose.service":               "bazarr",
 			},
 		},
@@ -490,16 +491,45 @@ func TestBuildStackDiscoverCandidatesUsesConfigFilesLabel(t *testing.T) {
 	if len(candidates) != 1 {
 		t.Fatalf("candidates len = %d, want 1", len(candidates))
 	}
-	if len(candidates[0].ConfigFiles) != 2 {
-		t.Fatalf("ConfigFiles = %v, want 2 entries", candidates[0].ConfigFiles)
+	// Host-side label paths are translated through COMPOSE_PATH_MAPPING so they
+	// resolve inside the DockGo runtime.
+	gotConfig := normalizeComparePath(candidates[0].ConfigFiles[0])
+	if len(candidates[0].ConfigFiles) != 1 || gotConfig != `/compose/gotify/compose.yaml` {
+		t.Fatalf("ConfigFiles = %v, want [/compose/gotify/compose.yaml]", candidates[0].ConfigFiles)
 	}
-	// Label paths are authoritative and trusted as-is, even when they are not
-	// mounted inside the DockGo runtime (e.g. agent host paths).
-	if len(candidates[0].ComposeFiles) != 2 || candidates[0].ComposeFiles[0] != labelFile || candidates[0].ComposeFiles[1] != hostOnlyFile {
-		t.Fatalf("ComposeFiles = %v, want [%q %q] (label paths trusted)", candidates[0].ComposeFiles, labelFile, hostOnlyFile)
+	if normalizeComparePath(candidates[0].WorkingDir) != `/compose/gotify` {
+		t.Fatalf("WorkingDir = %q, want /compose/gotify", candidates[0].WorkingDir)
 	}
-	if candidates[0].SuggestedComposeFile != labelFile {
-		t.Fatalf("SuggestedComposeFile = %q, want %q (first compose file)", candidates[0].SuggestedComposeFile, labelFile)
+	if normalizeComparePath(candidates[0].ComposeFiles[0]) != `/compose/gotify/compose.yaml` {
+		t.Fatalf("ComposeFiles = %v, want [/compose/gotify/compose.yaml]", candidates[0].ComposeFiles)
+	}
+	if normalizeComparePath(candidates[0].SuggestedComposeFile) != `/compose/gotify/compose.yaml` {
+		t.Fatalf("SuggestedComposeFile = %q, want /compose/gotify/compose.yaml", candidates[0].SuggestedComposeFile)
+	}
+}
+
+func TestBuildStackDiscoverCandidatesTranslatesMappedHostPaths(t *testing.T) {
+	t.Setenv("COMPOSE_PATH_MAPPING", "/root/docker:/compose")
+
+	candidates := buildStackDiscoverCandidates([]types.Container{
+		{
+			Labels: map[string]string{
+				"com.docker.compose.project":               "umami",
+				"com.docker.compose.project.working_dir":   `/root/docker/umami`,
+				"com.docker.compose.project.config_files":  `/root/docker/umami/compose.yaml`,
+				"com.docker.compose.service":               "umami",
+			},
+		},
+	}, nil, func(dir string) string { return "" })
+
+	if len(candidates) != 1 {
+		t.Fatalf("candidates len = %d, want 1", len(candidates))
+	}
+	if normalizeComparePath(candidates[0].WorkingDir) != `/compose/umami` {
+		t.Fatalf("WorkingDir = %q, want /compose/umami", candidates[0].WorkingDir)
+	}
+	if len(candidates[0].ComposeFiles) != 1 || normalizeComparePath(candidates[0].ComposeFiles[0]) != `/compose/umami/compose.yaml` {
+		t.Fatalf("ComposeFiles = %v, want [/compose/umami/compose.yaml]", candidates[0].ComposeFiles)
 	}
 }
 

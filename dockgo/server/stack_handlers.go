@@ -351,10 +351,14 @@ func buildStackDiscoverCandidates(
 
 		entry, ok := grouped[project]
 		if !ok {
+			// Labels carry host paths (e.g. /root/docker/umami); translate them
+			// through COMPOSE_PATH_MAPPING so the suggested paths are visible
+			// inside the DockGo runtime (/compose/umami).
+			workingDir := stacks.TranslatePathForRuntime(c.Labels["com.docker.compose.project.working_dir"])
 			entry = &stackDiscoverCandidate{
-				Project:    project,
-				WorkingDir: c.Labels["com.docker.compose.project.working_dir"],
-				ConfigFiles: splitConfigFiles(c.Labels["com.docker.compose.project.config_files"]),
+				Project:     project,
+				WorkingDir:  workingDir,
+				ConfigFiles: translateConfigFiles(splitConfigFiles(c.Labels["com.docker.compose.project.config_files"])),
 			}
 			grouped[project] = entry
 		}
@@ -517,6 +521,19 @@ func splitConfigFiles(rawValue string) []string {
 		if trimmed := strings.TrimSpace(part); trimmed != "" {
 			result = append(result, trimmed)
 		}
+	}
+	return result
+}
+
+// translateConfigFiles maps host-side config file paths through
+// COMPOSE_PATH_MAPPING so they resolve inside the DockGo runtime.
+func translateConfigFiles(configFiles []string) []string {
+	if len(configFiles) == 0 {
+		return nil
+	}
+	result := make([]string, 0, len(configFiles))
+	for _, path := range configFiles {
+		result = append(result, stacks.TranslatePathForRuntime(path))
 	}
 	return result
 }

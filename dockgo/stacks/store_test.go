@@ -86,6 +86,43 @@ func TestFindForComposeTargetUsesServiceNamesToBreakTies(t *testing.T) {
 	}
 }
 
+func TestFindForComposeTargetMatchesMappedStackViaRuntimeResolvedPath(t *testing.T) {
+	store := &Store{
+		path: filepath.Join(t.TempDir(), "stacks.json"),
+		stacks: map[string]Stack{
+			"1": {
+				ID:          "1",
+				Name:        "bazarr-a",
+				ProjectName: "bazarr",
+				WorkingDir:  `/root/docker/bazarr`,
+				PathMode:    PathModeMapped,
+				PathMappings: []PathMapping{
+					{HostPath: `/root/docker`, ContainerPath: `/compose`},
+				},
+			},
+			"2": {
+				ID:          "2",
+				Name:        "bazarr-b",
+				ProjectName: "bazarr",
+				WorkingDir:  `/root/docker/other`,
+				PathMode:    PathModeMapped,
+				PathMappings: []PathMapping{
+					{HostPath: `/root/docker`, ContainerPath: `/compose`},
+				},
+			},
+		},
+	}
+
+	// The candidate's working dir is already translated to the runtime form.
+	got, ok := store.FindForComposeTarget("bazarr", `/compose/bazarr`, "")
+	if !ok {
+		t.Fatal("FindForComposeTarget() did not match mapped stack via runtime-resolved path")
+	}
+	if got.ID != "1" {
+		t.Fatalf("matched stack ID = %q, want %q", got.ID, "1")
+	}
+}
+
 func TestFindForComposeTargetFailsClosedOnAmbiguousProjectOnlyMatch(t *testing.T) {
 	store := &Store{
 		path: filepath.Join(t.TempDir(), "stacks.json"),
