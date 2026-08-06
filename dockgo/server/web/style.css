@@ -9,6 +9,7 @@
     --warning: #eab308;
     --danger: #ef4444;
     --border: #334155;
+    color-scheme: dark;
 }
 
 body {
@@ -297,13 +298,9 @@ main {
 
 .host-selector:focus {
     outline: none;
-    border-color: var(--accent);
+    border-color: var(--card-bg);
 }
 
-.host-selector option {
-    background: var(--card-bg);
-    color: var(--text-primary);
-}
 
 .btn-icon {
     background: none;
@@ -944,10 +941,6 @@ h1 {
     box-sizing: border-box;
 }
 
-.form-group select option {
-    background: var(--card-bg);
-    color: var(--text-primary);
-}
 
 .form-group textarea {
     width: 100%;
