@@ -80,7 +80,14 @@ Environment variables on the server:
 
 ### 2. Agent side
 
-Run the agent as a container on the managed host:
+Run the agent as a container on the managed host. Copy the template
+[`docker-compose.agent.yml.example`](../docker-compose.agent.yml.example) to
+`docker-compose.agent.yml` on each managed host, fill in
+`DOCKGO_SERVER_URL` and `AGENT_KEY`, and start it:
+
+```bash
+docker compose -f docker-compose.agent.yml up -d
+```
 
 ```yaml
 services:

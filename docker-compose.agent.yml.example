@@ -1,0 +1,47 @@
+---
+########################################
+# DockGo Agent (remote host)
+#
+# Runs on EACH host whose Docker daemon you want to manage from the DockGo
+# server dashboard. The agent dials OUT to the server over a WebSocket
+# channel, so no inbound ports are required on this host.
+#
+# The agent is deployed SEPARATELY from the DockGo server: one copy of this
+# file per managed host, never co-located with the server.
+#
+# Setup:
+#   1. Create the agent on the server's "Agents" page and copy the
+#      one-time key (shown only once).
+#   2. Set DOCKGO_SERVER_URL and AGENT_KEY below.
+#   3. Mount any compose directories this agent should manage and mirror
+#      them in COMPOSE_PATH_MAPPING.
+#
+# Run with:
+#   docker compose -f docker-compose.agent.yml up -d
+#
+# See https://github.com/Jisevind/dockgo/blob/main/docs/agents.md
+########################################
+
+services:
+  dockgo-agent:
+    image: ghcr.io/jisevind/dockgo:agent-latest
+    container_name: dockgo-agent
+    restart: unless-stopped
+    environment:
+      # Server WebSocket endpoint (ws:// or wss://), including /api/ws/agent.
+      - DOCKGO_SERVER_URL=wss://dockgo.example.com/api/ws/agent
+      # One-time key from the server's Agents page (dg_...).
+      - AGENT_KEY=replace_with_generated_agent_key
+      # Display name shown in the dashboard.
+      - AGENT_NAME=media-server
+      # Optional: map host compose paths to in-container mount points so the
+      # agent can resolve paths like D:\Docker\app inside the container.
+      # - COMPOSE_PATH_MAPPING=D:\Docker:/compose
+    volumes:
+      # Required: Docker socket access for container discovery and updates.
+      # WARNING: Grants Docker-level privileges to this agent.
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Mount compose directories this agent should manage, mirrored via
+      # COMPOSE_PATH_MAPPING (e.g. D:\Docker -> /compose).
+      # - /home/user/docker:/compose
+      # - D:\Docker:/compose

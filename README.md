@@ -77,6 +77,7 @@ DockGo takes security seriously.
 ## Features
 
 *   **Web Dashboard**: Real-time status, "Update" buttons, and progress tracking.
+*   **Server Stats**: Live CPU, RAM, and disk usage of the selected host in the dashboard header.
 *   **Container Actions**: Start, stop, and restart directly from the UI.
 *   **Real-time Logs**: View container logs with ANSI color support inline seamlessly.
 *   **Smart Discovery**:
@@ -85,7 +86,7 @@ DockGo takes security seriously.
     *   Works for most standard **Docker Compose** setups.
 *   **Apprise Notifications**: Sends instant automated alerts for newly discovered updates and container upgrade status to over 100+ supported services (Discord, Slack, Telegram, Gotify, etc.).
 *   **Autonomous Scheduler**: Periodically checks for container updates in the background without needing the UI open (default: 24h).
-*   **Safe Mode**: Use `--safe` (or Safe Mode in UI if implemented) to pull images without restarting running containers.
+*   **Safe Mode**: Use `--safe` to pull images without restarting running containers (CLI only).
 *   **Network Preservation**: Keeps static IPs and MAC addresses when recreating containers.
 *   **Registry Caching**: Caches registry digests for 10 minutes to prevent rate-limiting.
 *   **Log Level Control**: adjustable verbosity via `LOG_LEVEL`.
@@ -116,6 +117,8 @@ Configure DockGo using environment variables:
 | `ALLOWED_COMPOSE_PATHS` | Comma-separated list of allowed base paths for Compose working directories (e.g., `/opt/docker,/srv/compose`) | *(empty)* |
 | `COMPOSE_PATH_MAPPING` | Comma-separated map of host paths to container paths (e.g. `D:\Docker:/compose` or `/home/user/docker:/compose`) when DockGo sees Compose projects at a different path than the host. | *(empty)* |
 | `SESSION_STORE_PATH` | Path to session persistence file | `/app/data/sessions.json` |
+| `STACK_STORE_PATH` | JSON file persisting registered stack definitions | `/app/data/stacks.json` (server) / `/app/data/agent_stacks.json` (agent) |
+| `STACK_HISTORY_PATH` | JSON file persisting stack action history | `/app/data/stack_history.json` |
 | `LOG_FILE_PATH` | Path to write persistent rotating logs (e.g., `/app/data/logs/dockgo.log`) | *(Stdout only)* |
 | `LOG_MAX_SIZE` | Maximum size in MB before a log file is rotated | `10` |
 | `LOG_MAX_BACKUPS` | Maximum number of old rotated log files to retain | `5` |
@@ -129,6 +132,13 @@ Configure DockGo using environment variables:
 | `AGENT_MAX_CONCURRENT` | Per-agent concurrent operation cap | `8` |
 | `AGENT_JWT_TTL` | Lifetime of the agent channel JWT | `1h` |
 | `AGENT_JWT_SECRET` | JWT signing secret for agent channels | `AUTH_SECRET` |
+| `DOCKGO_SERVER_URL` | Agent WebSocket endpoint (e.g. `wss://dockgo.example.com/api/ws/agent`) | *(required)* |
+| `AGENT_KEY` | One-time agent registration key (`dg_...`) | *(required)* |
+| `AGENT_NAME` | Agent display name in the dashboard | hostname |
+| `AGENT_RECONNECT_MIN` | Agent reconnect backoff floor | `5s` |
+| `AGENT_RECONNECT_MAX` | Agent reconnect backoff ceiling | `60s` |
+| `AGENT_RECONNECT_MULT` | Agent reconnect backoff multiplier | `2.0` |
+| `AGENT_HEARTBEAT_INTERVAL` | Agent keepalive ping interval | `30s` |
 
 ---
 
@@ -145,7 +155,15 @@ dashboard operations to it. No inbound ports are required on agent hosts.
   host and each agent.
 - Containers, stats, scans, updates, logs, and stacks all operate on the
   selected host.
+- Run the agent with the `ghcr.io/jisevind/dockgo:agent-latest` image (bundles
+  the Docker CLI and Compose plugin).
 - Git-kind stacks are not supported on remote agents.
+
+The agent is deployed **separately from the server**: one
+[`docker-compose.agent.yml.example`](./docker-compose.agent.yml.example) per
+managed host, never co-located with the DockGo server compose file. You only
+need an agent on hosts whose Docker daemon you cannot (or do not want to) give
+the DockGo server direct socket access to.
 
 See [Multi-Host Management with DockGo Agents](./docs/agents.md) for full setup,
 security, and key-rotation instructions.

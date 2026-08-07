@@ -42,7 +42,7 @@ services:
       # together with COMPOSE_PATH_MAPPING.
       # - /home/user/docker:/compose
       # - D:\Docker:/compose
-      
+
   ########################################
   # Optional: Apprise API Container
   ########################################
