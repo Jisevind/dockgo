@@ -9,7 +9,7 @@ import (
 
 // TestHelperProcess is a fake command that writes diagnostic output to stderr
 // and exits non-zero, simulating a failing docker command. It is invoked by
-// streamCommand tests via the child-process pattern.
+// StreamCommand tests via the child-process pattern.
 func TestHelperProcess(t *testing.T) {
 	if os.Getenv("DOCKGO_HELPER_PROCESS") != "1" {
 		return
@@ -27,7 +27,7 @@ func TestStreamCommandErrorIncludesStderr(t *testing.T) {
 	defer func() { _ = os.Unsetenv("DOCKGO_HELPER_PROCESS") }()
 
 	var lines []string
-	err := streamCommand(context.Background(), t.TempDir(),
+	err := StreamCommand(context.Background(), t.TempDir(),
 		func(s string) { lines = append(lines, s) },
 		os.Args[0], "-test.run=TestHelperProcess",
 	)
@@ -61,7 +61,7 @@ func TestStreamCommandSuccess(t *testing.T) {
 	defer func() { _ = os.Unsetenv("DOCKGO_HELPER_PROCESS") }()
 
 	var lines []string
-	err := streamCommand(context.Background(), t.TempDir(),
+	err := StreamCommand(context.Background(), t.TempDir(),
 		func(s string) { lines = append(lines, s) },
 		os.Args[0], "-test.run=TestHelperProcessSuccess",
 	)

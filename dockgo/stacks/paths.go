@@ -6,7 +6,9 @@ import (
 	"strings"
 )
 
-func isWindowsAbs(path string) bool {
+// IsWindowsAbs reports whether path looks like an absolute Windows path such
+// as `D:\Docker` or `D:/Docker`.
+func IsWindowsAbs(path string) bool {
 	if len(path) < 3 {
 		return false
 	}
@@ -17,7 +19,7 @@ func isWindowsAbs(path string) bool {
 }
 
 func isAbsPath(path string) bool {
-	return filepath.IsAbs(path) || isWindowsAbs(path)
+	return filepath.IsAbs(path) || IsWindowsAbs(path)
 }
 
 func defaultMappings() []PathMapping {
@@ -98,7 +100,7 @@ func reverseTranslatePath(path string, mappings []PathMapping) string {
 
 		if strings.HasPrefix(strings.ToLower(normalizedPath), strings.ToLower(containerPath)) {
 			remainder := normalizedPath[len(containerPath):]
-			if isWindowsAbs(hostPath) || strings.Contains(hostPath, "\\") {
+			if IsWindowsAbs(hostPath) || strings.Contains(hostPath, "\\") {
 				remainder = strings.ReplaceAll(remainder, "/", "\\")
 				hostPath = strings.ReplaceAll(hostPath, "/", "\\")
 				return strings.TrimRight(hostPath, "\\/") + remainder
@@ -133,6 +135,16 @@ func normalizeStackForStorage(stack Stack) Stack {
 		stack.EnvFiles[i] = normalizePathForStorage(stack, envFile)
 	}
 	return stack
+}
+
+// NormalizeComparePath normalizes a path for case-insensitive comparison,
+// trimming whitespace, converting backslashes to forward slashes, and dropping
+// trailing slashes.
+func NormalizeComparePath(path string) string {
+	path = strings.TrimSpace(path)
+	path = strings.ReplaceAll(path, "\\", "/")
+	path = strings.TrimRight(path, "/")
+	return strings.ToLower(path)
 }
 
 func ResolvePathForRuntime(stack Stack, path string) string {

@@ -46,14 +46,14 @@ func executeAction(ctx context.Context, stack Stack, action string, log Logger) 
 	switch action {
 	case "pull":
 		log("Pulling stack images...")
-		if err := streamCommand(ctx, runtimeStack.WorkingDir, log, "docker", append(composeBaseArgs(runtimeStack), "pull")...); err != nil {
+		if err := StreamCommand(ctx, runtimeStack.WorkingDir, log, "docker", append(composeBaseArgs(runtimeStack), "pull")...); err != nil {
 			return fmt.Errorf("stack pull failed: %w", err)
 		}
 		log("Stack image pull completed successfully.")
 		return nil
 	case "restart":
 		log("Restarting stack services...")
-		if err := streamCommand(ctx, runtimeStack.WorkingDir, log, "docker", append(composeBaseArgs(runtimeStack), "restart")...); err != nil {
+		if err := StreamCommand(ctx, runtimeStack.WorkingDir, log, "docker", append(composeBaseArgs(runtimeStack), "restart")...); err != nil {
 			return fmt.Errorf("stack restart failed: %w", err)
 		}
 		if stack.HealthPolicy.RequireHealthy || stack.HealthPolicy.StartupGrace > 0 {
@@ -66,7 +66,7 @@ func executeAction(ctx context.Context, stack Stack, action string, log Logger) 
 		return nil
 	case "down":
 		log("Bringing stack down...")
-		if err := streamCommand(ctx, runtimeStack.WorkingDir, log, "docker", append(composeBaseArgs(runtimeStack), "down")...); err != nil {
+		if err := StreamCommand(ctx, runtimeStack.WorkingDir, log, "docker", append(composeBaseArgs(runtimeStack), "down")...); err != nil {
 			return fmt.Errorf("stack down failed: %w", err)
 		}
 		log("Stack down completed successfully.")
@@ -74,7 +74,7 @@ func executeAction(ctx context.Context, stack Stack, action string, log Logger) 
 	case "deploy":
 		if stack.UpdatePolicy.Pull {
 			log("Pulling stack images...")
-			if err := streamCommand(ctx, runtimeStack.WorkingDir, log, "docker", append(composeBaseArgs(runtimeStack), "pull")...); err != nil {
+			if err := StreamCommand(ctx, runtimeStack.WorkingDir, log, "docker", append(composeBaseArgs(runtimeStack), "pull")...); err != nil {
 				return fmt.Errorf("stack pull failed: %w", err)
 			}
 		}
@@ -82,7 +82,7 @@ func executeAction(ctx context.Context, stack Stack, action string, log Logger) 
 		if stack.UpdatePolicy.Build {
 			log("Building stack services...")
 			buildArgs := append(composeBaseArgs(runtimeStack), "build", "--progress", "plain")
-			if err := streamCommand(ctx, runtimeStack.WorkingDir, log, "docker", buildArgs...); err != nil {
+			if err := StreamCommand(ctx, runtimeStack.WorkingDir, log, "docker", buildArgs...); err != nil {
 				return fmt.Errorf("stack build failed: %w", err)
 			}
 		}
@@ -90,7 +90,7 @@ func executeAction(ctx context.Context, stack Stack, action string, log Logger) 
 		if stack.UpdatePolicy.DownBeforeUp {
 			log("Bringing stack down before deployment...")
 			downArgs := append(composeBaseArgs(runtimeStack), "down")
-			if err := streamCommand(ctx, runtimeStack.WorkingDir, log, "docker", downArgs...); err != nil {
+			if err := StreamCommand(ctx, runtimeStack.WorkingDir, log, "docker", downArgs...); err != nil {
 				return fmt.Errorf("stack down failed: %w", err)
 			}
 		}
@@ -110,7 +110,7 @@ func executeAction(ctx context.Context, stack Stack, action string, log Logger) 
 		}
 
 		log("Deploying stack...")
-		if err := streamCommand(ctx, runtimeStack.WorkingDir, log, "docker", upArgs...); err != nil {
+		if err := StreamCommand(ctx, runtimeStack.WorkingDir, log, "docker", upArgs...); err != nil {
 			return fmt.Errorf("stack deploy failed: %w", err)
 		}
 
@@ -161,7 +161,10 @@ func composeBaseArgs(stack Stack) []string {
 	return args[:len(args):len(args)]
 }
 
-func streamCommand(ctx context.Context, dir string, log Logger, name string, args ...string) error {
+// StreamCommand runs a command, streaming its stdout and stderr lines to the
+// logger. On failure the returned error retains the last few stderr lines so a
+// failing command's diagnostic surfaces instead of a bare exit status.
+func StreamCommand(ctx context.Context, dir string, log func(string), name string, args ...string) error {
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
 
