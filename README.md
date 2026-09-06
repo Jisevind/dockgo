@@ -186,10 +186,10 @@ Start with the new user documentation:
 - [Troubleshooting](./docs/troubleshooting.md)
 - [Internals](./docs/internals.md)
 
-Additional project/reference documentation:
-*   [Apprise Integration Guide](./documentation/apprise.md)
-*   [API Token Authentication](./documentation/api_token.md)
-*   [GitHub Actions Release Flow](./documentation/github_actions.md)
+Additional reference material:
+*   [Notifications](./docs/notifications.md) covers the Apprise integration and example targets.
+*   [Configuration](./docs/configuration.md) covers API Token authentication.
+*   [Internals](./docs/internals.md) covers the GitHub Actions release flow and the registered-stacks design.
 
 **Example `docker-compose.yml`:**
 
