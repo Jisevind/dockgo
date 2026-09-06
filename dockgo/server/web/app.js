@@ -516,7 +516,10 @@ document.addEventListener("DOMContentLoaded", () => {
             currentPrimaryView = "dashboard";
             localStorage.setItem("dockgo_primary_view", currentPrimaryView);
             updatePrimaryViewUI();
-            // Re-render what we have
+            // Skip re-render while an update is active — the SSE stream holds
+            // references to DOM nodes inside the container list. Rebuilding
+            // the DOM would orphan those nodes and progress would vanish.
+            if (activeUpdates > 0) return;
             renderContainers(cachedContainers);
         });
     }
