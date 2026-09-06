@@ -56,7 +56,7 @@ func TestAgentContainerMatchesStackByWorkingDir(t *testing.T) {
 	}
 
 	// No managed containers yet: must still match via project + working dir.
-	if !agentContainerMatchesStack(stack, c) {
+	if !stacks.ContainerMatchesStack(stack, c.ID, c.Labels) {
 		t.Fatal("container with matching working_dir should match despite empty ManagedContainers")
 	}
 }
@@ -80,7 +80,7 @@ func TestAgentContainerMatchesStackByServiceName(t *testing.T) {
 		},
 	}
 
-	if !agentContainerMatchesStack(stack, c) {
+	if !stacks.ContainerMatchesStack(stack, c.ID, c.Labels) {
 		t.Fatal("container matching a declared service should match the stack")
 	}
 }
@@ -102,7 +102,7 @@ func TestAgentContainerMatchesStackByManagedContainer(t *testing.T) {
 		},
 	}
 
-	if !agentContainerMatchesStack(stack, c) {
+	if !stacks.ContainerMatchesStack(stack, c.ID, c.Labels) {
 		t.Fatal("container explicitly recorded as managed should match")
 	}
 }
@@ -124,7 +124,7 @@ func TestAgentContainerMatchesStackRejectsOtherProject(t *testing.T) {
 		},
 	}
 
-	if agentContainerMatchesStack(stack, c) {
+	if stacks.ContainerMatchesStack(stack, c.ID, c.Labels) {
 		t.Fatal("container from a different compose project should not match")
 	}
 }
@@ -153,7 +153,7 @@ func TestAgentContainerMatchesStackWindowsPathMapping(t *testing.T) {
 		},
 	}
 
-	if !agentContainerMatchesStack(stack, c) {
+	if !stacks.ContainerMatchesStack(stack, c.ID, c.Labels) {
 		t.Fatal("container with mapped runtime working_dir should match via ResolvePathForRuntime")
 	}
 }

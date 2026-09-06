@@ -1,7 +1,6 @@
 package agent
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -252,8 +251,8 @@ func (a *Agent) opContainerLogs(ctx context.Context, conn *websocket.Conn, env E
 
 	emitLine("--- Connected to container logs ---")
 
-	stdoutWriter := &streamWriter{cb: emitLine}
-	stderrWriter := &streamWriter{cb: emitLine}
+	stdoutWriter := stacks.NewStreamWriter(emitLine)
+	stderrWriter := stacks.NewStreamWriter(emitLine)
 
 	_, err = stdcopy.StdCopy(stdoutWriter, stderrWriter, logsReader)
 	if err != nil {
@@ -295,32 +294,6 @@ func (a *Agent) opServerStats(ctx context.Context, conn *websocket.Conn, env Env
 		DiskUsed:   dUsed,
 		DiskTotal:  dTotal,
 	})
-}
-
-// streamWriter buffers bytes and emits complete lines.
-type streamWriter struct {
-	cb  func(string)
-	buf []byte
-}
-
-func (sw *streamWriter) Write(p []byte) (n int, err error) {
-	sw.buf = append(sw.buf, p...)
-
-	for {
-		idx := bytes.IndexByte(sw.buf, '\n')
-		if idx == -1 {
-			break
-		}
-
-		line := sw.buf[:idx]
-		if len(line) > 0 && line[len(line)-1] == '\r' {
-			line = line[:len(line)-1]
-		}
-		sw.cb(string(line))
-		sw.buf = sw.buf[idx+1:]
-	}
-
-	return len(p), nil
 }
 
 // resolveAgentContainerStack looks up a container's stack in the agent store.
@@ -388,7 +361,7 @@ func (a *Agent) opStackContainers(ctx context.Context, conn *websocket.Conn, env
 
 	result := make([]map[string]string, 0, len(containers))
 	for _, c := range containers {
-		if !agentContainerMatchesStack(stack, c) {
+		if !stacks.ContainerMatchesStack(stack, c.ID, c.Labels) {
 			continue
 		}
 		name := ""
@@ -401,7 +374,7 @@ func (a *Agent) opStackContainers(ctx context.Context, conn *websocket.Conn, env
 			"service": c.Labels["com.docker.compose.service"],
 			"state":   c.State,
 			"status":  c.Status,
-			"health":  a.containerHealth(ctx, c.ID),
+			"health":  stacks.ContainerHealth(ctx, a.discovery.Client, c.ID),
 		})
 	}
 
@@ -436,7 +409,7 @@ func (a *Agent) opStackDiscover(ctx context.Context, conn *websocket.Conn, env E
 			grouped[project] = entry
 		}
 		service := c.Labels["com.docker.compose.service"]
-		if service != "" && !agentContains(entry.Services, service) {
+		if service != "" && !stacks.Contains(entry.Services, service) {
 			entry.Services = append(entry.Services, service)
 		}
 	}
@@ -444,10 +417,10 @@ func (a *Agent) opStackDiscover(ctx context.Context, conn *websocket.Conn, env E
 	out := make([]StackDiscoverCandidate, 0, len(grouped))
 	for _, entry := range grouped {
 		entry.ComposeFiles = agentSuggestComposeFiles(entry.WorkingDir, entry.ConfigFiles)
-		entry.SuggestedComposeFile = agentFirstOrEmpty(entry.ComposeFiles)
+		entry.SuggestedComposeFile = stacks.FirstOrEmpty(entry.ComposeFiles)
 		entry.SuggestedEnvFile = agentSuggestEnvFile(entry.WorkingDir)
 		if a.store != nil {
-			_, entry.Registered = a.store.FindForComposeTarget(entry.Project, entry.WorkingDir, agentFirstOrEmpty(entry.Services))
+			_, entry.Registered = a.store.FindForComposeTarget(entry.Project, entry.WorkingDir, stacks.FirstOrEmpty(entry.Services))
 		}
 		out = append(out, *entry)
 	}
@@ -535,81 +508,8 @@ func (a *Agent) opStackHistory(ctx context.Context, conn *websocket.Conn, env En
 	a.sendError(ctx, conn, env.RequestID, fmt.Errorf("stack history is server-side"))
 }
 
-func agentContainerMatchesStack(stack stacks.Stack, c container.Summary) bool {
-	project := stack.Discovery.ComposeProject
-	if project == "" {
-		project = stack.ProjectName
-	}
-	if project == "" || c.Labels["com.docker.compose.project"] != project {
-		return false
-	}
-
-	// Explicit ownership: the container ID is already recorded as managed.
-	for _, ownedID := range stack.ManagedContainers {
-		if ownedID == c.ID {
-			return true
-		}
-	}
-
-	// Discovery matching (mirrors the server's containerMatchesStackProject):
-	// a container belongs to the stack if its compose project matches and its
-	// working dir or service name matches the stack's. This allows reconcile
-	// and ownership discovery to work for stacks with no managed containers yet.
-	workingDir := strings.TrimSpace(c.Labels["com.docker.compose.project.working_dir"])
-	if workingDir != "" {
-		candidates := []string{
-			normalizeComparePath(stack.WorkingDir),
-			normalizeComparePath(stacks.ResolvePathForRuntime(stack, stack.WorkingDir)),
-		}
-		labelPath := normalizeComparePath(workingDir)
-		for _, candidate := range candidates {
-			if candidate != "" && candidate == labelPath {
-				return true
-			}
-		}
-	}
-
-	service := strings.TrimSpace(c.Labels["com.docker.compose.service"])
-	if service != "" {
-		for _, serviceName := range stack.Discovery.ServiceNames {
-			if strings.EqualFold(strings.TrimSpace(serviceName), service) {
-				return true
-			}
-		}
-	}
-
-	return len(stack.Discovery.ServiceNames) == 0 && workingDir == ""
-}
-
-// normalizeComparePath normalizes a path for case-insensitive comparison,
-// matching the server's normalizeComparePath helper.
-func normalizeComparePath(path string) string {
-	path = strings.TrimSpace(path)
-	path = strings.ReplaceAll(path, "\\", "/")
-	path = strings.TrimRight(path, "/")
-	return strings.ToLower(path)
-}
-
-func agentContains(values []string, target string) bool {
-	for _, v := range values {
-		if v == target {
-			return true
-		}
-	}
-	return false
-}
-
-func agentFirstOrEmpty(values []string) string {
-	if len(values) == 0 {
-		return ""
-	}
-	return values[0]
-}
-
-// agentSuggestComposeFile returns the first suggested compose file for a
-// working dir, or empty when none is found. It never fabricates a path.
 func agentSuggestComposeFile(workingDir string) string {
-	return agentFirstOrEmpty(agentSuggestComposeFiles(workingDir, nil))
+	return stacks.FirstOrEmpty(agentSuggestComposeFiles(workingDir, nil))
 }
 
 // agentSuggestComposeFiles returns the compose file(s) actually used by a
@@ -717,15 +617,4 @@ func stackProjectName(stack stacks.Stack) string {
 		return stack.ProjectName
 	}
 	return stack.ID
-}
-
-func (a *Agent) containerHealth(ctx context.Context, containerID string) string {
-	if a.discovery == nil || a.discovery.Client == nil || containerID == "" {
-		return ""
-	}
-	inspect, err := a.discovery.Client.ContainerInspect(ctx, containerID)
-	if err != nil || inspect.State == nil || inspect.State.Health == nil {
-		return ""
-	}
-	return inspect.State.Health.Status
 }

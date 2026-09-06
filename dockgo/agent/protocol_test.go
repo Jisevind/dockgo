@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 	"time"
+
+	"dockgo/stacks"
 )
 
 func TestEnvelopeRoundTrip(t *testing.T) {
@@ -150,7 +152,7 @@ func TestOpTimeout(t *testing.T) {
 
 func TestStreamWriter(t *testing.T) {
 	var lines []string
-	sw := &streamWriter{cb: func(l string) { lines = append(lines, l) }}
+	sw := stacks.NewStreamWriter(func(l string) { lines = append(lines, l) })
 
 	_, _ = sw.Write([]byte("line1\nline2\r\npartial"))
 	if len(lines) != 2 {
@@ -171,7 +173,7 @@ func TestStreamWriter(t *testing.T) {
 
 func TestStreamWriterEmptyLines(t *testing.T) {
 	var lines []string
-	sw := &streamWriter{cb: func(l string) { lines = append(lines, l) }}
+	sw := stacks.NewStreamWriter(func(l string) { lines = append(lines, l) })
 
 	_, _ = sw.Write([]byte("\n\n"))
 	if len(lines) != 2 || lines[0] != "" || lines[1] != "" {

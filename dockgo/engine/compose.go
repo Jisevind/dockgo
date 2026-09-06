@@ -1,8 +1,6 @@
 package engine
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -10,7 +8,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
+
+	"dockgo/stacks"
 )
 
 // ComposeConfig stores `docker compose config --format json` output.
@@ -113,17 +112,17 @@ func ComposeUpdate(ctx context.Context, workingDir string, serviceName string, a
 	if serviceName == "" {
 		log(fmt.Sprintf("Executing Compose project-wide update in '%s'...", validatedDir))
 
-		err = streamCommand(ctx, validatedDir, log, "docker", "compose", "--ansi", "always", "pull")
+		err = stacks.StreamCommand(ctx, validatedDir, log, "docker", "compose", "--ansi", "always", "pull")
 		if err != nil {
 			return fmt.Errorf("compose project pull failed: %w", err)
 		}
 
-		err = streamCommand(ctx, validatedDir, log, "docker", "compose", "build", "--progress", "plain")
+		err = stacks.StreamCommand(ctx, validatedDir, log, "docker", "compose", "build", "--progress", "plain")
 		if err != nil {
 			return fmt.Errorf("compose project build failed: %w", err)
 		}
 
-		err = streamCommand(ctx, validatedDir, log, "docker", "compose", "--ansi", "always", "up", "-d")
+		err = stacks.StreamCommand(ctx, validatedDir, log, "docker", "compose", "--ansi", "always", "up", "-d")
 		if err != nil {
 			return fmt.Errorf("compose project up failed: %w", err)
 		}
@@ -155,18 +154,18 @@ func ComposeUpdate(ctx context.Context, workingDir string, serviceName string, a
 	}
 
 	if shouldBuild {
-		err = streamCommand(ctx, validatedDir, log, "docker", "compose", "build", "--progress", "plain", serviceName)
+		err = stacks.StreamCommand(ctx, validatedDir, log, "docker", "compose", "build", "--progress", "plain", serviceName)
 		if err != nil {
 			return fmt.Errorf("compose build failed: %w", err)
 		}
 	} else {
-		err = streamCommand(ctx, validatedDir, log, "docker", "compose", "--ansi", "always", "pull", serviceName)
+		err = stacks.StreamCommand(ctx, validatedDir, log, "docker", "compose", "--ansi", "always", "pull", serviceName)
 		if err != nil {
 			return fmt.Errorf("compose pull failed: %w", err)
 		}
 	}
 
-	err = streamCommand(ctx, validatedDir, log, "docker", "compose", "--ansi", "always", "up", "-d", serviceName)
+	err = stacks.StreamCommand(ctx, validatedDir, log, "docker", "compose", "--ansi", "always", "up", "-d", serviceName)
 	if err != nil {
 		return fmt.Errorf("compose up failed: %w", err)
 	}
@@ -188,10 +187,10 @@ func ComposePull(ctx context.Context, workingDir string, serviceName string, all
 
 	if serviceName == "" {
 		log(fmt.Sprintf("⬇️  Pulling images for Compose project in '%s' (Safe Mode)...", validatedDir))
-		err = streamCommand(ctx, validatedDir, log, "docker", "compose", "--ansi", "always", "pull")
+		err = stacks.StreamCommand(ctx, validatedDir, log, "docker", "compose", "--ansi", "always", "pull")
 	} else {
 		log(fmt.Sprintf("⬇️  Pulling images for service '%s' in '%s' (Safe Mode)...", serviceName, validatedDir))
-		err = streamCommand(ctx, validatedDir, log, "docker", "compose", "--ansi", "always", "pull", serviceName)
+		err = stacks.StreamCommand(ctx, validatedDir, log, "docker", "compose", "--ansi", "always", "pull", serviceName)
 	}
 
 	if err != nil {
@@ -200,60 +199,4 @@ func ComposePull(ctx context.Context, workingDir string, serviceName string, all
 
 	log("✅ Compose pull completed successfully.")
 	return nil
-}
-
-func streamCommand(ctx context.Context, dir string, log Logger, name string, args ...string) error {
-	// #nosec G204 - 'name' and 'args' originate entirely from Docker labels, isolated from user inputs
-	cmd := exec.CommandContext(ctx, name, args...)
-	cmd.Dir = dir
-
-	stdout, _ := cmd.StdoutPipe()
-	stderr, _ := cmd.StderrPipe()
-
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-
-	var wg sync.WaitGroup
-	wg.Add(2)
-
-	splitFunc := func(data []byte, atEOF bool) (advance int, token []byte, err error) {
-		if atEOF && len(data) == 0 {
-			return 0, nil, nil
-		}
-		if i := bytes.IndexAny(data, "\r\n"); i >= 0 {
-			return i + 1, data[0:i], nil
-		}
-		if atEOF {
-			return len(data), data, nil
-		}
-		return 0, nil, nil
-	}
-
-	go func() {
-		defer wg.Done()
-		scanner := bufio.NewScanner(stdout)
-		scanner.Split(splitFunc)
-		for scanner.Scan() {
-			text := strings.TrimSpace(scanner.Text())
-			if text != "" {
-				log(text)
-			}
-		}
-	}()
-
-	go func() {
-		defer wg.Done()
-		scanner := bufio.NewScanner(stderr)
-		scanner.Split(splitFunc)
-		for scanner.Scan() {
-			text := strings.TrimSpace(scanner.Text())
-			if text != "" {
-				log(text)
-			}
-		}
-	}()
-
-	wg.Wait()
-	return cmd.Wait()
 }
