@@ -25,10 +25,6 @@ RUN adduser -D dockgo
 # Copy binary
 COPY --from=builder /build/dockgo-agent ./dockgo-agent
 
-# Environment defaults
-ENV DOCKGO_SERVER_URL=
-ENV AGENT_KEY=
-
 # The agent needs no inbound ports; it dials out to the server.
 
 ENTRYPOINT ["./dockgo-agent"]
