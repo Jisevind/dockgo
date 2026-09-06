@@ -338,34 +338,12 @@ func (s *Server) handleAgentStackActionStream(w http.ResponseWriter, r *http.Req
 
 	doneChan := make(chan struct{})
 	var heartbeatWg sync.WaitGroup
-	heartbeatWg.Add(1)
 	defer func() {
 		close(doneChan)
 		heartbeatWg.Wait()
 	}()
 
-	go func() {
-		defer heartbeatWg.Done()
-		ticker := time.NewTicker(5 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-doneChan:
-				return
-			case <-ticker.C:
-				writeMu.Lock()
-				if _, err := w.Write([]byte(": ping\n\n")); err != nil {
-					writeMu.Unlock()
-					cancel()
-					return
-				}
-				flusher.Flush()
-				writeMu.Unlock()
-			}
-		}
-	}()
+	startSSEHeartbeat(ctx, &writeMu, w, cancel, doneChan, &heartbeatWg)
 
 	req := agent.StackActionRequest{Stack: stack, Action: action}
 
@@ -671,7 +649,7 @@ func (s *Server) agentStackStatusSummary(ctx context.Context, agentID string, st
 
 		missing := make([]string, 0)
 		for _, id := range stack.ManagedContainers {
-			if !containsString(presentIDs, id) {
+			if !stacks.Contains(presentIDs, id) {
 				missing = append(missing, id)
 			}
 		}
@@ -764,12 +742,12 @@ func (s *Server) resolveAgentContainerStack(agentID, containerID string) (stacks
 // stacksStackMatchesCandidate mirrors the working-dir / service matching used
 // by stacks.Store.FindForComposeTarget.
 func stacksStackMatchesCandidate(stack stacks.Stack, workingDir string, services []string) bool {
-	wd := normalizeComparePath(workingDir)
+	wd := stacks.NormalizeComparePath(workingDir)
 	if wd != "" {
-		if normalizeComparePath(stack.WorkingDir) == wd {
+		if stacks.NormalizeComparePath(stack.WorkingDir) == wd {
 			return true
 		}
-		if normalizeComparePath(stacks.ResolvePathForRuntime(stack, stack.WorkingDir)) == wd {
+		if stacks.NormalizeComparePath(stacks.ResolvePathForRuntime(stack, stack.WorkingDir)) == wd {
 			return true
 		}
 	}

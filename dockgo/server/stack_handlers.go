@@ -364,7 +364,7 @@ func buildStackDiscoverCandidates(
 		}
 
 		service := c.Labels["com.docker.compose.service"]
-		if service != "" && !contains(entry.Services, service) {
+		if service != "" && !stacks.Contains(entry.Services, service) {
 			entry.Services = append(entry.Services, service)
 		}
 	}
@@ -372,10 +372,10 @@ func buildStackDiscoverCandidates(
 	out := make([]stackDiscoverCandidate, 0, len(grouped))
 	for _, entry := range grouped {
 		entry.ComposeFiles = suggestComposeFiles(entry.WorkingDir, entry.ConfigFiles)
-		entry.SuggestedComposeFile = firstOrEmpty(entry.ComposeFiles)
+		entry.SuggestedComposeFile = stacks.FirstOrEmpty(entry.ComposeFiles)
 		entry.SuggestedEnvFile = suggestEnvFile(entry.WorkingDir)
 		if store != nil {
-			_, entry.Registered = store.FindForComposeTarget(entry.Project, entry.WorkingDir, firstOrEmpty(entry.Services))
+			_, entry.Registered = store.FindForComposeTarget(entry.Project, entry.WorkingDir, stacks.FirstOrEmpty(entry.Services))
 		}
 		out = append(out, *entry)
 	}
@@ -433,29 +433,6 @@ func validationHistorySummary(store *stacks.HistoryStore, stackID string) *stack
 	}
 	summary := store.SummarizeByStack(stackID)
 	return &summary
-}
-
-func contains(values []string, target string) bool {
-	for _, value := range values {
-		if value == target {
-			return true
-		}
-	}
-	return false
-}
-
-func firstOrEmpty(values []string) string {
-	if len(values) == 0 {
-		return ""
-	}
-	return values[0]
-}
-
-func normalizeComparePath(path string) string {
-	path = strings.TrimSpace(path)
-	path = strings.ReplaceAll(path, "\\", "/")
-	path = strings.TrimRight(path, "/")
-	return strings.ToLower(path)
 }
 
 // suggestComposeFiles returns the compose file(s) that were actually used by
@@ -571,7 +548,7 @@ func discoveryPathExists(path string) bool {
 	}
 
 	pathMode := stacks.PathModeHostNative
-	if looksLikeWindowsPath(path) {
+	if stacks.IsWindowsAbs(path) {
 		pathMode = stacks.PathModeMapped
 	}
 
@@ -582,13 +559,6 @@ func discoveryPathExists(path string) bool {
 
 	_, err := os.Stat(resolvedPath)
 	return err == nil
-}
-
-func looksLikeWindowsPath(path string) bool {
-	return len(path) >= 3 &&
-		((path[0] >= 'A' && path[0] <= 'Z') || (path[0] >= 'a' && path[0] <= 'z')) &&
-		path[1] == ':' &&
-		(path[2] == '\\' || path[2] == '/')
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {
@@ -661,35 +631,12 @@ func (s *Server) handleStackActionStream(
 
 	doneChan := make(chan struct{})
 	var heartbeatWg sync.WaitGroup
-	heartbeatWg.Add(1)
 	defer func() {
 		close(doneChan)
 		heartbeatWg.Wait()
 	}()
 
-	go func() {
-		defer heartbeatWg.Done()
-		ticker := time.NewTicker(5 * time.Second)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-doneChan:
-				return
-			case <-ticker.C:
-				writeMu.Lock()
-				if _, err := w.Write([]byte(": ping\n\n")); err != nil {
-					writeMu.Unlock()
-					cancel()
-					return
-				}
-				flusher.Flush()
-				writeMu.Unlock()
-			}
-		}
-	}()
+	startSSEHeartbeat(ctx, &writeMu, w, cancel, doneChan, &heartbeatWg)
 
 	err := s.executeStackAction(ctx, stack, action, "stacks_view", run, func(line string) {
 		emit(map[string]any{
@@ -857,7 +804,7 @@ func (s *Server) syncStackManagedContainers(ctx context.Context, stackID string)
 
 	containerIDs := make([]string, 0)
 	for _, c := range containers {
-		if containerMatchesStackProject(stack, c) {
+		if stacks.ContainerMatchesStackProject(stack, c.Labels) {
 			containerIDs = append(containerIDs, c.ID)
 		}
 	}
@@ -902,7 +849,7 @@ func (s *Server) stackDriftWarnings(ctx context.Context, stack stacks.Stack) []s
 			runtimeServices[service] = struct{}{}
 		}
 		if workingDir := strings.TrimSpace(c.Labels["com.docker.compose.project.working_dir"]); workingDir != "" {
-			runtimeWorkingDirs[normalizeComparePath(workingDir)] = struct{}{}
+			runtimeWorkingDirs[stacks.NormalizeComparePath(workingDir)] = struct{}{}
 		}
 	}
 
@@ -932,7 +879,7 @@ func compareStackRuntimeState(
 		warnings = append(warnings, "runtime compose project reports multiple working directories; project labels may be inconsistent")
 	} else if len(runtimeWorkingDirs) == 1 {
 		for runtimeWorkingDir := range runtimeWorkingDirs {
-			if runtimeWorkingDir != normalizeComparePath(registeredWorkingDir) {
+			if runtimeWorkingDir != stacks.NormalizeComparePath(registeredWorkingDir) {
 				warnings = append(warnings, fmt.Sprintf("runtime working directory differs from registered stack: %s", registeredWorkingDir))
 			}
 		}
@@ -1008,46 +955,11 @@ func (s *Server) stackAssociatedContainers(ctx context.Context, stack stacks.Sta
 			"service": c.Labels["com.docker.compose.service"],
 			"state":   c.State,
 			"status":  c.Status,
-			"health":  s.containerHealthState(ctx, c.ID),
+			"health":  stacks.ContainerHealth(ctx, s.Discovery.Client, c.ID),
 		})
 	}
 
 	return result
-}
-
-func containerMatchesStackProject(stack stacks.Stack, c types.Container) bool {
-	project := stack.Discovery.ComposeProject
-	if project == "" {
-		project = stack.ProjectName
-	}
-	if project == "" || c.Labels["com.docker.compose.project"] != project {
-		return false
-	}
-
-	workingDir := strings.TrimSpace(c.Labels["com.docker.compose.project.working_dir"])
-	if workingDir != "" {
-		candidatePaths := []string{
-			normalizeComparePath(stack.WorkingDir),
-			normalizeComparePath(stacks.ResolvePathForRuntime(stack, stack.WorkingDir)),
-		}
-		labelPath := normalizeComparePath(workingDir)
-		for _, candidatePath := range candidatePaths {
-			if candidatePath != "" && candidatePath == labelPath {
-				return true
-			}
-		}
-	}
-
-	service := strings.TrimSpace(c.Labels["com.docker.compose.service"])
-	if service != "" {
-		for _, serviceName := range stack.Discovery.ServiceNames {
-			if strings.EqualFold(strings.TrimSpace(serviceName), service) {
-				return true
-			}
-		}
-	}
-
-	return len(stack.Discovery.ServiceNames) == 0 && workingDir == ""
 }
 
 func containerMatchesStackOwnership(stack stacks.Stack, c types.Container) bool {
@@ -1205,24 +1117,15 @@ func (s *Server) stackRuntimeOwnership(ctx context.Context, stack stacks.Stack) 
 
 	extra := make([]types.Container, 0)
 	for _, c := range containers {
-		if containsString(stack.ManagedContainers, c.ID) {
+		if stacks.Contains(stack.ManagedContainers, c.ID) {
 			continue
 		}
-		if containerMatchesStackProject(stack, c) {
+		if stacks.ContainerMatchesStackProject(stack, c.Labels) {
 			extra = append(extra, c)
 		}
 	}
 
 	return owned, extra, missing, nil
-}
-
-func containsString(values []string, target string) bool {
-	for _, value := range values {
-		if value == target {
-			return true
-		}
-	}
-	return false
 }
 
 func summarizeContainers(ctx context.Context, s *Server, containers []types.Container) []map[string]string {
@@ -1238,7 +1141,7 @@ func summarizeContainers(ctx context.Context, s *Server, containers []types.Cont
 			"service": c.Labels["com.docker.compose.service"],
 			"state":   c.State,
 			"status":  c.Status,
-			"health":  s.containerHealthState(ctx, c.ID),
+			"health":  stacks.ContainerHealth(ctx, s.Discovery.Client, c.ID),
 		})
 	}
 	return result
@@ -1257,19 +1160,6 @@ func stackOwnershipIssues(missingOwnedIDs []string, extraContainers []types.Cont
 		issues = append(issues, fmt.Sprintf("Runtime container not managed by this stack: %s", name))
 	}
 	return issues
-}
-
-func (s *Server) containerHealthState(ctx context.Context, containerID string) string {
-	if s.Discovery == nil || s.Discovery.Client == nil || containerID == "" {
-		return ""
-	}
-
-	inspect, err := s.Discovery.Client.ContainerInspect(ctx, containerID)
-	if err != nil || inspect.State == nil || inspect.State.Health == nil {
-		return ""
-	}
-
-	return inspect.State.Health.Status
 }
 
 func mapPaths(values []string, mapper func(string) string) []map[string]string {

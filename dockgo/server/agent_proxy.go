@@ -242,34 +242,12 @@ func (s *Server) handleAgentStreamCheck(w http.ResponseWriter, r *http.Request) 
 
 	doneChan := make(chan struct{})
 	var heartbeatWg sync.WaitGroup
-	heartbeatWg.Add(1)
 	defer func() {
 		close(doneChan)
 		heartbeatWg.Wait()
 	}()
 
-	go func() {
-		defer heartbeatWg.Done()
-		ticker := time.NewTicker(5 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-doneChan:
-				return
-			case <-ticker.C:
-				writeMu.Lock()
-				if _, err := w.Write([]byte(": ping\n\n")); err != nil {
-					writeMu.Unlock()
-					cancel()
-					return
-				}
-				flusher.Flush()
-				writeMu.Unlock()
-			}
-		}
-	}()
+	startSSEHeartbeat(ctx, &writeMu, w, cancel, doneChan, &heartbeatWg)
 
 	force := r.URL.Query().Get("force") == "true"
 	req := agent.ScanRequest{Force: force}
@@ -393,34 +371,12 @@ func (s *Server) handleAgentUpdate(w http.ResponseWriter, r *http.Request) {
 
 	doneChan := make(chan struct{})
 	var heartbeatWg sync.WaitGroup
-	heartbeatWg.Add(1)
 	defer func() {
 		close(doneChan)
 		heartbeatWg.Wait()
 	}()
 
-	go func() {
-		defer heartbeatWg.Done()
-		ticker := time.NewTicker(5 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-doneChan:
-				return
-			case <-ticker.C:
-				writeMu.Lock()
-				if _, err := w.Write([]byte(": ping\n\n")); err != nil {
-					writeMu.Unlock()
-					cancel()
-					return
-				}
-				flusher.Flush()
-				writeMu.Unlock()
-			}
-		}
-	}()
+	startSSEHeartbeat(ctx, &writeMu, w, cancel, doneChan, &heartbeatWg)
 
 	req := agent.UpdateRequest{
 		Name:            name,

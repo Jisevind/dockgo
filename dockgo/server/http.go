@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bytes"
 	"context"
 	"crypto/hmac"
 	cryptorand "crypto/rand"
@@ -1172,36 +1171,13 @@ func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {
 
 	doneChan := make(chan struct{})
 	var heartbeatWg sync.WaitGroup
-	heartbeatWg.Add(1)
 
 	defer heartbeatWg.Wait()
 	defer close(doneChan)
 
 	var writeMu sync.Mutex
 
-	go func() {
-		defer heartbeatWg.Done()
-		ticker := time.NewTicker(5 * time.Second)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-doneChan:
-				return
-			case <-ticker.C:
-				writeMu.Lock()
-				if _, err := w.Write([]byte(": ping\n\n")); err != nil {
-					writeMu.Unlock()
-					cancel()
-					return
-				}
-				flusher.Flush()
-				writeMu.Unlock()
-			}
-		}
-	}()
+	startSSEHeartbeat(ctx, &writeMu, w, cancel, doneChan, &heartbeatWg)
 
 	onProgress := func(u api.ContainerUpdate, current, total int) {
 		if ctx.Err() != nil {
@@ -1572,35 +1548,12 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 
 	doneChan := make(chan struct{})
 	var heartbeatWg sync.WaitGroup
-	heartbeatWg.Add(1)
 	defer func() {
 		close(doneChan)
 		heartbeatWg.Wait()
 	}()
 
-	go func() {
-		defer heartbeatWg.Done()
-		ticker := time.NewTicker(5 * time.Second)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-doneChan:
-				return
-			case <-ticker.C:
-				sseMu.Lock()
-				if _, err := w.Write([]byte(": ping\n\n")); err != nil {
-					sseMu.Unlock()
-					cancel()
-					return
-				}
-				flusher.Flush()
-				sseMu.Unlock()
-			}
-		}
-	}()
+	startSSEHeartbeat(ctx, &sseMu, w, cancel, doneChan, &heartbeatWg)
 
 	opts := engine.UpdateOptions{
 		Safe:            false,
@@ -1894,8 +1847,8 @@ func (s *Server) handleContainerLogs(w http.ResponseWriter, r *http.Request) {
 		flusher.Flush()
 	}
 
-	stdoutWriter := &streamWriter{cb: writeLine}
-	stderrWriter := &streamWriter{cb: writeLine}
+	stdoutWriter := stacks.NewStreamWriter(writeLine)
+	stderrWriter := stacks.NewStreamWriter(writeLine)
 
 	writeLine("--- Connected to container logs ---")
 
@@ -1909,34 +1862,6 @@ func (s *Server) handleContainerLogs(w http.ResponseWriter, r *http.Request) {
 	} else {
 		writeLine("--- Stream disconnected ---")
 	}
-}
-
-type streamWriter struct {
-	cb  func(string)
-	buf []byte
-}
-
-// Write buffers bytes and emits complete lines to the callback.
-func (sw *streamWriter) Write(p []byte) (n int, err error) {
-	sw.buf = append(sw.buf, p...)
-
-	for {
-		idx := bytes.IndexByte(sw.buf, '\n')
-		if idx == -1 {
-			break
-		}
-
-		line := sw.buf[:idx]
-		if len(line) > 0 && line[len(line)-1] == '\r' {
-			line = line[:len(line)-1]
-		}
-
-		sw.cb(string(line))
-
-		sw.buf = sw.buf[idx+1:]
-	}
-
-	return len(p), nil
 }
 
 func (s *Server) handleServerStats(w http.ResponseWriter, r *http.Request) {

@@ -102,7 +102,7 @@ func TestCompareStackRuntimeStateWarnsOnWorkingDirMismatch(t *testing.T) {
 	warnings := compareStackRuntimeState(
 		`D:\Docker\bazarr`,
 		map[string]struct{}{
-			normalizeComparePath(`D:\Docker\other`): {},
+			stacks.NormalizeComparePath(`D:\Docker\other`): {},
 		},
 		nil,
 		nil,
@@ -117,8 +117,8 @@ func TestCompareStackRuntimeStateWarnsOnMultipleRuntimeDirs(t *testing.T) {
 	warnings := compareStackRuntimeState(
 		`/srv/apps/bazarr`,
 		map[string]struct{}{
-			normalizeComparePath(`/srv/apps/a`): {},
-			normalizeComparePath(`/srv/apps/b`): {},
+			stacks.NormalizeComparePath(`/srv/apps/a`): {},
+			stacks.NormalizeComparePath(`/srv/apps/b`): {},
 		},
 		nil,
 		nil,
@@ -133,7 +133,7 @@ func TestCompareStackRuntimeStateWarnsOnMissingAndExtraServices(t *testing.T) {
 	warnings := compareStackRuntimeState(
 		`/srv/apps/media`,
 		map[string]struct{}{
-			normalizeComparePath(`/srv/apps/media`): {},
+			stacks.NormalizeComparePath(`/srv/apps/media`): {},
 		},
 		[]string{"radarr", "sonarr"},
 		map[string]struct{}{
@@ -493,17 +493,17 @@ func TestBuildStackDiscoverCandidatesUsesConfigFilesLabel(t *testing.T) {
 	}
 	// Host-side label paths are translated through COMPOSE_PATH_MAPPING so they
 	// resolve inside the DockGo runtime.
-	gotConfig := normalizeComparePath(candidates[0].ConfigFiles[0])
+	gotConfig := stacks.NormalizeComparePath(candidates[0].ConfigFiles[0])
 	if len(candidates[0].ConfigFiles) != 1 || gotConfig != `/compose/gotify/compose.yaml` {
 		t.Fatalf("ConfigFiles = %v, want [/compose/gotify/compose.yaml]", candidates[0].ConfigFiles)
 	}
-	if normalizeComparePath(candidates[0].WorkingDir) != `/compose/gotify` {
+	if stacks.NormalizeComparePath(candidates[0].WorkingDir) != `/compose/gotify` {
 		t.Fatalf("WorkingDir = %q, want /compose/gotify", candidates[0].WorkingDir)
 	}
-	if normalizeComparePath(candidates[0].ComposeFiles[0]) != `/compose/gotify/compose.yaml` {
+	if stacks.NormalizeComparePath(candidates[0].ComposeFiles[0]) != `/compose/gotify/compose.yaml` {
 		t.Fatalf("ComposeFiles = %v, want [/compose/gotify/compose.yaml]", candidates[0].ComposeFiles)
 	}
-	if normalizeComparePath(candidates[0].SuggestedComposeFile) != `/compose/gotify/compose.yaml` {
+	if stacks.NormalizeComparePath(candidates[0].SuggestedComposeFile) != `/compose/gotify/compose.yaml` {
 		t.Fatalf("SuggestedComposeFile = %q, want /compose/gotify/compose.yaml", candidates[0].SuggestedComposeFile)
 	}
 }
@@ -525,10 +525,10 @@ func TestBuildStackDiscoverCandidatesTranslatesMappedHostPaths(t *testing.T) {
 	if len(candidates) != 1 {
 		t.Fatalf("candidates len = %d, want 1", len(candidates))
 	}
-	if normalizeComparePath(candidates[0].WorkingDir) != `/compose/umami` {
+	if stacks.NormalizeComparePath(candidates[0].WorkingDir) != `/compose/umami` {
 		t.Fatalf("WorkingDir = %q, want /compose/umami", candidates[0].WorkingDir)
 	}
-	if len(candidates[0].ComposeFiles) != 1 || normalizeComparePath(candidates[0].ComposeFiles[0]) != `/compose/umami/compose.yaml` {
+	if len(candidates[0].ComposeFiles) != 1 || stacks.NormalizeComparePath(candidates[0].ComposeFiles[0]) != `/compose/umami/compose.yaml` {
 		t.Fatalf("ComposeFiles = %v, want [/compose/umami/compose.yaml]", candidates[0].ComposeFiles)
 	}
 }
@@ -762,7 +762,7 @@ func TestContainerMatchesStackProjectMatchesRuntimePathForMappedStack(t *testing
 		},
 	}
 
-	if !containerMatchesStackProject(stack, container) {
+	if !stacks.ContainerMatchesStackProject(stack, container.Labels) {
 		t.Fatalf("containerMatchesStackProject() = false, want true")
 	}
 }
