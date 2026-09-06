@@ -5,9 +5,6 @@ WORKDIR /build
 # Copy source
 COPY dockgo .
 
-# DEBUG: Check what was copied
-RUN ls -lR /build
-
 # Build
 # Accept version arg from GitHub Actions, defaulting to "dev"
 ARG VERSION=dev

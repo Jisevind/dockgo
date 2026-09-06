@@ -4,7 +4,7 @@
 SOCKET_GID=$(stat -c '%g' /var/run/docker.sock)
 
 if [ -z "$SOCKET_GID" ]; then
-    echo "Could not detemine GID of docker socket."
+    echo "Could not determine GID of docker socket."
 else
     # Check if a group with this GID already exists
     if ! getent group $SOCKET_GID > /dev/null 2>&1; then

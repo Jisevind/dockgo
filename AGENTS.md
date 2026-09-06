@@ -1,6 +1,6 @@
 # Project Context
 
-This is a javascript project using go-net-http.
+This is a Go project (module `dockgo` in `dockgo/`).
 
 The API has 20 routes. See .codesight/routes.md for the full route map with methods, paths, and tags.
 
