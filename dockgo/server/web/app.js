@@ -3,86 +3,106 @@
 
 // console.log("DOCKGO APP STARTED v2");
 
-document.addEventListener('DOMContentLoaded', () => {
-    const listEl = document.getElementById('container-list');
-    const cardTemplate = document.getElementById('container-card-template');
-    const listTemplate = document.getElementById('container-list-template');
-    const stackGroupCardTemplate = document.getElementById('stack-group-card-template');
-    const stackGroupListTemplate = document.getElementById('stack-group-list-template');
-    const stackCardTemplate = document.getElementById('stack-card-template');
-    const stackCandidateTemplate = document.getElementById('stack-candidate-template');
-    const statusEl = document.getElementById('connection-status');
-    const refreshBtn = document.getElementById('refresh-btn');
-    const refreshStacksBtn = document.getElementById('refresh-stacks-btn');
-    const filterDriftedStacksEl = document.getElementById('filter-drifted-stacks');
-    const filterUnboundStacksEl = document.getElementById('filter-unbound-stacks');
-    const discoverStacksBtn = document.getElementById('discover-stacks-btn');
-    const hideRegisteredStacksEl = document.getElementById('hide-registered-stacks');
-    const viewDashboardBtn = document.getElementById('view-dashboard');
-    const viewStacksBtn = document.getElementById('view-stacks');
-    const viewGridBtn = document.getElementById('view-grid');
-    const viewListBtn = document.getElementById('view-list');
-    const viewGroupBtn = document.getElementById('view-group');
-    const stackListEl = document.getElementById('stack-list');
-    const stackCandidatesEl = document.getElementById('stack-candidates');
-    const dashboardViewEl = document.getElementById('dashboard-view');
-    const stacksViewEl = document.getElementById('stacks-view');
-    const stacksRegisteredStatEl = document.getElementById('stacks-stat-registered');
-    const stacksRunningStatEl = document.getElementById('stacks-stat-running');
-    const stacksDiscoveredStatEl = document.getElementById('stacks-stat-discovered');
+document.addEventListener("DOMContentLoaded", () => {
+    const listEl = document.getElementById("container-list");
+    const cardTemplate = document.getElementById("container-card-template");
+    const listTemplate = document.getElementById("container-list-template");
+    const stackGroupCardTemplate = document.getElementById(
+        "stack-group-card-template",
+    );
+    const stackGroupListTemplate = document.getElementById(
+        "stack-group-list-template",
+    );
+    const stackCardTemplate = document.getElementById("stack-card-template");
+    const stackCandidateTemplate = document.getElementById(
+        "stack-candidate-template",
+    );
+    const statusEl = document.getElementById("connection-status");
+    const refreshBtn = document.getElementById("refresh-btn");
+    const refreshStacksBtn = document.getElementById("refresh-stacks-btn");
+    const filterDriftedStacksEl = document.getElementById(
+        "filter-drifted-stacks",
+    );
+    const filterUnboundStacksEl = document.getElementById(
+        "filter-unbound-stacks",
+    );
+    const discoverStacksBtn = document.getElementById("discover-stacks-btn");
+    const hideRegisteredStacksEl = document.getElementById(
+        "hide-registered-stacks",
+    );
+    const viewDashboardBtn = document.getElementById("view-dashboard");
+    const viewStacksBtn = document.getElementById("view-stacks");
+    const viewGridBtn = document.getElementById("view-grid");
+    const viewListBtn = document.getElementById("view-list");
+    const viewGroupBtn = document.getElementById("view-group");
+    const stackListEl = document.getElementById("stack-list");
+    const stackCandidatesEl = document.getElementById("stack-candidates");
+    const dashboardViewEl = document.getElementById("dashboard-view");
+    const stacksViewEl = document.getElementById("stacks-view");
+    const stacksRegisteredStatEl = document.getElementById(
+        "stacks-stat-registered",
+    );
+    const stacksRunningStatEl = document.getElementById("stacks-stat-running");
+    const stacksDiscoveredStatEl = document.getElementById(
+        "stacks-stat-discovered",
+    );
 
     // View State
-    let currentView = localStorage.getItem('dockgo_view') || 'grid';
-    let currentPrimaryView = localStorage.getItem('dockgo_primary_view') || 'dashboard';
-    let groupByStack = localStorage.getItem('dockgo_group_stack') === 'true';
+    let currentView = localStorage.getItem("dockgo_view") || "grid";
+    let currentPrimaryView =
+        localStorage.getItem("dockgo_primary_view") || "dashboard";
+    let groupByStack = localStorage.getItem("dockgo_group_stack") === "true";
 
     // Agent / Host State
-    let currentAgentID = localStorage.getItem('dockgo_agent_id') || '';
+    let currentAgentID = localStorage.getItem("dockgo_agent_id") || "";
     let cachedAgents = [];
 
-    const hostSelector = document.getElementById('host-selector');
-    const viewAgentsBtn = document.getElementById('view-agents');
-    const agentsViewEl = document.getElementById('agents-view');
-    const agentListEl = document.getElementById('agent-list');
-    const addAgentBtn = document.getElementById('add-agent-btn');
-    const refreshAgentsBtn = document.getElementById('refresh-agents-btn');
-    const agentModal = document.getElementById('agent-modal');
-    const agentForm = document.getElementById('agent-form');
-    const agentNameInput = document.getElementById('agent-name');
-    const closeAgentBtn = document.getElementById('close-agent-btn');
-    const agentCancelBtn = document.getElementById('agent-cancel-btn');
-    const agentFormError = document.getElementById('agent-form-error');
-    const agentKeyModal = document.getElementById('agent-key-modal');
-    const agentKeyValue = document.getElementById('agent-key-value');
-    const agentKeyCopyBtn = document.getElementById('agent-key-copy-btn');
-    const agentKeyCloseBtn = document.getElementById('agent-key-close-btn');
-    const closeAgentKeyBtn = document.getElementById('close-agent-key-btn');
-    const agentsRegisteredStatEl = document.getElementById('agents-stat-registered');
-    const agentsOnlineStatEl = document.getElementById('agents-stat-online');
+    const hostSelector = document.getElementById("host-selector");
+    const viewAgentsBtn = document.getElementById("view-agents");
+    const agentsViewEl = document.getElementById("agents-view");
+    const agentListEl = document.getElementById("agent-list");
+    const addAgentBtn = document.getElementById("add-agent-btn");
+    const refreshAgentsBtn = document.getElementById("refresh-agents-btn");
+    const agentModal = document.getElementById("agent-modal");
+    const agentForm = document.getElementById("agent-form");
+    const agentNameInput = document.getElementById("agent-name");
+    const closeAgentBtn = document.getElementById("close-agent-btn");
+    const agentCancelBtn = document.getElementById("agent-cancel-btn");
+    const agentFormError = document.getElementById("agent-form-error");
+    const agentKeyModal = document.getElementById("agent-key-modal");
+    const agentKeyValue = document.getElementById("agent-key-value");
+    const agentKeyCopyBtn = document.getElementById("agent-key-copy-btn");
+    const agentKeyCloseBtn = document.getElementById("agent-key-close-btn");
+    const closeAgentKeyBtn = document.getElementById("close-agent-key-btn");
+    const agentsRegisteredStatEl = document.getElementById(
+        "agents-stat-registered",
+    );
+    const agentsOnlineStatEl = document.getElementById("agents-stat-online");
 
     // Builds a query-suffix for agent-aware API calls ('' for local host).
-    const agentQuery = () => (currentAgentID ? `?agent=${encodeURIComponent(currentAgentID)}` : '');
+    const agentQuery = () =>
+        currentAgentID ? `?agent=${encodeURIComponent(currentAgentID)}` : "";
     // Appends the agent suffix to a URL that may already contain a query string.
     const withAgentQuery = (url) => {
         if (!currentAgentID) return url;
-        const sep = url.includes('?') ? '&' : '?';
+        const sep = url.includes("?") ? "&" : "?";
         return `${url}${sep}agent=${encodeURIComponent(currentAgentID)}`;
     };
 
     const updateHostSelector = (agents) => {
         if (!hostSelector) return;
         const previous = hostSelector.value;
-        hostSelector.innerHTML = '';
-        const localOption = document.createElement('option');
-        localOption.value = '';
-        localOption.textContent = 'Local host';
+        hostSelector.innerHTML = "";
+        const localOption = document.createElement("option");
+        localOption.value = "";
+        localOption.textContent = "Local host";
         hostSelector.appendChild(localOption);
 
         agents.forEach((agentRec) => {
-            const option = document.createElement('option');
+            const option = document.createElement("option");
             option.value = agentRec.id;
-            const status = agentRec.status === 'online' ? '●' : '○';
-            option.textContent = `${status} ${agentRec.name}${agentRec.hostname ? ` (${agentRec.hostname})` : ''}`;
+            const status = agentRec.status === "online" ? "●" : "○";
+            option.textContent = `${status} ${agentRec.name}${agentRec.hostname ? ` (${agentRec.hostname})` : ""}`;
             hostSelector.appendChild(option);
         });
 
@@ -90,13 +110,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (previous && agents.some((a) => a.id === previous)) {
             hostSelector.value = previous;
         } else {
-            hostSelector.value = currentAgentID && agents.some((a) => a.id === currentAgentID) ? currentAgentID : '';
+            hostSelector.value =
+                currentAgentID && agents.some((a) => a.id === currentAgentID)
+                    ? currentAgentID
+                    : "";
         }
     };
 
     const fetchAgents = async () => {
         try {
-            const response = await fetch('/api/agents', { headers: getAuthHeaders() });
+            const response = await fetch("/api/agents", {
+                headers: getAuthHeaders(),
+            });
             if (!response.ok) {
                 throw new Error(`Failed to fetch agents (${response.status})`);
             }
@@ -105,9 +130,10 @@ document.addEventListener('DOMContentLoaded', () => {
             updateHostSelector(cachedAgents);
             renderAgents(cachedAgents);
         } catch (error) {
-            console.error('Failed to fetch agents', error);
+            console.error("Failed to fetch agents", error);
             if (agentListEl) {
-                agentListEl.innerHTML = '<div class="loading">Failed to load agents.</div>';
+                agentListEl.innerHTML =
+                    '<div class="loading">Failed to load agents.</div>';
             }
         }
     };
@@ -115,65 +141,74 @@ document.addEventListener('DOMContentLoaded', () => {
     const renderAgents = (agents) => {
         if (!agentListEl) return;
         if (!Array.isArray(agents) || agents.length === 0) {
-            agentListEl.innerHTML = '<div class="loading">No agents registered yet. Click "Add Agent".</div>';
+            agentListEl.innerHTML =
+                '<div class="loading">No agents registered yet. Click "Add Agent".</div>';
             updateAgentsOverview(agents);
             return;
         }
 
-        agentListEl.innerHTML = '';
+        agentListEl.innerHTML = "";
         agents.forEach((agentRec) => {
-            const item = document.createElement('div');
-            item.className = 'stack-card';
+            const item = document.createElement("div");
+            item.className = "stack-card";
 
-            const header = document.createElement('div');
-            header.className = 'stack-card-header';
-            const titleBlock = document.createElement('div');
-            const name = document.createElement('h3');
-            name.className = 'stack-name';
+            const header = document.createElement("div");
+            header.className = "stack-card-header";
+            const titleBlock = document.createElement("div");
+            const name = document.createElement("h3");
+            name.className = "stack-name";
             name.textContent = agentRec.name;
             titleBlock.appendChild(name);
             if (agentRec.hostname) {
-                const host = document.createElement('p');
-                host.className = 'stack-path';
+                const host = document.createElement("p");
+                host.className = "stack-path";
                 host.textContent = agentRec.hostname;
                 titleBlock.appendChild(host);
             }
             header.appendChild(titleBlock);
 
-            const statusBadge = document.createElement('span');
-            statusBadge.className = 'stack-status-badge';
-            statusBadge.textContent = agentRec.status || 'offline';
-            statusBadge.classList.add(`status-${agentRec.status || 'offline'}`);
+            const statusBadge = document.createElement("span");
+            statusBadge.className = "stack-status-badge";
+            statusBadge.textContent = agentRec.status || "offline";
+            statusBadge.classList.add(`status-${agentRec.status || "offline"}`);
             header.appendChild(statusBadge);
             item.appendChild(header);
 
-            const meta = document.createElement('p');
-            meta.className = 'stack-meta';
+            const meta = document.createElement("p");
+            meta.className = "stack-meta";
             const metaLines = [
-                `Version: ${agentRec.version || 'unknown'}`,
-                `Last seen: ${agentRec.last_seen ? new Date(agentRec.last_seen).toLocaleString() : 'never'}`,
-                agentRec.disabled ? 'Status: disabled' : ''
+                `Version: ${agentRec.version || "unknown"}`,
+                `Last seen: ${agentRec.last_seen ? new Date(agentRec.last_seen).toLocaleString() : "never"}`,
+                agentRec.disabled ? "Status: disabled" : "",
             ].filter(Boolean);
-            meta.textContent = metaLines.join('\n');
+            meta.textContent = metaLines.join("\n");
             item.appendChild(meta);
 
-            const actions = document.createElement('div');
-            actions.className = 'stack-actions';
+            const actions = document.createElement("div");
+            actions.className = "stack-actions";
 
-            const rotateBtn = document.createElement('button');
-            rotateBtn.type = 'button';
-            rotateBtn.className = 'btn secondary';
-            rotateBtn.textContent = 'Rotate Key';
-            rotateBtn.addEventListener('click', async () => {
-                if (!(await showConfirmModal(`Rotate the key for agent ${agentRec.name}?`))) return;
+            const rotateBtn = document.createElement("button");
+            rotateBtn.type = "button";
+            rotateBtn.className = "btn secondary";
+            rotateBtn.textContent = "Rotate Key";
+            rotateBtn.addEventListener("click", async () => {
+                if (
+                    !(await showConfirmModal(
+                        `Rotate the key for agent ${agentRec.name}?`,
+                    ))
+                )
+                    return;
                 try {
-                    const response = await fetch(`/api/agents/${encodeURIComponent(agentRec.id)}/rotate-key`, {
-                        method: 'POST',
-                        headers: getAuthHeaders()
-                    });
+                    const response = await fetch(
+                        `/api/agents/${encodeURIComponent(agentRec.id)}/rotate-key`,
+                        {
+                            method: "POST",
+                            headers: getAuthHeaders(),
+                        },
+                    );
                     const data = await response.json();
                     if (!response.ok) {
-                        throw new Error(data.error || 'Failed to rotate key');
+                        throw new Error(data.error || "Failed to rotate key");
                     }
                     showAgentKey(data.key);
                     await fetchAgents();
@@ -183,28 +218,40 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             actions.appendChild(rotateBtn);
 
-            const deleteBtn = document.createElement('button');
-            deleteBtn.type = 'button';
-            deleteBtn.className = 'btn danger';
-            deleteBtn.textContent = 'Delete';
-            deleteBtn.addEventListener('click', async () => {
-                if (!(await showConfirmModal(`Delete agent ${agentRec.name}? This will disconnect it permanently.`))) return;
+            const deleteBtn = document.createElement("button");
+            deleteBtn.type = "button";
+            deleteBtn.className = "btn danger";
+            deleteBtn.textContent = "Delete";
+            deleteBtn.addEventListener("click", async () => {
+                if (
+                    !(await showConfirmModal(
+                        `Delete agent ${agentRec.name}? This will disconnect it permanently.`,
+                    ))
+                )
+                    return;
                 try {
-                    const response = await fetch(`/api/agents/${encodeURIComponent(agentRec.id)}`, {
-                        method: 'DELETE',
-                        headers: getAuthHeaders()
-                    });
+                    const response = await fetch(
+                        `/api/agents/${encodeURIComponent(agentRec.id)}`,
+                        {
+                            method: "DELETE",
+                            headers: getAuthHeaders(),
+                        },
+                    );
                     if (!response.ok) {
                         const data = await response.json().catch(() => ({}));
-                        throw new Error(data.error || 'Failed to delete agent');
+                        throw new Error(data.error || "Failed to delete agent");
                     }
                     if (currentAgentID === agentRec.id) {
-                        currentAgentID = '';
-                        localStorage.removeItem('dockgo_agent_id');
-                        hostSelector.value = '';
+                        currentAgentID = "";
+                        localStorage.removeItem("dockgo_agent_id");
+                        hostSelector.value = "";
                     }
                     await fetchAgents();
-                    await Promise.all([fetchContainers(false), fetchStacks(), fetchStackCandidates()]);
+                    await Promise.all([
+                        fetchContainers(false),
+                        fetchStacks(),
+                        fetchStackCandidates(),
+                    ]);
                 } catch (error) {
                     alert(`Failed to delete agent: ${error.message}`);
                 }
@@ -221,7 +268,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const updateAgentsOverview = (agents) => {
         if (!agentsRegisteredStatEl || !agentsOnlineStatEl) return;
         agentsRegisteredStatEl.textContent = String((agents || []).length);
-        agentsOnlineStatEl.textContent = String((agents || []).filter((a) => a.status === 'online').length);
+        agentsOnlineStatEl.textContent = String(
+            (agents || []).filter((a) => a.status === "online").length,
+        );
     };
 
     const showAgentKey = (key) => {
@@ -229,97 +278,101 @@ document.addEventListener('DOMContentLoaded', () => {
             agentKeyValue.textContent = key;
         }
         if (agentKeyModal) {
-            agentKeyModal.classList.remove('hidden');
+            agentKeyModal.classList.remove("hidden");
         }
     };
 
     const hideAgentKey = () => {
         if (agentKeyModal) {
-            agentKeyModal.classList.add('hidden');
+            agentKeyModal.classList.add("hidden");
         }
     };
 
     const openAgentModal = () => {
         if (!agentModal) return;
         agentForm.reset();
-        if (agentFormError) agentFormError.classList.add('hidden');
-        agentModal.classList.remove('hidden');
+        if (agentFormError) agentFormError.classList.add("hidden");
+        agentModal.classList.remove("hidden");
         agentNameInput.focus();
     };
 
     const closeAgentModal = () => {
-        if (agentModal) agentModal.classList.add('hidden');
+        if (agentModal) agentModal.classList.add("hidden");
     };
 
     if (viewAgentsBtn) {
-        viewAgentsBtn.addEventListener('click', () => {
-            if (currentPrimaryView === 'agents') return;
-            currentPrimaryView = 'agents';
-            localStorage.setItem('dockgo_primary_view', currentPrimaryView);
+        viewAgentsBtn.addEventListener("click", () => {
+            if (currentPrimaryView === "agents") return;
+            currentPrimaryView = "agents";
+            localStorage.setItem("dockgo_primary_view", currentPrimaryView);
             updatePrimaryViewUI();
             fetchAgents();
         });
     }
 
     if (addAgentBtn) {
-        addAgentBtn.addEventListener('click', openAgentModal);
+        addAgentBtn.addEventListener("click", openAgentModal);
     }
     if (refreshAgentsBtn) {
-        refreshAgentsBtn.addEventListener('click', fetchAgents);
+        refreshAgentsBtn.addEventListener("click", fetchAgents);
     }
     if (closeAgentBtn) {
-        closeAgentBtn.addEventListener('click', closeAgentModal);
+        closeAgentBtn.addEventListener("click", closeAgentModal);
     }
     if (agentCancelBtn) {
-        agentCancelBtn.addEventListener('click', closeAgentModal);
+        agentCancelBtn.addEventListener("click", closeAgentModal);
     }
     if (agentModal) {
-        agentModal.addEventListener('click', (e) => {
+        agentModal.addEventListener("click", (e) => {
             if (e.target === agentModal) closeAgentModal();
         });
     }
     if (agentKeyCloseBtn) {
-        agentKeyCloseBtn.addEventListener('click', hideAgentKey);
+        agentKeyCloseBtn.addEventListener("click", hideAgentKey);
     }
     if (closeAgentKeyBtn) {
-        closeAgentKeyBtn.addEventListener('click', hideAgentKey);
+        closeAgentKeyBtn.addEventListener("click", hideAgentKey);
     }
     if (agentKeyModal) {
-        agentKeyModal.addEventListener('click', (e) => {
+        agentKeyModal.addEventListener("click", (e) => {
             if (e.target === agentKeyModal) hideAgentKey();
         });
     }
     if (agentKeyCopyBtn) {
-        agentKeyCopyBtn.addEventListener('click', async () => {
-            const key = agentKeyValue ? agentKeyValue.textContent : '';
+        agentKeyCopyBtn.addEventListener("click", async () => {
+            const key = agentKeyValue ? agentKeyValue.textContent : "";
             if (!key) return;
             try {
                 await navigator.clipboard.writeText(key);
-                agentKeyCopyBtn.textContent = 'Copied!';
-                setTimeout(() => { agentKeyCopyBtn.textContent = 'Copy Key'; }, 2000);
+                agentKeyCopyBtn.textContent = "Copied!";
+                setTimeout(() => {
+                    agentKeyCopyBtn.textContent = "Copy Key";
+                }, 2000);
             } catch (e) {
-                agentKeyCopyBtn.textContent = 'Copy failed';
-                setTimeout(() => { agentKeyCopyBtn.textContent = 'Copy Key'; }, 2000);
+                agentKeyCopyBtn.textContent = "Copy failed";
+                setTimeout(() => {
+                    agentKeyCopyBtn.textContent = "Copy Key";
+                }, 2000);
             }
         });
     }
 
     if (agentForm) {
-        agentForm.addEventListener('submit', async (e) => {
+        agentForm.addEventListener("submit", async (e) => {
             e.preventDefault();
-            if (agentFormError) agentFormError.classList.add('hidden');
+            if (agentFormError) agentFormError.classList.add("hidden");
             const name = agentNameInput.value.trim();
             if (!name) return;
 
             try {
-                const response = await fetch('/api/agents', {
-                    method: 'POST',
+                const response = await fetch("/api/agents", {
+                    method: "POST",
                     headers: getAuthHeaders(true),
-                    body: JSON.stringify({ name })
+                    body: JSON.stringify({ name }),
                 });
                 const data = await response.json();
                 if (!response.ok) {
-                    throw new Error(data.error || 'Failed to create agent');
+                    throw new Error(data.error || "Failed to create agent");
                 }
                 closeAgentModal();
                 showAgentKey(data.key);
@@ -327,23 +380,23 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (error) {
                 if (agentFormError) {
                     agentFormError.textContent = error.message;
-                    agentFormError.classList.remove('hidden');
+                    agentFormError.classList.remove("hidden");
                 }
             }
         });
     }
 
     if (hostSelector) {
-        hostSelector.addEventListener('change', () => {
+        hostSelector.addEventListener("change", () => {
             currentAgentID = hostSelector.value;
             if (currentAgentID) {
-                localStorage.setItem('dockgo_agent_id', currentAgentID);
+                localStorage.setItem("dockgo_agent_id", currentAgentID);
             } else {
-                localStorage.removeItem('dockgo_agent_id');
+                localStorage.removeItem("dockgo_agent_id");
             }
             // Refresh all host-scoped data for the newly selected host.
             fetchContainers(false);
-            if (currentPrimaryView === 'stacks') {
+            if (currentPrimaryView === "stacks") {
                 loadStacksViewData();
             }
             fetchServerStats();
@@ -351,16 +404,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Search State
-    let currentSearchQuery = '';
-    const searchInputEl = document.getElementById('search-input');
+    let currentSearchQuery = "";
+    const searchInputEl = document.getElementById("search-input");
 
     const showConfirmModal = (message) => {
         return new Promise((resolve) => {
-            const modal = document.getElementById('confirm-modal');
-            const msgEl = document.getElementById('confirm-modal-message');
-            const okBtn = document.getElementById('confirm-modal-ok');
-            const cancelBtn = document.getElementById('confirm-modal-cancel');
-            
+            const modal = document.getElementById("confirm-modal");
+            const msgEl = document.getElementById("confirm-modal-message");
+            const okBtn = document.getElementById("confirm-modal-ok");
+            const cancelBtn = document.getElementById("confirm-modal-cancel");
+
             if (!modal || !msgEl || !okBtn || !cancelBtn) {
                 // Fallback to native
                 resolve(confirm(message));
@@ -368,68 +421,89 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             msgEl.textContent = message;
-            modal.classList.remove('hidden');
+            modal.classList.remove("hidden");
 
             const cleanup = () => {
-                modal.classList.add('hidden');
-                okBtn.removeEventListener('click', onOk);
-                cancelBtn.removeEventListener('click', onCancel);
+                modal.classList.add("hidden");
+                okBtn.removeEventListener("click", onOk);
+                cancelBtn.removeEventListener("click", onCancel);
             };
 
-            const onOk = () => { cleanup(); resolve(true); };
-            const onCancel = () => { cleanup(); resolve(false); };
+            const onOk = () => {
+                cleanup();
+                resolve(true);
+            };
+            const onCancel = () => {
+                cleanup();
+                resolve(false);
+            };
 
-            okBtn.addEventListener('click', onOk);
-            cancelBtn.addEventListener('click', onCancel);
+            okBtn.addEventListener("click", onOk);
+            cancelBtn.addEventListener("click", onCancel);
         });
     };
 
     const updatePrimaryViewUI = () => {
-        const showingStacks = currentPrimaryView === 'stacks';
-        const showingAgents = currentPrimaryView === 'agents';
+        const showingStacks = currentPrimaryView === "stacks";
+        const showingAgents = currentPrimaryView === "agents";
         if (dashboardViewEl) {
-            dashboardViewEl.classList.toggle('hidden', showingStacks || showingAgents);
+            dashboardViewEl.classList.toggle(
+                "hidden",
+                showingStacks || showingAgents,
+            );
         }
         if (stacksViewEl) {
-            stacksViewEl.classList.toggle('hidden', !showingStacks);
+            stacksViewEl.classList.toggle("hidden", !showingStacks);
         }
         if (agentsViewEl) {
-            agentsViewEl.classList.toggle('hidden', !showingAgents);
+            agentsViewEl.classList.toggle("hidden", !showingAgents);
         }
         if (viewDashboardBtn) {
-            viewDashboardBtn.classList.toggle('active', !showingStacks && !showingAgents);
+            viewDashboardBtn.classList.toggle(
+                "active",
+                !showingStacks && !showingAgents,
+            );
         }
         if (viewStacksBtn) {
-            viewStacksBtn.classList.toggle('active', showingStacks);
+            viewStacksBtn.classList.toggle("active", showingStacks);
         }
         if (viewAgentsBtn) {
-            viewAgentsBtn.classList.toggle('active', showingAgents);
+            viewAgentsBtn.classList.toggle("active", showingAgents);
         }
         if (viewGridBtn) {
-            viewGridBtn.classList.toggle('hidden', showingStacks || showingAgents);
+            viewGridBtn.classList.toggle(
+                "hidden",
+                showingStacks || showingAgents,
+            );
         }
         if (viewListBtn) {
-            viewListBtn.classList.toggle('hidden', showingStacks || showingAgents);
+            viewListBtn.classList.toggle(
+                "hidden",
+                showingStacks || showingAgents,
+            );
         }
         if (viewGroupBtn) {
-            viewGroupBtn.classList.toggle('hidden', showingStacks || showingAgents);
+            viewGroupBtn.classList.toggle(
+                "hidden",
+                showingStacks || showingAgents,
+            );
         }
     };
 
     const updateViewUI = () => {
-        if (currentView === 'list') {
-            listEl.classList.remove('grid-list');
-            listEl.classList.add('list-view');
-            viewListBtn.classList.add('active');
-            viewGridBtn.classList.remove('active');
+        if (currentView === "list") {
+            listEl.classList.remove("grid-list");
+            listEl.classList.add("list-view");
+            viewListBtn.classList.add("active");
+            viewGridBtn.classList.remove("active");
         } else {
-            listEl.classList.add('grid-list');
-            listEl.classList.remove('list-view');
-            viewGridBtn.classList.add('active');
-            viewListBtn.classList.remove('active');
+            listEl.classList.add("grid-list");
+            listEl.classList.remove("list-view");
+            viewGridBtn.classList.add("active");
+            viewListBtn.classList.remove("active");
         }
         if (viewGroupBtn) {
-            viewGroupBtn.classList.toggle('active', groupByStack);
+            viewGroupBtn.classList.toggle("active", groupByStack);
         }
     };
 
@@ -437,10 +511,10 @@ document.addEventListener('DOMContentLoaded', () => {
     updatePrimaryViewUI();
 
     if (viewDashboardBtn) {
-        viewDashboardBtn.addEventListener('click', () => {
-            if (currentPrimaryView === 'dashboard') return;
-            currentPrimaryView = 'dashboard';
-            localStorage.setItem('dockgo_primary_view', currentPrimaryView);
+        viewDashboardBtn.addEventListener("click", () => {
+            if (currentPrimaryView === "dashboard") return;
+            currentPrimaryView = "dashboard";
+            localStorage.setItem("dockgo_primary_view", currentPrimaryView);
             updatePrimaryViewUI();
             // Re-render what we have
             renderContainers(cachedContainers);
@@ -448,7 +522,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (searchInputEl) {
-        searchInputEl.addEventListener('input', (e) => {
+        searchInputEl.addEventListener("input", (e) => {
             currentSearchQuery = e.target.value.trim().toLowerCase();
             renderContainers(cachedContainers);
             renderStacks(cachedStacks);
@@ -456,20 +530,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (viewStacksBtn) {
-        viewStacksBtn.addEventListener('click', () => {
-            if (currentPrimaryView === 'stacks') return;
-            currentPrimaryView = 'stacks';
-            localStorage.setItem('dockgo_primary_view', currentPrimaryView);
+        viewStacksBtn.addEventListener("click", () => {
+            if (currentPrimaryView === "stacks") return;
+            currentPrimaryView = "stacks";
+            localStorage.setItem("dockgo_primary_view", currentPrimaryView);
             updatePrimaryViewUI();
             loadStacksViewData();
         });
     }
 
     // View Toggle Listeners
-    viewGridBtn.addEventListener('click', () => {
-        if (currentView === 'grid') return;
-        currentView = 'grid';
-        localStorage.setItem('dockgo_view', 'grid');
+    viewGridBtn.addEventListener("click", () => {
+        if (currentView === "grid") return;
+        currentView = "grid";
+        localStorage.setItem("dockgo_view", "grid");
         updateViewUI();
         // Do not re-render the DOM while an update is in progress — the active
         // update holds references into the current DOM nodes. updateViewUI() has
@@ -482,10 +556,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    viewListBtn.addEventListener('click', () => {
-        if (currentView === 'list') return;
-        currentView = 'list';
-        localStorage.setItem('dockgo_view', 'list');
+    viewListBtn.addEventListener("click", () => {
+        if (currentView === "list") return;
+        currentView = "list";
+        localStorage.setItem("dockgo_view", "list");
         updateViewUI();
         // Same guard: skip re-render while an update is active.
         if (activeUpdates > 0) return;
@@ -497,9 +571,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     if (viewGroupBtn) {
-        viewGroupBtn.addEventListener('click', () => {
+        viewGroupBtn.addEventListener("click", () => {
             groupByStack = !groupByStack;
-            localStorage.setItem('dockgo_group_stack', String(groupByStack));
+            localStorage.setItem("dockgo_group_stack", String(groupByStack));
             updateViewUI();
             // Same guard: skip re-render while an update is active.
             if (activeUpdates > 0) return;
@@ -514,9 +588,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let cachedContainers = [];
     let cachedStacks = [];
     let cachedStackCandidates = [];
-    let filterDriftedStacks = localStorage.getItem('dockgo_filter_drifted_stacks') === 'true';
-    let filterUnboundStacks = localStorage.getItem('dockgo_filter_unbound_stacks') === 'true';
-    let hideRegisteredStacks = localStorage.getItem('dockgo_hide_registered_stacks') === 'true';
+    let filterDriftedStacks =
+        localStorage.getItem("dockgo_filter_drifted_stacks") === "true";
+    let filterUnboundStacks =
+        localStorage.getItem("dockgo_filter_unbound_stacks") === "true";
+    let hideRegisteredStacks =
+        localStorage.getItem("dockgo_hide_registered_stacks") === "true";
     let isCurrentlyMobile = window.innerWidth <= 600;
 
     if (filterDriftedStacksEl) {
@@ -529,7 +606,7 @@ document.addEventListener('DOMContentLoaded', () => {
         hideRegisteredStacksEl.checked = hideRegisteredStacks;
     }
 
-    window.addEventListener('resize', () => {
+    window.addEventListener("resize", () => {
         const isMobileNow = window.innerWidth <= 600;
         if (isMobileNow !== isCurrentlyMobile) {
             isCurrentlyMobile = isMobileNow;
@@ -544,60 +621,112 @@ document.addEventListener('DOMContentLoaded', () => {
     let authEnabled = false;
 
     // Elements
-    const loginModal = document.getElementById('login-modal');
-    const loginForm = document.getElementById('login-form');
-    const loginError = document.getElementById('login-error');
-    const loginUsernameInput = document.getElementById('username');
-    const loginPasswordInput = document.getElementById('password');
-    const logoutBtn = document.getElementById('logout-btn');
-    const logoutAllBtn = document.getElementById('logout-all-btn');
-    const stackModal = document.getElementById('stack-modal');
-    const stackForm = document.getElementById('stack-form');
-    const stackModalTitle = document.getElementById('stack-modal-title');
-    const closeStackBtn = document.getElementById('close-stack-btn');
-    const stackCancelBtn = document.getElementById('stack-cancel-btn');
-    const stackFormError = document.getElementById('stack-form-error');
-    const stackNameInput = document.getElementById('stack-name');
-    const stackProjectNameInput = document.getElementById('stack-project-name');
-    const stackWorkingDirInput = document.getElementById('stack-working-dir');
-    const stackComposeFileInput = document.getElementById('stack-compose-file');
-    const stackEnvFileInput = document.getElementById('stack-env-file');
-    const stackPathModeInput = document.getElementById('stack-path-mode');
-    const stackFormHints = document.getElementById('stack-form-hints');
-    const stackPathMappingsInput = document.getElementById('stack-path-mappings');
-    const stackProfilesInput = document.getElementById('stack-profiles');
-    const stackProjectEnvInput = document.getElementById('stack-project-env');
-    const stackPolicyPullInput = document.getElementById('stack-policy-pull');
-    const stackPolicyBuildInput = document.getElementById('stack-policy-build');
-    const stackPolicyDownBeforeUpInput = document.getElementById('stack-policy-down-before-up');
-    const stackPolicyForceRecreateInput = document.getElementById('stack-policy-force-recreate');
-    const stackPolicyRemoveOrphansInput = document.getElementById('stack-policy-remove-orphans');
-    const stackHealthComposeWaitInput = document.getElementById('stack-health-compose-wait');
-    const stackHealthRequireHealthyInput = document.getElementById('stack-health-require-healthy');
-    const stackHealthTimeoutInput = document.getElementById('stack-health-timeout');
-    const stackHealthStartupGraceInput = document.getElementById('stack-health-startup-grace');
-    const stackDetailsModal = document.getElementById('stack-details-modal');
-    const closeStackDetailsBtn = document.getElementById('close-stack-details-btn');
-    const stackDetailsTitle = document.getElementById('stack-details-title');
-    const stackDetailsDefinition = document.getElementById('stack-details-definition');
-    const stackDetailsPaths = document.getElementById('stack-details-paths');
-    const stackDetailsValidation = document.getElementById('stack-details-validation');
-    const stackDetailsContainers = document.getElementById('stack-details-containers');
-    const stackDetailsHistory = document.getElementById('stack-details-history');
-    const stackDetailsProgress = document.getElementById('stack-details-progress');
-    const stackDetailsEditBtn = document.getElementById('stack-details-edit-btn');
-    const stackDetailsValidateBtn = document.getElementById('stack-details-validate-btn');
-    const stackDetailsPullBtn = document.getElementById('stack-details-pull-btn');
-    const stackDetailsRestartBtn = document.getElementById('stack-details-restart-btn');
-    const stackDetailsDownBtn = document.getElementById('stack-details-down-btn');
-    const stackDetailsReconcileBtn = document.getElementById('stack-details-reconcile-btn');
-    const stackDetailsDeployBtn = document.getElementById('stack-details-deploy-btn');
-    const stackDetailsDeleteBtn = document.getElementById('stack-details-delete-btn');
-    const stackContainersModal = document.getElementById('stack-containers-modal');
-    const closeStackContainersBtn = document.getElementById('close-stack-containers-btn');
-    const stackContainersList = document.getElementById('stack-containers-list');
-    const stackContainersTitle = document.getElementById('stack-containers-title');
-    let stackFormMode = 'create';
+    const loginModal = document.getElementById("login-modal");
+    const loginForm = document.getElementById("login-form");
+    const loginError = document.getElementById("login-error");
+    const loginUsernameInput = document.getElementById("username");
+    const loginPasswordInput = document.getElementById("password");
+    const logoutBtn = document.getElementById("logout-btn");
+    const logoutAllBtn = document.getElementById("logout-all-btn");
+    const stackModal = document.getElementById("stack-modal");
+    const stackForm = document.getElementById("stack-form");
+    const stackModalTitle = document.getElementById("stack-modal-title");
+    const closeStackBtn = document.getElementById("close-stack-btn");
+    const stackCancelBtn = document.getElementById("stack-cancel-btn");
+    const stackFormError = document.getElementById("stack-form-error");
+    const stackNameInput = document.getElementById("stack-name");
+    const stackProjectNameInput = document.getElementById("stack-project-name");
+    const stackWorkingDirInput = document.getElementById("stack-working-dir");
+    const stackComposeFileInput = document.getElementById("stack-compose-file");
+    const stackEnvFileInput = document.getElementById("stack-env-file");
+    const stackPathModeInput = document.getElementById("stack-path-mode");
+    const stackFormHints = document.getElementById("stack-form-hints");
+    const stackPathMappingsInput = document.getElementById(
+        "stack-path-mappings",
+    );
+    const stackProfilesInput = document.getElementById("stack-profiles");
+    const stackProjectEnvInput = document.getElementById("stack-project-env");
+    const stackPolicyPullInput = document.getElementById("stack-policy-pull");
+    const stackPolicyBuildInput = document.getElementById("stack-policy-build");
+    const stackPolicyDownBeforeUpInput = document.getElementById(
+        "stack-policy-down-before-up",
+    );
+    const stackPolicyForceRecreateInput = document.getElementById(
+        "stack-policy-force-recreate",
+    );
+    const stackPolicyRemoveOrphansInput = document.getElementById(
+        "stack-policy-remove-orphans",
+    );
+    const stackHealthComposeWaitInput = document.getElementById(
+        "stack-health-compose-wait",
+    );
+    const stackHealthRequireHealthyInput = document.getElementById(
+        "stack-health-require-healthy",
+    );
+    const stackHealthTimeoutInput = document.getElementById(
+        "stack-health-timeout",
+    );
+    const stackHealthStartupGraceInput = document.getElementById(
+        "stack-health-startup-grace",
+    );
+    const stackDetailsModal = document.getElementById("stack-details-modal");
+    const closeStackDetailsBtn = document.getElementById(
+        "close-stack-details-btn",
+    );
+    const stackDetailsTitle = document.getElementById("stack-details-title");
+    const stackDetailsDefinition = document.getElementById(
+        "stack-details-definition",
+    );
+    const stackDetailsPaths = document.getElementById("stack-details-paths");
+    const stackDetailsValidation = document.getElementById(
+        "stack-details-validation",
+    );
+    const stackDetailsContainers = document.getElementById(
+        "stack-details-containers",
+    );
+    const stackDetailsHistory = document.getElementById(
+        "stack-details-history",
+    );
+    const stackDetailsProgress = document.getElementById(
+        "stack-details-progress",
+    );
+    const stackDetailsEditBtn = document.getElementById(
+        "stack-details-edit-btn",
+    );
+    const stackDetailsValidateBtn = document.getElementById(
+        "stack-details-validate-btn",
+    );
+    const stackDetailsPullBtn = document.getElementById(
+        "stack-details-pull-btn",
+    );
+    const stackDetailsRestartBtn = document.getElementById(
+        "stack-details-restart-btn",
+    );
+    const stackDetailsDownBtn = document.getElementById(
+        "stack-details-down-btn",
+    );
+    const stackDetailsReconcileBtn = document.getElementById(
+        "stack-details-reconcile-btn",
+    );
+    const stackDetailsDeployBtn = document.getElementById(
+        "stack-details-deploy-btn",
+    );
+    const stackDetailsDeleteBtn = document.getElementById(
+        "stack-details-delete-btn",
+    );
+    const stackContainersModal = document.getElementById(
+        "stack-containers-modal",
+    );
+    const closeStackContainersBtn = document.getElementById(
+        "close-stack-containers-btn",
+    );
+    const stackContainersList = document.getElementById(
+        "stack-containers-list",
+    );
+    const stackContainersTitle = document.getElementById(
+        "stack-containers-title",
+    );
+    let stackFormMode = "create";
     let editingStackId = null;
     let activeStackDetails = null;
     let stackFormDiscoverySelector = {};
@@ -607,53 +736,54 @@ document.addEventListener('DOMContentLoaded', () => {
     let stackFormUpdatePolicy = null;
     let stackFormHealthPolicy = null;
     let stackFormPathMappings = [];
-    let stackFormKind = 'compose_files';
+    let stackFormKind = "compose_files";
     let activeStackStatusSummary = null;
 
     // Auth Functions
     const getCsrfToken = () => {
         const value = `; ${document.cookie}`;
         const parts = value.split(`; dockgo_csrf=`);
-        if (parts.length === 2) return parts.pop().split(';').shift();
-        return '';
+        if (parts.length === 2) return parts.pop().split(";").shift();
+        return "";
     };
 
     const checkAuthStatus = async () => {
         try {
-            const response = await fetch('/api/me');
+            const response = await fetch("/api/me");
             if (response.ok) {
                 const data = await response.json();
                 isLoggedIn = data.logged_in;
                 authEnabled = data.user_auth_enabled;
 
                 if (isLoggedIn) {
-                    logoutBtn.classList.remove('hidden');
-                    logoutAllBtn.classList.remove('hidden');
+                    logoutBtn.classList.remove("hidden");
+                    logoutAllBtn.classList.remove("hidden");
                 } else {
-                    logoutBtn.classList.add('hidden');
-                    logoutAllBtn.classList.add('hidden');
+                    logoutBtn.classList.add("hidden");
+                    logoutAllBtn.classList.add("hidden");
                 }
 
                 // Global flag for legacy token
                 window.apiTokenEnabled = data.api_token_enabled;
 
                 if (!authEnabled && !window.apiTokenEnabled) {
-                    const noAuthModal = document.getElementById('no-auth-modal');
+                    const noAuthModal =
+                        document.getElementById("no-auth-modal");
                     if (noAuthModal) {
-                        noAuthModal.classList.remove('hidden');
+                        noAuthModal.classList.remove("hidden");
                     }
-                    statusEl.textContent = 'Authentication Required';
-                    statusEl.style.color = 'var(--danger)';
+                    statusEl.textContent = "Authentication Required";
+                    statusEl.style.color = "var(--danger)";
                 }
             }
         } catch (e) {
-            console.error('Auth check failed', e);
+            console.error("Auth check failed", e);
         }
     };
 
     const containerNamePattern = /^[a-zA-Z0-9._-]{1,128}$/;
     const getSafeContainerPathSegment = (name) => {
-        if (typeof name !== 'string' || !containerNamePattern.test(name)) {
+        if (typeof name !== "string" || !containerNamePattern.test(name)) {
             return null;
         }
         return encodeURIComponent(name);
@@ -662,117 +792,133 @@ document.addEventListener('DOMContentLoaded', () => {
     const getAuthHeaders = (includeJSON = false) => {
         const headers = {};
         if (includeJSON) {
-            headers['Content-Type'] = 'application/json';
+            headers["Content-Type"] = "application/json";
         }
 
-        const token = sessionStorage.getItem('dockgo_token');
+        const token = sessionStorage.getItem("dockgo_token");
         if (token && !isLoggedIn) {
-            headers['Authorization'] = `Bearer ${token}`;
+            headers["Authorization"] = `Bearer ${token}`;
         }
         if (isLoggedIn) {
-            headers['X-CSRF-Token'] = getCsrfToken();
+            headers["X-CSRF-Token"] = getCsrfToken();
         }
 
         return headers;
     };
 
-    logoutBtn.addEventListener('click', async () => {
-        if (!(await showConfirmModal('Are you sure you want to logout?'))) return;
+    logoutBtn.addEventListener("click", async () => {
+        if (!(await showConfirmModal("Are you sure you want to logout?")))
+            return;
         try {
-            await fetch('/api/logout', {
-                method: 'POST',
-                headers: { 'X-CSRF-Token': getCsrfToken() }
+            await fetch("/api/logout", {
+                method: "POST",
+                headers: { "X-CSRF-Token": getCsrfToken() },
             });
             window.location.reload();
         } catch (e) {
-            console.error('Logout failed', e);
+            console.error("Logout failed", e);
             window.location.reload();
         }
     });
 
-    logoutAllBtn.addEventListener('click', async () => {
-        if (!(await showConfirmModal('Are you sure you want to forcefully logout ALL devices?'))) return;
+    logoutAllBtn.addEventListener("click", async () => {
+        if (
+            !(await showConfirmModal(
+                "Are you sure you want to forcefully logout ALL devices?",
+            ))
+        )
+            return;
         try {
-            await fetch('/api/logout-all', {
-                method: 'POST',
-                headers: { 'X-CSRF-Token': getCsrfToken() }
+            await fetch("/api/logout-all", {
+                method: "POST",
+                headers: { "X-CSRF-Token": getCsrfToken() },
             });
             window.location.reload();
         } catch (e) {
-            console.error('Logout All failed', e);
+            console.error("Logout All failed", e);
             window.location.reload();
         }
     });
 
     const showLoginModal = () => {
-        loginModal.classList.remove('hidden');
+        loginModal.classList.remove("hidden");
         loginUsernameInput.focus();
     };
 
     const hideLoginModal = () => {
-        loginModal.classList.add('hidden');
-        loginError.classList.add('hidden');
+        loginModal.classList.add("hidden");
+        loginError.classList.add("hidden");
         loginForm.reset();
     };
 
     const showStackError = (message) => {
         stackFormError.textContent = message;
-        stackFormError.classList.remove('hidden');
+        stackFormError.classList.remove("hidden");
     };
 
     const hideStackError = () => {
-        stackFormError.textContent = '';
-        stackFormError.classList.add('hidden');
+        stackFormError.textContent = "";
+        stackFormError.classList.add("hidden");
     };
 
-    const isWindowsLikePath = (value) => /^[a-zA-Z]:[\\/]/.test(value) || value.includes('\\');
+    const isWindowsLikePath = (value) =>
+        /^[a-zA-Z]:[\\/]/.test(value) || value.includes("\\");
 
     const defaultUpdatePolicy = () => ({
         pull: true,
         build: false,
         down_before_up: false,
         force_recreate: false,
-        remove_orphans: true
+        remove_orphans: true,
     });
 
     const defaultHealthPolicy = () => ({
         use_compose_wait: true,
         require_healthy: true,
         wait_timeout_seconds: 120,
-        startup_grace_seconds: 20
+        startup_grace_seconds: 20,
     });
 
-    const formatPathMappings = (mappings) => (Array.isArray(mappings) ? mappings : [])
-        .filter((mapping) => mapping && mapping.host_path && mapping.container_path)
-        .map((mapping) => `${mapping.host_path}=${mapping.container_path}`)
-        .join('\n');
+    const formatPathMappings = (mappings) =>
+        (Array.isArray(mappings) ? mappings : [])
+            .filter(
+                (mapping) =>
+                    mapping && mapping.host_path && mapping.container_path,
+            )
+            .map((mapping) => `${mapping.host_path}=${mapping.container_path}`)
+            .join("\n");
 
-    const parsePathMappings = (value) => value
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .filter(Boolean)
-        .map((line) => {
-            const separatorIndex = line.indexOf('=');
-            if (separatorIndex === -1) {
-                throw new Error(`Invalid path mapping: ${line}`);
-            }
-            return {
-                host_path: line.slice(0, separatorIndex).trim(),
-                container_path: line.slice(separatorIndex + 1).trim()
-            };
-        });
+    const parsePathMappings = (value) =>
+        value
+            .split(/\r?\n/)
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .map((line) => {
+                const separatorIndex = line.indexOf("=");
+                if (separatorIndex === -1) {
+                    throw new Error(`Invalid path mapping: ${line}`);
+                }
+                return {
+                    host_path: line.slice(0, separatorIndex).trim(),
+                    container_path: line.slice(separatorIndex + 1).trim(),
+                };
+            });
 
     const resolveMappedPathPreview = (pathValue, mappings) => {
-        if (!pathValue) return '';
+        if (!pathValue) return "";
 
-        const normalizedPath = pathValue.replaceAll('\\', '/');
+        const normalizedPath = pathValue.replaceAll("\\", "/");
         for (const mapping of mappings) {
-            const hostPath = (mapping.host_path || '').trim().replaceAll('\\', '/');
-            const containerPath = (mapping.container_path || '').trim();
+            const hostPath = (mapping.host_path || "")
+                .trim()
+                .replaceAll("\\", "/");
+            const containerPath = (mapping.container_path || "").trim();
             if (!hostPath || !containerPath) {
                 continue;
             }
-            if (normalizedPath.toLowerCase().startsWith(hostPath.toLowerCase())) {
+            if (
+                normalizedPath.toLowerCase().startsWith(hostPath.toLowerCase())
+            ) {
                 const remainder = normalizedPath.slice(hostPath.length);
                 return `${containerPath}${remainder}`;
             }
@@ -794,45 +940,55 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const lines = [];
-        let stateClass = 'info';
+        let stateClass = "info";
 
         if (!workingDir) {
-            lines.push('Set a working directory to preview path handling.');
-        } else if (pathMode === 'host_native') {
-            lines.push(`DockGo will use the path exactly as entered: ${workingDir}`);
+            lines.push("Set a working directory to preview path handling.");
+        } else if (pathMode === "host_native") {
+            lines.push(
+                `DockGo will use the path exactly as entered: ${workingDir}`,
+            );
             if (isWindowsLikePath(workingDir)) {
-                stateClass = 'warning';
-                lines.push('Windows host paths usually require Mapped mode when DockGo runs in a Linux container.');
+                stateClass = "warning";
+                lines.push(
+                    "Windows host paths usually require Mapped mode when DockGo runs in a Linux container.",
+                );
             }
         } else {
             const resolved = resolveMappedPathPreview(workingDir, mappings);
             lines.push(`Canonical host path: ${workingDir}`);
             lines.push(`Runtime path inside DockGo: ${resolved}`);
             if (mappings.length === 0) {
-                stateClass = 'warning';
-                lines.push('No explicit path mappings are configured in this stack. DockGo will fall back to COMPOSE_PATH_MAPPING if available.');
+                stateClass = "warning";
+                lines.push(
+                    "No explicit path mappings are configured in this stack. DockGo will fall back to COMPOSE_PATH_MAPPING if available.",
+                );
             } else if (resolved === workingDir) {
-                stateClass = 'warning';
-                lines.push('The working directory did not change after mapping. Verify the host_path/container_path values.');
+                stateClass = "warning";
+                lines.push(
+                    "The working directory did not change after mapping. Verify the host_path/container_path values.",
+                );
             }
         }
 
-        stackFormHints.textContent = lines.join('\n');
-        stackFormHints.classList.remove('hidden', 'info', 'warning');
+        stackFormHints.textContent = lines.join("\n");
+        stackFormHints.classList.remove("hidden", "info", "warning");
         stackFormHints.classList.add(stateClass);
     };
 
-    const formatProjectEnv = (projectEnv) => Object.entries(projectEnv || {})
-        .map(([key, value]) => `${key}=${value}`)
-        .join('\n');
+    const formatProjectEnv = (projectEnv) =>
+        Object.entries(projectEnv || {})
+            .map(([key, value]) => `${key}=${value}`)
+            .join("\n");
 
     const parseProjectEnv = (value) => {
         const entries = {};
-        value.split(/\r?\n/)
+        value
+            .split(/\r?\n/)
             .map((line) => line.trim())
             .filter(Boolean)
             .forEach((line) => {
-                const separatorIndex = line.indexOf('=');
+                const separatorIndex = line.indexOf("=");
                 if (separatorIndex === -1) {
                     throw new Error(`Invalid environment override: ${line}`);
                 }
@@ -851,8 +1007,10 @@ document.addEventListener('DOMContentLoaded', () => {
         stackPolicyPullInput.checked = !!effectivePolicy.pull;
         stackPolicyBuildInput.checked = !!effectivePolicy.build;
         stackPolicyDownBeforeUpInput.checked = !!effectivePolicy.down_before_up;
-        stackPolicyForceRecreateInput.checked = !!effectivePolicy.force_recreate;
-        stackPolicyRemoveOrphansInput.checked = !!effectivePolicy.remove_orphans;
+        stackPolicyForceRecreateInput.checked =
+            !!effectivePolicy.force_recreate;
+        stackPolicyRemoveOrphansInput.checked =
+            !!effectivePolicy.remove_orphans;
     };
 
     const readUpdatePolicyFields = () => ({
@@ -860,110 +1018,148 @@ document.addEventListener('DOMContentLoaded', () => {
         build: stackPolicyBuildInput.checked,
         down_before_up: stackPolicyDownBeforeUpInput.checked,
         force_recreate: stackPolicyForceRecreateInput.checked,
-        remove_orphans: stackPolicyRemoveOrphansInput.checked
+        remove_orphans: stackPolicyRemoveOrphansInput.checked,
     });
 
     const setHealthPolicyFields = (policy) => {
         const effectivePolicy = policy || defaultHealthPolicy();
-        stackHealthComposeWaitInput.checked = !!effectivePolicy.use_compose_wait;
-        stackHealthRequireHealthyInput.checked = !!effectivePolicy.require_healthy;
-        stackHealthTimeoutInput.value = effectivePolicy.wait_timeout_seconds ?? 120;
-        stackHealthStartupGraceInput.value = effectivePolicy.startup_grace_seconds ?? 20;
+        stackHealthComposeWaitInput.checked =
+            !!effectivePolicy.use_compose_wait;
+        stackHealthRequireHealthyInput.checked =
+            !!effectivePolicy.require_healthy;
+        stackHealthTimeoutInput.value =
+            effectivePolicy.wait_timeout_seconds ?? 120;
+        stackHealthStartupGraceInput.value =
+            effectivePolicy.startup_grace_seconds ?? 20;
     };
 
     const readHealthPolicyFields = () => ({
         use_compose_wait: stackHealthComposeWaitInput.checked,
         require_healthy: stackHealthRequireHealthyInput.checked,
-        wait_timeout_seconds: Number.parseInt(stackHealthTimeoutInput.value, 10) || 120,
-        startup_grace_seconds: Number.parseInt(stackHealthStartupGraceInput.value, 10) || 20
+        wait_timeout_seconds:
+            Number.parseInt(stackHealthTimeoutInput.value, 10) || 120,
+        startup_grace_seconds:
+            Number.parseInt(stackHealthStartupGraceInput.value, 10) || 20,
     });
 
     const openStackContainersModal = (stackName, containers) => {
         stackContainersTitle.textContent = `Containers in ${stackName}`;
-        stackContainersList.innerHTML = '';
+        stackContainersList.innerHTML = "";
 
-        containers.forEach(container => {
+        containers.forEach((container) => {
             const clone = listTemplate.content.cloneNode(true);
-            const containerEl = clone.querySelector('.list-item');
+            const containerEl = clone.querySelector(".list-item");
 
-            const containerNameEl = clone.querySelector('.container-name');
+            const containerNameEl = clone.querySelector(".container-name");
             containerNameEl.textContent = container.name;
 
-            clone.querySelector('.image-name').textContent = container.image;
+            clone.querySelector(".image-name").textContent = container.image;
 
-            const tagBadge = clone.querySelector('.tag-badge');
-            if (container.tag && container.tag !== 'latest' && container.tag !== '(digest)') {
+            const tagBadge = clone.querySelector(".tag-badge");
+            if (
+                container.tag &&
+                container.tag !== "latest" &&
+                container.tag !== "(digest)"
+            ) {
                 tagBadge.textContent = container.tag;
-                tagBadge.classList.remove('hidden');
-            } else if (container.tag === 'latest') {
-                tagBadge.textContent = 'latest';
-                tagBadge.classList.remove('hidden');
+                tagBadge.classList.remove("hidden");
+            } else if (container.tag === "latest") {
+                tagBadge.textContent = "latest";
+                tagBadge.classList.remove("hidden");
             }
 
-            const statusBadge = clone.querySelector('.status-badge');
+            const statusBadge = clone.querySelector(".status-badge");
             statusBadge.textContent = container.state;
 
-            if (container.state === 'running') {
-                statusBadge.classList.add('status-running');
-            } else if (container.state === 'exited' || container.state === 'dead') {
-                statusBadge.classList.add('status-exited');
+            if (container.state === "running") {
+                statusBadge.classList.add("status-running");
+            } else if (
+                container.state === "exited" ||
+                container.state === "dead"
+            ) {
+                statusBadge.classList.add("status-exited");
             } else {
-                statusBadge.classList.add('status-other');
+                statusBadge.classList.add("status-other");
             }
 
             // Setup Action Menu
-            const menuBtn = clone.querySelector('.menu-btn');
-            const menuDropdown = clone.querySelector('.menu-dropdown');
+            const menuBtn = clone.querySelector(".menu-btn");
+            const menuDropdown = clone.querySelector(".menu-dropdown");
             if (menuBtn && menuDropdown) {
-                menuBtn.addEventListener('click', (e) => {
+                menuBtn.addEventListener("click", (e) => {
                     e.stopPropagation();
-                    document.querySelectorAll('.menu-dropdown').forEach(d => {
-                        if (d !== menuDropdown) d.classList.add('hidden');
+                    document.querySelectorAll(".menu-dropdown").forEach((d) => {
+                        if (d !== menuDropdown) d.classList.add("hidden");
                     });
-                    menuDropdown.classList.toggle('hidden');
+                    menuDropdown.classList.toggle("hidden");
                 });
 
-                const startBtn = menuDropdown.querySelector('[data-action="start"]');
-                const stopBtn = menuDropdown.querySelector('[data-action="stop"]');
-                const restartBtn = menuDropdown.querySelector('[data-action="restart"]');
-                const viewStackBtn = menuDropdown.querySelector('[data-action="view-stack"]');
+                const startBtn = menuDropdown.querySelector(
+                    '[data-action="start"]',
+                );
+                const stopBtn = menuDropdown.querySelector(
+                    '[data-action="stop"]',
+                );
+                const restartBtn = menuDropdown.querySelector(
+                    '[data-action="restart"]',
+                );
+                const viewStackBtn = menuDropdown.querySelector(
+                    '[data-action="view-stack"]',
+                );
 
-                if (container.state === 'running') {
+                if (container.state === "running") {
                     startBtn.disabled = true;
-                } else if (container.state === 'exited' || container.state === 'created' || container.state === 'dead') {
+                } else if (
+                    container.state === "exited" ||
+                    container.state === "created" ||
+                    container.state === "dead"
+                ) {
                     stopBtn.disabled = true;
                     restartBtn.disabled = true;
                 }
 
-                if (viewStackBtn && container.stack_managed && container.stack_id) {
-                    viewStackBtn.classList.remove('hidden');
+                if (
+                    viewStackBtn &&
+                    container.stack_managed &&
+                    container.stack_id
+                ) {
+                    viewStackBtn.classList.remove("hidden");
                 }
 
-                menuDropdown.querySelectorAll('.menu-action-btn').forEach(btn => {
-                    btn.addEventListener('click', async (e) => {
-                        e.preventDefault();
-                        menuDropdown.classList.add('hidden');
-                        const action = e.target.dataset.action;
-                        if (action === 'logs') {
-                            closeStackContainersModal();
-                            openLogsModal(container.name);
-                        } else if (action === 'view-stack' && container.stack_id) {
-                            closeStackContainersModal();
-                            await openStackDetails({
-                                id: container.stack_id,
-                                name: container.stack_name
-                            });
-                        } else {
-                            await handleContainerAction(container.name, action, containerEl);
-                        }
+                menuDropdown
+                    .querySelectorAll(".menu-action-btn")
+                    .forEach((btn) => {
+                        btn.addEventListener("click", async (e) => {
+                            e.preventDefault();
+                            menuDropdown.classList.add("hidden");
+                            const action = e.target.dataset.action;
+                            if (action === "logs") {
+                                closeStackContainersModal();
+                                openLogsModal(container.name);
+                            } else if (
+                                action === "view-stack" &&
+                                container.stack_id
+                            ) {
+                                closeStackContainersModal();
+                                await openStackDetails({
+                                    id: container.stack_id,
+                                    name: container.stack_name,
+                                });
+                            } else {
+                                await handleContainerAction(
+                                    container.name,
+                                    action,
+                                    containerEl,
+                                );
+                            }
+                        });
                     });
-                });
             }
 
             stackContainersList.appendChild(clone);
         });
 
-        stackContainersModal.classList.remove('hidden');
+        stackContainersModal.classList.remove("hidden");
     };
 
     const openStackModal = (mode, stack = null, candidate = null) => {
@@ -972,16 +1168,24 @@ document.addEventListener('DOMContentLoaded', () => {
         hideStackError();
         stackForm.reset();
 
-        if (mode === 'edit' && stack) {
+        if (mode === "edit" && stack) {
             stackModalTitle.textContent = `Edit Stack: ${stack.name}`;
-            stackNameInput.value = stack.name || '';
-            stackProjectNameInput.value = stack.project_name || '';
-            stackWorkingDirInput.value = stack.working_dir || '';
-            stackComposeFileInput.value = Array.isArray(stack.compose_files) && stack.compose_files[0] ? stack.compose_files[0] : '';
-            stackEnvFileInput.value = Array.isArray(stack.env_files) && stack.env_files[0] ? stack.env_files[0] : '';
-            stackPathModeInput.value = stack.path_mode || 'host_native';
-            stackPathMappingsInput.value = formatPathMappings(stack.path_mappings);
-            stackProfilesInput.value = (stack.profiles || []).join(', ');
+            stackNameInput.value = stack.name || "";
+            stackProjectNameInput.value = stack.project_name || "";
+            stackWorkingDirInput.value = stack.working_dir || "";
+            stackComposeFileInput.value =
+                Array.isArray(stack.compose_files) && stack.compose_files[0]
+                    ? stack.compose_files[0]
+                    : "";
+            stackEnvFileInput.value =
+                Array.isArray(stack.env_files) && stack.env_files[0]
+                    ? stack.env_files[0]
+                    : "";
+            stackPathModeInput.value = stack.path_mode || "host_native";
+            stackPathMappingsInput.value = formatPathMappings(
+                stack.path_mappings,
+            );
+            stackProfilesInput.value = (stack.profiles || []).join(", ");
             stackProjectEnvInput.value = formatProjectEnv(stack.project_env);
             setUpdatePolicyFields(stack.update_policy);
             setHealthPolicyFields(stack.health_policy);
@@ -992,80 +1196,85 @@ document.addEventListener('DOMContentLoaded', () => {
             stackFormUpdatePolicy = stack.update_policy || null;
             stackFormHealthPolicy = stack.health_policy || null;
             stackFormPathMappings = stack.path_mappings || [];
-            stackFormKind = stack.kind || 'compose_files';
+            stackFormKind = stack.kind || "compose_files";
         } else {
-            stackModalTitle.textContent = 'Register Stack';
-            const workingDir = candidate ? (candidate.working_dir || '') : '';
+            stackModalTitle.textContent = "Register Stack";
+            const workingDir = candidate ? candidate.working_dir || "" : "";
             const composeGuess = candidate
-                ? ((candidate.compose_files && candidate.compose_files[0])
-                    || candidate.suggested_compose_file
-                    || '')
-                : '';
+                ? (candidate.compose_files && candidate.compose_files[0]) ||
+                  candidate.suggested_compose_file ||
+                  ""
+                : "";
             const envGuess = candidate
-                ? (candidate.suggested_env_file || '')
-                : '';
-            const isWindowsPath = /^[a-zA-Z]:\\/.test(workingDir) || workingDir.includes('\\');
+                ? candidate.suggested_env_file || ""
+                : "";
+            const isWindowsPath =
+                /^[a-zA-Z]:\\/.test(workingDir) || workingDir.includes("\\");
 
-            stackNameInput.value = candidate ? candidate.project : '';
-            stackProjectNameInput.value = candidate ? candidate.project : '';
+            stackNameInput.value = candidate ? candidate.project : "";
+            stackProjectNameInput.value = candidate ? candidate.project : "";
             stackWorkingDirInput.value = workingDir;
             stackComposeFileInput.value = composeGuess;
             stackEnvFileInput.value = envGuess;
-            stackPathModeInput.value = isWindowsPath ? 'mapped' : 'host_native';
-            stackPathMappingsInput.value = '';
-            stackProfilesInput.value = '';
-            stackProjectEnvInput.value = '';
+            stackPathModeInput.value = isWindowsPath ? "mapped" : "host_native";
+            stackPathMappingsInput.value = "";
+            stackProfilesInput.value = "";
+            stackProjectEnvInput.value = "";
             setUpdatePolicyFields(defaultUpdatePolicy());
             setHealthPolicyFields(defaultHealthPolicy());
-            stackFormDiscoverySelector = candidate ? {
-                compose_project: candidate.project,
-                service_names: candidate.services || []
-            } : {};
+            stackFormDiscoverySelector = candidate
+                ? {
+                      compose_project: candidate.project,
+                      service_names: candidate.services || [],
+                  }
+                : {};
             stackFormLabels = {};
             stackFormProfiles = [];
             stackFormProjectEnv = {};
             stackFormUpdatePolicy = null;
             stackFormHealthPolicy = null;
             stackFormPathMappings = [];
-            stackFormKind = 'compose_files';
+            stackFormKind = "compose_files";
         }
 
-        stackModal.classList.remove('hidden');
+        stackModal.classList.remove("hidden");
         renderStackFormHints();
         stackNameInput.focus();
     };
 
     const closeStackModal = () => {
-        stackModal.classList.add('hidden');
+        stackModal.classList.add("hidden");
         hideStackError();
         stackForm.reset();
         editingStackId = null;
     };
 
-
     const closeStackContainersModal = () => {
-        stackContainersModal.classList.add('hidden');
+        stackContainersModal.classList.add("hidden");
     };
 
-    closeStackContainersBtn.addEventListener('click', closeStackContainersModal);
-    stackContainersModal.addEventListener('click', (e) => {
+    closeStackContainersBtn.addEventListener(
+        "click",
+        closeStackContainersModal,
+    );
+    stackContainersModal.addEventListener("click", (e) => {
         if (e.target === stackContainersModal) {
             closeStackContainersModal();
         }
     });
 
     const closeStackDetailsModal = () => {
-        stackDetailsModal.classList.add('hidden');
-        stackDetailsTitle.textContent = 'Stack Details';
-        stackDetailsDefinition.textContent = '';
-        stackDetailsPaths.textContent = '';
-        stackDetailsValidation.textContent = '';
-        stackDetailsContainers.textContent = '';
-        stackDetailsHistory.textContent = '';
+        stackDetailsModal.classList.add("hidden");
+        stackDetailsTitle.textContent = "Stack Details";
+        stackDetailsDefinition.textContent = "";
+        stackDetailsPaths.textContent = "";
+        stackDetailsValidation.textContent = "";
+        stackDetailsContainers.textContent = "";
+        stackDetailsHistory.textContent = "";
         if (stackDetailsProgress) {
-            stackDetailsProgress.textContent = '';
-            stackDetailsProgress.classList.add('hidden');
-            stackDetailsProgress.classList.remove('success', 'error');
+            stackDetailsProgress.textContent = "";
+            stackDetailsProgress.classList.add("hidden");
+            stackDetailsProgress.classList.remove("success", "error");
         }
         activeStackDetails = null;
         activeStackStatusSummary = null;
@@ -1076,123 +1285,148 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- Logs Modal Elements ---
-    const logsModal = document.getElementById('logs-modal');
-    const logsTitle = document.getElementById('logs-title');
-    const logsOutput = document.getElementById('logs-output');
-    const closeLogsBtn = document.getElementById('close-logs-btn');
-    const logsBody = document.querySelector('.logs-body');
+    const logsModal = document.getElementById("logs-modal");
+    const logsTitle = document.getElementById("logs-title");
+    const logsOutput = document.getElementById("logs-output");
+    const closeLogsBtn = document.getElementById("close-logs-btn");
+    const logsBody = document.querySelector(".logs-body");
     let logsEventSource = null;
     let userScrolledUp = false;
 
     // Track manual scrolling to pause auto-scroll
     if (logsBody) {
-        logsBody.addEventListener('scroll', () => {
+        logsBody.addEventListener("scroll", () => {
             // If we are within 50px of the bottom, resume auto-scroll
-            const isAtBottom = logsBody.scrollHeight - logsBody.scrollTop - logsBody.clientHeight < 50;
+            const isAtBottom =
+                logsBody.scrollHeight -
+                    logsBody.scrollTop -
+                    logsBody.clientHeight <
+                50;
             userScrolledUp = !isAtBottom;
         });
     }
 
     const closeLogsModal = () => {
-        logsModal.classList.add('hidden');
+        logsModal.classList.add("hidden");
         if (logsEventSource) {
             logsEventSource.close();
             logsEventSource = null;
         }
-        logsOutput.textContent = '';
+        logsOutput.textContent = "";
     };
 
     if (closeLogsBtn) {
-        closeLogsBtn.addEventListener('click', closeLogsModal);
+        closeLogsBtn.addEventListener("click", closeLogsModal);
     }
     if (closeStackBtn) {
-        closeStackBtn.addEventListener('click', closeStackModal);
+        closeStackBtn.addEventListener("click", closeStackModal);
     }
     if (closeStackDetailsBtn) {
-        closeStackDetailsBtn.addEventListener('click', closeStackDetailsModal);
+        closeStackDetailsBtn.addEventListener("click", closeStackDetailsModal);
     }
     if (stackDetailsEditBtn) {
-        stackDetailsEditBtn.addEventListener('click', () => {
+        stackDetailsEditBtn.addEventListener("click", () => {
             if (!activeStackDetails) return;
             const stackToEdit = activeStackDetails;
             closeStackDetailsModal();
-            openStackModal('edit', stackToEdit);
+            openStackModal("edit", stackToEdit);
         });
     }
     if (stackDetailsValidateBtn) {
-        stackDetailsValidateBtn.addEventListener('click', async () => {
+        stackDetailsValidateBtn.addEventListener("click", async () => {
             if (!activeStackDetails) return;
             await validateStack(activeStackDetails);
             await openStackDetails(activeStackDetails);
         });
     }
     if (stackDetailsPullBtn) {
-        stackDetailsPullBtn.addEventListener('click', async () => {
+        stackDetailsPullBtn.addEventListener("click", async () => {
             if (!activeStackDetails) return;
             const stackToPull = activeStackDetails;
-            const stackCard = document.querySelector(`.stack-card[data-stack-id="${CSS.escape(stackToPull.id)}"]`);
-            const result = await runStackAction(stackToPull, 'pull', stackCard);
+            const stackCard = document.querySelector(
+                `.stack-card[data-stack-id="${CSS.escape(stackToPull.id)}"]`,
+            );
+            const result = await runStackAction(stackToPull, "pull", stackCard);
             if (result.attempted) {
                 await openStackDetails(stackToPull);
             }
         });
     }
     if (stackDetailsRestartBtn) {
-        stackDetailsRestartBtn.addEventListener('click', async () => {
+        stackDetailsRestartBtn.addEventListener("click", async () => {
             if (!activeStackDetails) return;
             const stackToRestart = activeStackDetails;
-            const stackCard = document.querySelector(`.stack-card[data-stack-id="${CSS.escape(stackToRestart.id)}"]`);
-            const result = await runStackAction(stackToRestart, 'restart', stackCard);
+            const stackCard = document.querySelector(
+                `.stack-card[data-stack-id="${CSS.escape(stackToRestart.id)}"]`,
+            );
+            const result = await runStackAction(
+                stackToRestart,
+                "restart",
+                stackCard,
+            );
             if (result.attempted) {
                 await openStackDetails(stackToRestart);
             }
         });
     }
     if (stackDetailsDownBtn) {
-        stackDetailsDownBtn.addEventListener('click', async () => {
+        stackDetailsDownBtn.addEventListener("click", async () => {
             if (!activeStackDetails) return;
             const stackToStop = activeStackDetails;
-            const stackCard = document.querySelector(`.stack-card[data-stack-id="${CSS.escape(stackToStop.id)}"]`);
-            const result = await runStackAction(stackToStop, 'down', stackCard);
+            const stackCard = document.querySelector(
+                `.stack-card[data-stack-id="${CSS.escape(stackToStop.id)}"]`,
+            );
+            const result = await runStackAction(stackToStop, "down", stackCard);
             if (result.attempted) {
                 await openStackDetails(stackToStop);
             }
         });
     }
     if (stackDetailsReconcileBtn) {
-        stackDetailsReconcileBtn.addEventListener('click', async () => {
+        stackDetailsReconcileBtn.addEventListener("click", async () => {
             if (!activeStackDetails) return;
             const stackToReconcile = activeStackDetails;
             try {
-                const response = await fetch(withAgentQuery(`/api/stacks/${encodeURIComponent(stackToReconcile.id)}/reconcile`), {
-                    method: 'POST',
-                    headers: getAuthHeaders()
-                });
+                const response = await fetch(
+                    withAgentQuery(
+                        `/api/stacks/${encodeURIComponent(stackToReconcile.id)}/reconcile`,
+                    ),
+                    {
+                        method: "POST",
+                        headers: getAuthHeaders(),
+                    },
+                );
                 const data = await response.json();
                 if (!response.ok) {
-                    throw new Error(data.error || 'Failed to reconcile stack');
+                    throw new Error(data.error || "Failed to reconcile stack");
                 }
                 await Promise.all([fetchStacks(), fetchContainers(false)]);
                 await openStackDetails(stackToReconcile);
             } catch (error) {
-                console.error('Failed to reconcile stack', error);
+                console.error("Failed to reconcile stack", error);
                 alert(`Failed to reconcile stack: ${error.message}`);
             }
         });
     }
     if (stackDetailsDeployBtn) {
-        stackDetailsDeployBtn.addEventListener('click', async () => {
+        stackDetailsDeployBtn.addEventListener("click", async () => {
             if (!activeStackDetails) return;
             const stackToDeploy = activeStackDetails;
-            const stackCard = document.querySelector(`.stack-card[data-stack-id="${CSS.escape(stackToDeploy.id)}"]`);
-            const result = await runStackAction(stackToDeploy, 'deploy', stackCard);
+            const stackCard = document.querySelector(
+                `.stack-card[data-stack-id="${CSS.escape(stackToDeploy.id)}"]`,
+            );
+            const result = await runStackAction(
+                stackToDeploy,
+                "deploy",
+                stackCard,
+            );
             if (result.attempted) {
                 await openStackDetails(stackToDeploy);
             }
         });
     }
     if (stackDetailsDeleteBtn) {
-        stackDetailsDeleteBtn.addEventListener('click', async () => {
+        stackDetailsDeleteBtn.addEventListener("click", async () => {
             if (!activeStackDetails) return;
             const stackToDelete = activeStackDetails;
             closeStackDetailsModal();
@@ -1200,26 +1434,28 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     if (stackCancelBtn) {
-        stackCancelBtn.addEventListener('click', closeStackModal);
+        stackCancelBtn.addEventListener("click", closeStackModal);
     }
-    [stackWorkingDirInput, stackPathModeInput, stackPathMappingsInput].forEach((element) => {
-        if (!element) return;
-        element.addEventListener('input', renderStackFormHints);
-        element.addEventListener('change', renderStackFormHints);
-    });
+    [stackWorkingDirInput, stackPathModeInput, stackPathMappingsInput].forEach(
+        (element) => {
+            if (!element) return;
+            element.addEventListener("input", renderStackFormHints);
+            element.addEventListener("change", renderStackFormHints);
+        },
+    );
 
     // Close logs modal on outside click
-    logsModal.addEventListener('click', (e) => {
+    logsModal.addEventListener("click", (e) => {
         if (e.target === logsModal) {
             closeLogsModal();
         }
     });
-    stackModal.addEventListener('click', (e) => {
+    stackModal.addEventListener("click", (e) => {
         if (e.target === stackModal) {
             closeStackModal();
         }
     });
-    stackDetailsModal.addEventListener('click', (e) => {
+    stackDetailsModal.addEventListener("click", (e) => {
         if (e.target === stackDetailsModal) {
             closeStackDetailsModal();
         }
@@ -1228,18 +1464,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const openLogsModal = (containerName) => {
         const safeName = getSafeContainerPathSegment(containerName);
         if (!safeName) {
-            console.error('Invalid container name for logs stream');
+            console.error("Invalid container name for logs stream");
             return;
         }
 
         logsTitle.textContent = `Logs: ${containerName}`;
-        logsOutput.textContent = 'Connecting to log stream...\n';
-        logsModal.classList.remove('hidden');
+        logsOutput.textContent = "Connecting to log stream...\n";
+        logsModal.classList.remove("hidden");
         userScrolledUp = false;
 
         let streamUrl = withAgentQuery(`/api/logs/${safeName}`);
 
-        const token = sessionStorage.getItem('dockgo_token');
+        const token = sessionStorage.getItem("dockgo_token");
         if (token && !isLoggedIn) {
             streamUrl += `?token=${encodeURIComponent(token)}`;
         }
@@ -1254,16 +1490,18 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const data = JSON.parse(event.data);
                 if (data.line) {
-                    const ansiUp = window.ansiUpInstance || (window.ansiUpInstance = new AnsiUp());
+                    const ansiUp =
+                        window.ansiUpInstance ||
+                        (window.ansiUpInstance = new AnsiUp());
 
-                    const lineEl = document.createElement('div');
-                    lineEl.className = 'log-line';
+                    const lineEl = document.createElement("div");
+                    lineEl.className = "log-line";
 
                     const rawHtml = ansiUp.ansi_to_html(data.line);
 
                     // Decode safely using DOMParser to satisfy SAST XSS rules instead of innerHTML
                     const parser = new DOMParser();
-                    const doc = parser.parseFromString(rawHtml, 'text/html');
+                    const doc = parser.parseFromString(rawHtml, "text/html");
 
                     // Transfer the parsed nodes safely
                     while (doc.body.firstChild) {
@@ -1277,16 +1515,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             } catch (e) {
-                console.error('SSE Log Parse Error', e);
+                console.error("SSE Log Parse Error", e);
             }
         };
 
         logsEventSource.onerror = (err) => {
-            console.warn('Logs EventSource error:', err);
+            console.warn("Logs EventSource error:", err);
 
-            const lineEl = document.createElement('div');
-            lineEl.className = 'log-line';
-            lineEl.textContent = '\n--- Stream ended or connection lost. ---\n';
+            const lineEl = document.createElement("div");
+            lineEl.className = "log-line";
+            lineEl.textContent = "\n--- Stream ended or connection lost. ---\n";
             logsOutput.appendChild(lineEl);
 
             if (!userScrolledUp && logsBody) {
@@ -1297,71 +1535,78 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     };
 
-    loginForm.addEventListener('submit', async (e) => {
+    loginForm.addEventListener("submit", async (e) => {
         e.preventDefault();
         const username = loginUsernameInput.value;
         const password = loginPasswordInput.value;
 
         try {
-            const response = await fetch('/api/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
+            const response = await fetch("/api/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, password }),
             });
 
             if (response.ok) {
                 isLoggedIn = true;
                 hideLoginModal();
+                fetchAgents();
                 fetchContainers(true); // Refresh data
                 checkAuthStatus(); // Refresh UI state (logout button)
-                if (currentPrimaryView === 'stacks') {
+                if (currentPrimaryView === "stacks") {
                     loadStacksViewData();
                 }
             } else {
-                loginError.textContent = 'Invalid credentials';
-                loginError.classList.remove('hidden');
+                loginError.textContent = "Invalid credentials";
+                loginError.classList.remove("hidden");
             }
         } catch (e) {
-            loginError.textContent = 'Login failed: ' + e.message;
-            loginError.classList.remove('hidden');
+            loginError.textContent = "Login failed: " + e.message;
+            loginError.classList.remove("hidden");
         }
     });
 
     // Strict Auth: Do not allow closing the modal by clicking outside
-    loginModal.addEventListener('click', (e) => {
+    loginModal.addEventListener("click", (e) => {
         if (e.target === loginModal) {
             return;
         }
     });
 
-    const fetchContainers = async (showProgress = false, forceRefresh = false) => {
+    const fetchContainers = async (
+        showProgress = false,
+        forceRefresh = false,
+    ) => {
         if (showProgress) {
             refreshBtn.disabled = true;
-            refreshBtn.classList.add('spinning');
-            statusEl.textContent = 'Connecting stream...';
+            refreshBtn.classList.add("spinning");
+            statusEl.textContent = "Connecting stream...";
 
-            const progressContainer = document.getElementById('progress-container');
-            const progressText = document.getElementById('progress-text');
-            const progressCount = document.getElementById('progress-count');
-            const progressBarFill = document.getElementById('progress-bar-fill');
+            const progressContainer =
+                document.getElementById("progress-container");
+            const progressText = document.getElementById("progress-text");
+            const progressCount = document.getElementById("progress-count");
+            const progressBarFill =
+                document.getElementById("progress-bar-fill");
 
-            progressContainer.classList.remove('hidden');
-            progressBarFill.style.width = '0%';
-            progressText.textContent = 'Starting check...';
-            progressCount.textContent = '-/-';
+            progressContainer.classList.remove("hidden");
+            progressBarFill.style.width = "0%";
+            progressText.textContent = "Starting check...";
+            progressCount.textContent = "-/-";
 
             // Construct URL with token if needed (for legacy auth SSE)
-            let streamUrl = '/api/stream/check';
+            let streamUrl = "/api/stream/check";
             const queryParts = [];
-            if (forceRefresh) queryParts.push('force=true');
-            if (currentAgentID) queryParts.push(`agent=${encodeURIComponent(currentAgentID)}`);
+            if (forceRefresh) queryParts.push("force=true");
+            if (currentAgentID)
+                queryParts.push(`agent=${encodeURIComponent(currentAgentID)}`);
             if (queryParts.length > 0) {
-                streamUrl += `?${queryParts.join('&')}`;
+                streamUrl += `?${queryParts.join("&")}`;
             }
 
-            const token = sessionStorage.getItem('dockgo_token');
+            const token = sessionStorage.getItem("dockgo_token");
             if (token && !isLoggedIn) {
-                const sep = streamUrl.includes('?') ? '&' : '?';
+                const sep = streamUrl.includes("?") ? "&" : "?";
                 streamUrl += `${sep}token=${encodeURIComponent(token)}`;
             }
             const evtSource = new EventSource(streamUrl);
@@ -1370,77 +1615,81 @@ document.addEventListener('DOMContentLoaded', () => {
                 try {
                     const data = JSON.parse(event.data);
 
-                    if (data.type === 'start') {
+                    if (data.type === "start") {
                         progressCount.textContent = `0/${data.total}`;
-                    } else if (data.type === 'progress') {
+                    } else if (data.type === "progress") {
                         const percent = (data.current / data.total) * 100;
                         progressBarFill.style.width = `${percent}%`;
                         progressCount.textContent = `${data.current}/${data.total}`;
                         progressText.textContent = `Checking ${data.container}...`;
-                    } else if (data.type === 'done') {
+                    } else if (data.type === "done") {
                         evtSource.close();
-                        progressText.textContent = 'Check complete.';
-                        progressBarFill.style.width = '100%';
+                        progressText.textContent = "Check complete.";
+                        progressBarFill.style.width = "100%";
                         setTimeout(() => {
-                            progressContainer.classList.add('hidden');
+                            progressContainer.classList.add("hidden");
                             fetchContainers(false); // Refresh list
                         }, 500);
                     }
                 } catch (e) {
-                    console.error('SSE Parse Error', e);
+                    console.error("SSE Parse Error", e);
                 }
             };
 
             evtSource.onerror = (err) => {
-                console.warn('EventSource error:', err);
+                console.warn("EventSource error:", err);
                 if (evtSource.readyState === EventSource.CLOSED) {
-                    statusEl.textContent = 'Connection lost. Click refresh to retry.';
-                    statusEl.style.color = 'var(--danger)';
+                    statusEl.textContent =
+                        "Connection lost. Click refresh to retry.";
+                    statusEl.style.color = "var(--danger)";
                     refreshBtn.disabled = false;
-                    refreshBtn.classList.remove('spinning');
+                    refreshBtn.classList.remove("spinning");
                 } else {
-                    statusEl.textContent = 'Network blip... reconnecting...';
-                    statusEl.style.color = 'var(--warning)';
+                    statusEl.textContent = "Network blip... reconnecting...";
+                    statusEl.style.color = "var(--warning)";
                 }
             };
             return;
         }
 
         try {
-            const response = await fetch(`/api/containers${agentQuery()}`, { headers: getAuthHeaders() });
+            const response = await fetch(`/api/containers${agentQuery()}`, {
+                headers: getAuthHeaders(),
+            });
 
             if (response.status === 401 || response.status === 403) {
                 // Unauthorized or Forbidden
                 if (!authEnabled && !window.apiTokenEnabled) {
-                    const noAuthModal = document.getElementById('no-auth-modal');
+                    const noAuthModal =
+                        document.getElementById("no-auth-modal");
                     if (noAuthModal) {
-                        noAuthModal.classList.remove('hidden');
+                        noAuthModal.classList.remove("hidden");
                     }
-                    statusEl.textContent = 'Authentication Required';
-                    statusEl.style.color = 'var(--danger)';
+                    statusEl.textContent = "Authentication Required";
+                    statusEl.style.color = "var(--danger)";
                     return;
                 } else if (authEnabled) {
                     if (isLoggedIn) {
-                        statusEl.textContent = 'Session Expired';
+                        statusEl.textContent = "Session Expired";
                     } else {
-                        statusEl.textContent = 'Auth Required';
+                        statusEl.textContent = "Auth Required";
                     }
                     isLoggedIn = false;
-                    logoutBtn.classList.add('hidden');
-                    logoutAllBtn.classList.add('hidden');
+                    logoutBtn.classList.add("hidden");
+                    logoutAllBtn.classList.add("hidden");
                     showLoginModal();
-                    statusEl.style.color = 'var(--warning)';
+                    statusEl.style.color = "var(--warning)";
                     return;
                 } else if (!authEnabled) {
                     // Legacy mode, token missing or invalid
                     // Show error in status
-                    statusEl.textContent = 'Auth Required (Token)';
-                    statusEl.style.color = 'var(--danger)';
+                    statusEl.textContent = "Auth Required (Token)";
+                    statusEl.style.color = "var(--danger)";
                     return;
                 }
             }
 
-            if (!response.ok) throw new Error('Failed to fetch');
+            if (!response.ok) throw new Error("Failed to fetch");
             const containers = await response.json();
             cachedContainers = containers;
 
@@ -1448,29 +1697,33 @@ document.addEventListener('DOMContentLoaded', () => {
             if (activeUpdates === 0) {
                 renderContainers(containers);
             } else {
-                console.log(`Skipping full DOM re-render: ${activeUpdates} updates still active.`);
+                console.log(
+                    `Skipping full DOM re-render: ${activeUpdates} updates still active.`,
+                );
             }
-            statusEl.textContent = 'Connected';
-            statusEl.style.color = 'var(--success)';
+            statusEl.textContent = "Connected";
+            statusEl.style.color = "var(--success)";
             fetchServerStats();
         } catch (error) {
-            console.error('Error:', error);
-            statusEl.textContent = 'Error connecting';
-            statusEl.style.color = 'var(--danger)';
+            console.error("Error:", error);
+            statusEl.textContent = "Error connecting";
+            statusEl.style.color = "var(--danger)";
         } finally {
             if (!showProgress) {
                 refreshBtn.disabled = false;
-                refreshBtn.classList.remove('spinning');
+                refreshBtn.classList.remove("spinning");
             }
         }
     };
 
-    refreshBtn.addEventListener('click', () => fetchContainers(true, true));
+    refreshBtn.addEventListener("click", () => fetchContainers(true, true));
     if (refreshStacksBtn) {
-        refreshStacksBtn.addEventListener('click', () => fetchStacks());
+        refreshStacksBtn.addEventListener("click", () => fetchStacks());
     }
     if (discoverStacksBtn) {
-        discoverStacksBtn.addEventListener('click', () => fetchStackCandidates());
+        discoverStacksBtn.addEventListener("click", () =>
+            fetchStackCandidates(),
+        );
     }
 
     const renderStacks = (stackItems) => {
@@ -1479,89 +1732,120 @@ document.addEventListener('DOMContentLoaded', () => {
         stackListEl.style.minHeight = `${currentHeight}px`;
 
         try {
-            stackListEl.innerHTML = '';
+            stackListEl.innerHTML = "";
 
             if (!Array.isArray(stackItems) || stackItems.length === 0) {
-                stackListEl.innerHTML = '<div class="loading">No registered stacks yet.</div>';
+                stackListEl.innerHTML =
+                    '<div class="loading">No registered stacks yet.</div>';
                 return;
             }
 
-        let visibleStacks = stackItems.filter((item) => {
-            const state = item?.status_summary?.state || '';
-            if (!filterDriftedStacks && !filterUnboundStacks) {
-                return true;
-            }
-            return (filterDriftedStacks && state === 'drifted') || (filterUnboundStacks && state === 'unbound');
-        });
-
-        if (currentSearchQuery) {
-            visibleStacks = visibleStacks.filter((item) => {
-                const stack = item.stack || item;
-                const nameMatch = (stack.name || '').toLowerCase().includes(currentSearchQuery);
-                const projMatch = (stack.project_name || '').toLowerCase().includes(currentSearchQuery);
-                return nameMatch || projMatch;
+            let visibleStacks = stackItems.filter((item) => {
+                const state = item?.status_summary?.state || "";
+                if (!filterDriftedStacks && !filterUnboundStacks) {
+                    return true;
+                }
+                return (
+                    (filterDriftedStacks && state === "drifted") ||
+                    (filterUnboundStacks && state === "unbound")
+                );
             });
-        }
 
-        if (visibleStacks.length === 0) {
-            stackListEl.innerHTML = '<div class="loading">No registered stacks match the current filters.</div>';
-            return;
-        }
-
-        visibleStacks.forEach((item) => {
-            const stack = item.stack || item;
-            const recentHistory = item.recent_history || [];
-            const statusSummary = item.status_summary || null;
-            const clone = stackCardTemplate.content.cloneNode(true);
-            const stackEl = clone.querySelector('.stack-card');
-            stackEl.dataset.stackId = stack.id;
-            clone.querySelector('.stack-name').textContent = stack.name;
-            clone.querySelector('.stack-path').textContent = stack.working_dir;
-            clone.querySelector('.stack-project').textContent = `Project: ${stack.project_name}`;
-            clone.querySelector('.stack-mode-badge').textContent = stack.path_mode || 'unknown';
-            applyStackStatusBadge(clone.querySelector('.stack-status-badge'), statusSummary);
-
-            const composeFiles = Array.isArray(stack.compose_files) ? stack.compose_files.length : 0;
-            const envFiles = Array.isArray(stack.env_files) ? stack.env_files.length : 0;
-            const composeFile = composeFiles > 0 ? stack.compose_files[0] : 'none';
-            const envFile = envFiles > 0 ? stack.env_files[0] : 'none';
-            const metaLines = [
-                formatStackStatusSummary(statusSummary),
-                `Compose file: ${composeFile}`,
-                `Env file: ${envFile}`,
-                `Last deploy: ${stack.last_deploy_status || 'not deployed'}`
-            ];
-            if (recentHistory.length > 0) {
-                metaLines.push('Recent activity:');
-                recentHistory.forEach((entry) => {
-                    metaLines.push(`- ${entry.action} ${entry.status}: ${entry.message || 'no details'}`);
+            if (currentSearchQuery) {
+                visibleStacks = visibleStacks.filter((item) => {
+                    const stack = item.stack || item;
+                    const nameMatch = (stack.name || "")
+                        .toLowerCase()
+                        .includes(currentSearchQuery);
+                    const projMatch = (stack.project_name || "")
+                        .toLowerCase()
+                        .includes(currentSearchQuery);
+                    return nameMatch || projMatch;
                 });
             }
-            clone.querySelector('.stack-meta').textContent = metaLines.join('\n');
 
-            clone.querySelector('.details-stack-btn').addEventListener('click', async () => {
-                await openStackDetails(stack);
-            });
-            const deleteBtn = clone.querySelector('.delete-stack-btn');
-            deleteBtn.classList.remove('secondary');
-            deleteBtn.classList.add('danger');
-            deleteBtn.addEventListener('click', async () => {
-                await deleteStack(stack);
-            });
-            clone.querySelector('.edit-stack-btn').addEventListener('click', async () => {
-                await editStack(stack);
-            });
-            clone.querySelector('.validate-stack-btn').addEventListener('click', async () => {
-                await validateStack(stack);
-            });
-            clone.querySelector('.deploy-stack-btn').addEventListener('click', async () => {
-                await runStackAction(stack, 'deploy', stackEl);
-            });
+            if (visibleStacks.length === 0) {
+                stackListEl.innerHTML =
+                    '<div class="loading">No registered stacks match the current filters.</div>';
+                return;
+            }
 
-            stackListEl.appendChild(clone);
-        });
+            visibleStacks.forEach((item) => {
+                const stack = item.stack || item;
+                const recentHistory = item.recent_history || [];
+                const statusSummary = item.status_summary || null;
+                const clone = stackCardTemplate.content.cloneNode(true);
+                const stackEl = clone.querySelector(".stack-card");
+                stackEl.dataset.stackId = stack.id;
+                clone.querySelector(".stack-name").textContent = stack.name;
+                clone.querySelector(".stack-path").textContent =
+                    stack.working_dir;
+                clone.querySelector(".stack-project").textContent =
+                    `Project: ${stack.project_name}`;
+                clone.querySelector(".stack-mode-badge").textContent =
+                    stack.path_mode || "unknown";
+                applyStackStatusBadge(
+                    clone.querySelector(".stack-status-badge"),
+                    statusSummary,
+                );
+
+                const composeFiles = Array.isArray(stack.compose_files)
+                    ? stack.compose_files.length
+                    : 0;
+                const envFiles = Array.isArray(stack.env_files)
+                    ? stack.env_files.length
+                    : 0;
+                const composeFile =
+                    composeFiles > 0 ? stack.compose_files[0] : "none";
+                const envFile = envFiles > 0 ? stack.env_files[0] : "none";
+                const metaLines = [
+                    formatStackStatusSummary(statusSummary),
+                    `Compose file: ${composeFile}`,
+                    `Env file: ${envFile}`,
+                    `Last deploy: ${stack.last_deploy_status || "not deployed"}`,
+                ];
+                if (recentHistory.length > 0) {
+                    metaLines.push("Recent activity:");
+                    recentHistory.forEach((entry) => {
+                        metaLines.push(
+                            `- ${entry.action} ${entry.status}: ${entry.message || "no details"}`,
+                        );
+                    });
+                }
+                clone.querySelector(".stack-meta").textContent =
+                    metaLines.join("\n");
+
+                clone
+                    .querySelector(".details-stack-btn")
+                    .addEventListener("click", async () => {
+                        await openStackDetails(stack);
+                    });
+                const deleteBtn = clone.querySelector(".delete-stack-btn");
+                deleteBtn.classList.remove("secondary");
+                deleteBtn.classList.add("danger");
+                deleteBtn.addEventListener("click", async () => {
+                    await deleteStack(stack);
+                });
+                clone
+                    .querySelector(".edit-stack-btn")
+                    .addEventListener("click", async () => {
+                        await editStack(stack);
+                    });
+                clone
+                    .querySelector(".validate-stack-btn")
+                    .addEventListener("click", async () => {
+                        await validateStack(stack);
+                    });
+                clone
+                    .querySelector(".deploy-stack-btn")
+                    .addEventListener("click", async () => {
+                        await runStackAction(stack, "deploy", stackEl);
+                    });
+
+                stackListEl.appendChild(clone);
+            });
         } finally {
-            stackListEl.style.minHeight = '';
+            stackListEl.style.minHeight = "";
             if (currentScrollY > 0) {
                 window.scrollTo(0, currentScrollY);
             }
@@ -1569,50 +1853,62 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const renderStackCandidates = (candidates) => {
-        stackCandidatesEl.innerHTML = '';
+        stackCandidatesEl.innerHTML = "";
 
         if (!Array.isArray(candidates) || candidates.length === 0) {
-            stackCandidatesEl.innerHTML = '<div class="loading">No Compose projects discovered.</div>';
+            stackCandidatesEl.innerHTML =
+                '<div class="loading">No Compose projects discovered.</div>';
             return;
         }
 
         const visibleCandidates = candidates
-            .filter((candidate) => !hideRegisteredStacks || !candidate.registered)
+            .filter(
+                (candidate) => !hideRegisteredStacks || !candidate.registered,
+            )
             .sort((a, b) => a.project.localeCompare(b.project));
 
         if (visibleCandidates.length === 0) {
-            stackCandidatesEl.innerHTML = '<div class="loading">No unregistered Compose projects discovered.</div>';
+            stackCandidatesEl.innerHTML =
+                '<div class="loading">No unregistered Compose projects discovered.</div>';
             return;
         }
 
         visibleCandidates.forEach((candidate) => {
             const clone = stackCandidateTemplate.content.cloneNode(true);
-            clone.querySelector('.stack-name').textContent = candidate.project;
-            clone.querySelector('.stack-path').textContent = candidate.working_dir || 'No working directory label';
-            clone.querySelector('.stack-project').textContent = `Services: ${(candidate.services || []).join(', ') || 'none reported'}`;
+            clone.querySelector(".stack-name").textContent = candidate.project;
+            clone.querySelector(".stack-path").textContent =
+                candidate.working_dir || "No working directory label";
+            clone.querySelector(".stack-project").textContent =
+                `Services: ${(candidate.services || []).join(", ") || "none reported"}`;
 
-            const stateBadge = clone.querySelector('.candidate-state');
-            stateBadge.textContent = candidate.registered ? 'registered' : 'unregistered';
-            stateBadge.classList.add(candidate.registered ? 'registered' : 'unregistered');
+            const stateBadge = clone.querySelector(".candidate-state");
+            stateBadge.textContent = candidate.registered
+                ? "registered"
+                : "unregistered";
+            stateBadge.classList.add(
+                candidate.registered ? "registered" : "unregistered",
+            );
 
-            const composeFileGuess = (candidate.compose_files && candidate.compose_files.length)
-                ? candidate.compose_files.join(', ')
-                : (candidate.suggested_compose_file || '');
-            const envFileGuess = candidate.suggested_env_file || '';
+            const composeFileGuess =
+                candidate.compose_files && candidate.compose_files.length
+                    ? candidate.compose_files.join(", ")
+                    : candidate.suggested_compose_file || "";
+            const envFileGuess = candidate.suggested_env_file || "";
             const metaLines = [
-                `Suggested compose file: ${composeFileGuess || 'unknown'}`,
-                `Suggested env file: ${envFileGuess || 'none'}`,
-                'Discovery source: Compose labels'
+                `Suggested compose file: ${composeFileGuess || "unknown"}`,
+                `Suggested env file: ${envFileGuess || "none"}`,
+                "Discovery source: Compose labels",
             ];
-            clone.querySelector('.stack-meta').textContent = metaLines.join('\n');
+            clone.querySelector(".stack-meta").textContent =
+                metaLines.join("\n");
 
-            const registerBtn = clone.querySelector('.register-stack-btn');
+            const registerBtn = clone.querySelector(".register-stack-btn");
             if (candidate.registered) {
                 registerBtn.disabled = true;
-                registerBtn.textContent = 'Already Registered';
+                registerBtn.textContent = "Already Registered";
             } else {
-                registerBtn.addEventListener('click', () => {
-                    openStackModal('create', null, candidate);
+                registerBtn.addEventListener("click", () => {
+                    openStackModal("create", null, candidate);
                 });
             }
 
@@ -1622,7 +1918,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const fetchStacks = async () => {
         try {
-            const response = await fetch(`/api/stacks${agentQuery()}`, { headers: getAuthHeaders() });
+            const response = await fetch(`/api/stacks${agentQuery()}`, {
+                headers: getAuthHeaders(),
+            });
             if (!response.ok) {
                 throw new Error(`Failed to fetch stacks (${response.status})`);
             }
@@ -1631,41 +1929,54 @@ document.addEventListener('DOMContentLoaded', () => {
             renderStacks(cachedStacks);
             renderStacksOverview();
         } catch (error) {
-            console.error('Failed to fetch stacks', error);
-            stackListEl.innerHTML = '<div class="loading">Failed to load registered stacks.</div>';
+            console.error("Failed to fetch stacks", error);
+            stackListEl.innerHTML =
+                '<div class="loading">Failed to load registered stacks.</div>';
         }
     };
 
     const fetchStackCandidates = async () => {
         try {
-            const response = await fetch(withAgentQuery('/api/stacks/discover'), {
-                method: 'POST',
-                headers: getAuthHeaders()
-            });
+            const response = await fetch(
+                withAgentQuery("/api/stacks/discover"),
+                {
+                    method: "POST",
+                    headers: getAuthHeaders(),
+                },
+            );
             if (!response.ok) {
-                throw new Error(`Failed to discover stacks (${response.status})`);
+                throw new Error(
+                    `Failed to discover stacks (${response.status})`,
+                );
             }
             const data = await response.json();
             cachedStackCandidates = data.candidates || [];
             renderStackCandidates(cachedStackCandidates);
             renderStacksOverview();
         } catch (error) {
-            console.error('Failed to discover stacks', error);
-            stackCandidatesEl.innerHTML = '<div class="loading">Failed to discover Compose projects.</div>';
+            console.error("Failed to discover stacks", error);
+            stackCandidatesEl.innerHTML =
+                '<div class="loading">Failed to discover Compose projects.</div>';
         }
     };
 
     const renderStacksOverview = () => {
-        if (!stacksRegisteredStatEl || !stacksRunningStatEl || !stacksDiscoveredStatEl) {
+        if (
+            !stacksRegisteredStatEl ||
+            !stacksRunningStatEl ||
+            !stacksDiscoveredStatEl
+        ) {
             return;
         }
 
         const registeredCount = cachedStacks.length;
         const runningCount = cachedStacks.filter((item) => {
             const summary = item.status_summary || {};
-            return summary.state === 'running';
+            return summary.state === "running";
         }).length;
-        const discoveredCount = cachedStackCandidates.filter((candidate) => !candidate.registered).length;
+        const discoveredCount = cachedStackCandidates.filter(
+            (candidate) => !candidate.registered,
+        ).length;
 
         stacksRegisteredStatEl.textContent = String(registeredCount);
         stacksRunningStatEl.textContent = String(runningCount);
@@ -1677,12 +1988,18 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const persistStackFilters = () => {
-        localStorage.setItem('dockgo_filter_drifted_stacks', String(filterDriftedStacks));
-        localStorage.setItem('dockgo_filter_unbound_stacks', String(filterUnboundStacks));
+        localStorage.setItem(
+            "dockgo_filter_drifted_stacks",
+            String(filterDriftedStacks),
+        );
+        localStorage.setItem(
+            "dockgo_filter_unbound_stacks",
+            String(filterUnboundStacks),
+        );
     };
 
     if (filterDriftedStacksEl) {
-        filterDriftedStacksEl.addEventListener('change', () => {
+        filterDriftedStacksEl.addEventListener("change", () => {
             filterDriftedStacks = filterDriftedStacksEl.checked;
             persistStackFilters();
             renderStacks(cachedStacks);
@@ -1690,7 +2007,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (filterUnboundStacksEl) {
-        filterUnboundStacksEl.addEventListener('change', () => {
+        filterUnboundStacksEl.addEventListener("change", () => {
             filterUnboundStacks = filterUnboundStacksEl.checked;
             persistStackFilters();
             renderStacks(cachedStacks);
@@ -1698,18 +2015,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (hideRegisteredStacksEl) {
-        hideRegisteredStacksEl.addEventListener('change', () => {
+        hideRegisteredStacksEl.addEventListener("change", () => {
             hideRegisteredStacks = hideRegisteredStacksEl.checked;
-            localStorage.setItem('dockgo_hide_registered_stacks', String(hideRegisteredStacks));
+            localStorage.setItem(
+                "dockgo_hide_registered_stacks",
+                String(hideRegisteredStacks),
+            );
             renderStackCandidates(cachedStackCandidates);
         });
     }
 
     const editStack = async (stack) => {
-        openStackModal('edit', stack);
+        openStackModal("edit", stack);
     };
 
-    stackForm.addEventListener('submit', async (e) => {
+    stackForm.addEventListener("submit", async (e) => {
         e.preventDefault();
         hideStackError();
 
@@ -1719,7 +2039,9 @@ document.addEventListener('DOMContentLoaded', () => {
             kind: stackFormKind,
             agent_id: currentAgentID,
             compose_files: [stackComposeFileInput.value.trim()],
-            env_files: stackEnvFileInput.value.trim() ? [stackEnvFileInput.value.trim()] : [],
+            env_files: stackEnvFileInput.value.trim()
+                ? [stackEnvFileInput.value.trim()]
+                : [],
             working_dir: stackWorkingDirInput.value.trim(),
             profiles: [],
             project_env: {},
@@ -1728,14 +2050,18 @@ document.addEventListener('DOMContentLoaded', () => {
             update_policy: readUpdatePolicyFields(),
             health_policy: readHealthPolicyFields(),
             discovery_selector: stackFormDiscoverySelector,
-            labels: stackFormLabels
+            labels: stackFormLabels,
         };
 
         try {
-            payload.path_mappings = parsePathMappings(stackPathMappingsInput.value.trim());
-            payload.project_env = parseProjectEnv(stackProjectEnvInput.value.trim());
+            payload.path_mappings = parsePathMappings(
+                stackPathMappingsInput.value.trim(),
+            );
+            payload.project_env = parseProjectEnv(
+                stackProjectEnvInput.value.trim(),
+            );
             payload.profiles = stackProfilesInput.value
-                .split(',')
+                .split(",")
                 .map((value) => value.trim())
                 .filter(Boolean);
         } catch (parseError) {
@@ -1743,53 +2069,68 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const url = stackFormMode === 'edit'
-            ? withAgentQuery(`/api/stacks/${encodeURIComponent(editingStackId)}`)
-            : withAgentQuery('/api/stacks');
-        const method = stackFormMode === 'edit' ? 'PUT' : 'POST';
+        const url =
+            stackFormMode === "edit"
+                ? withAgentQuery(
+                      `/api/stacks/${encodeURIComponent(editingStackId)}`,
+                  )
+                : withAgentQuery("/api/stacks");
+        const method = stackFormMode === "edit" ? "PUT" : "POST";
 
         try {
             const response = await fetch(url, {
                 method,
                 headers: getAuthHeaders(true),
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
             });
             const data = await response.json();
             if (!response.ok) {
-                const validationIssues = data.validation && data.validation.issues
-                    ? data.validation.issues.join('\n')
-                    : '';
-                showStackError([data.error || 'Failed to save stack', validationIssues].filter(Boolean).join('\n\n'));
+                const validationIssues =
+                    data.validation && data.validation.issues
+                        ? data.validation.issues.join("\n")
+                        : "";
+                showStackError(
+                    [data.error || "Failed to save stack", validationIssues]
+                        .filter(Boolean)
+                        .join("\n\n"),
+                );
                 return;
             }
 
             closeStackModal();
             await Promise.all([fetchStacks(), fetchStackCandidates()]);
         } catch (error) {
-            console.error('Failed to save stack', error);
+            console.error("Failed to save stack", error);
             showStackError(`Failed to save stack: ${error.message}`);
         }
     });
 
     const validateStack = async (stack) => {
         try {
-            const response = await fetch(withAgentQuery(`/api/stacks/${encodeURIComponent(stack.id)}/validate`), {
-                method: 'POST',
-                headers: getAuthHeaders()
-            });
+            const response = await fetch(
+                withAgentQuery(
+                    `/api/stacks/${encodeURIComponent(stack.id)}/validate`,
+                ),
+                {
+                    method: "POST",
+                    headers: getAuthHeaders(),
+                },
+            );
             const data = await response.json();
             if (!response.ok) {
-                throw new Error(data.error || 'Validation failed');
+                throw new Error(data.error || "Validation failed");
             }
 
             if (data.valid) {
                 alert(`Validation passed for ${stack.name}.`);
             } else {
-                const issues = (data.issues || []).join('\n') || 'Unknown validation error';
+                const issues =
+                    (data.issues || []).join("\n") ||
+                    "Unknown validation error";
                 alert(`Validation failed for ${stack.name}:\n\n${issues}`);
             }
         } catch (error) {
-            console.error('Failed to validate stack', error);
+            console.error("Failed to validate stack", error);
             alert(`Failed to validate stack: ${error.message}`);
         }
     };
@@ -1800,88 +2141,92 @@ document.addEventListener('DOMContentLoaded', () => {
             `Project: ${stack.project_name}`,
             `Working directory: ${stack.working_dir}`,
             `Path mode: ${stack.path_mode}`,
-            `Compose files: ${(stack.compose_files || []).join(', ') || 'none'}`,
-            `Env files: ${(stack.env_files || []).join(', ') || 'none'}`,
-            `Profiles: ${(stack.profiles || []).join(', ') || 'none'}`,
-            `Path mappings: ${(stack.path_mappings || []).map((mapping) => `${mapping.host_path} => ${mapping.container_path}`).join(', ') || 'none'}`,
+            `Compose files: ${(stack.compose_files || []).join(", ") || "none"}`,
+            `Env files: ${(stack.env_files || []).join(", ") || "none"}`,
+            `Profiles: ${(stack.profiles || []).join(", ") || "none"}`,
+            `Path mappings: ${(stack.path_mappings || []).map((mapping) => `${mapping.host_path} => ${mapping.container_path}`).join(", ") || "none"}`,
             `Update policy: pull=${!!stack.update_policy?.pull}, build=${!!stack.update_policy?.build}, down_before_up=${!!stack.update_policy?.down_before_up}, force_recreate=${!!stack.update_policy?.force_recreate}, remove_orphans=${!!stack.update_policy?.remove_orphans}`,
-            `Health policy: compose_wait=${!!stack.health_policy?.use_compose_wait}, require_healthy=${!!stack.health_policy?.require_healthy}, timeout=${stack.health_policy?.wait_timeout_seconds ?? 'n/a'}s, startup_grace=${stack.health_policy?.startup_grace_seconds ?? 'n/a'}s`,
-            `Last deploy: ${stack.last_deploy_status || 'not deployed'}`
+            `Health policy: compose_wait=${!!stack.health_policy?.use_compose_wait}, require_healthy=${!!stack.health_policy?.require_healthy}, timeout=${stack.health_policy?.wait_timeout_seconds ?? "n/a"}s, startup_grace=${stack.health_policy?.startup_grace_seconds ?? "n/a"}s`,
+            `Last deploy: ${stack.last_deploy_status || "not deployed"}`,
         ];
-        if (validation && Array.isArray(validation.warnings) && validation.warnings.length > 0) {
-            lines.push(`Warnings: ${validation.warnings.join('; ')}`);
+        if (
+            validation &&
+            Array.isArray(validation.warnings) &&
+            validation.warnings.length > 0
+        ) {
+            lines.push(`Warnings: ${validation.warnings.join("; ")}`);
         }
-        return lines.join('\n');
+        return lines.join("\n");
     };
 
     const formatStackStatusSummary = (summary) => {
         if (!summary) {
-            return 'Status: unknown';
+            return "Status: unknown";
         }
 
         const lines = [
-            `Status: ${summary.state || 'unknown'}`,
-            summary.message || 'No stack status details available.',
+            `Status: ${summary.state || "unknown"}`,
+            summary.message || "No stack status details available.",
             `Containers: ${summary.running || 0}/${summary.total || 0} running`,
-            `Health: ${summary.healthy || 0} healthy, ${summary.unhealthy || 0} unhealthy, ${summary.degraded || 0} starting, ${summary.stopped || 0} stopped`
+            `Health: ${summary.healthy || 0} healthy, ${summary.unhealthy || 0} unhealthy, ${summary.degraded || 0} starting, ${summary.stopped || 0} stopped`,
         ];
 
         if (summary.ownership_mode) {
             lines.push(`Ownership: ${summary.ownership_mode}`);
         }
         if (Array.isArray(summary.issues) && summary.issues.length > 0) {
-            lines.push('Issues:');
+            lines.push("Issues:");
             summary.issues.forEach((issue) => lines.push(`- ${issue}`));
         }
 
-        return lines.join('\n');
+        return lines.join("\n");
     };
 
     const applyStackStatusBadge = (element, summary) => {
         if (!element) return;
 
-        const state = summary?.state || 'unknown';
+        const state = summary?.state || "unknown";
         element.textContent = state;
-        element.className = 'stack-status-badge';
+        element.className = "stack-status-badge";
         element.classList.add(`status-${state}`);
     };
 
     const renderStackHistoryEntries = (entries) => {
         if (!Array.isArray(entries) || entries.length === 0) {
-            stackDetailsHistory.textContent = 'No history recorded yet.';
+            stackDetailsHistory.textContent = "No history recorded yet.";
             return;
         }
 
-        stackDetailsHistory.innerHTML = '';
+        stackDetailsHistory.innerHTML = "";
         entries.forEach((entry) => {
-            const item = document.createElement('div');
-            item.className = 'stack-history-entry';
+            const item = document.createElement("div");
+            item.className = "stack-history-entry";
 
-            const headline = document.createElement('div');
-            headline.className = `stack-history-status ${entry.status || ''}`;
+            const headline = document.createElement("div");
+            headline.className = `stack-history-status ${entry.status || ""}`;
             headline.textContent = `${entry.action} ${entry.status}`;
 
-            const message = document.createElement('div');
-            message.textContent = entry.message || 'No details';
+            const message = document.createElement("div");
+            message.textContent = entry.message || "No details";
 
-            const timestamp = document.createElement('div');
-            timestamp.className = 'stack-history-time';
+            const timestamp = document.createElement("div");
+            timestamp.className = "stack-history-time";
             timestamp.textContent = new Date(entry.created_at).toLocaleString();
 
             item.appendChild(headline);
             item.appendChild(message);
 
             if (Array.isArray(entry.details) && entry.details.length > 0) {
-                const disclosure = document.createElement('details');
-                disclosure.className = 'stack-history-disclosure';
+                const disclosure = document.createElement("details");
+                disclosure.className = "stack-history-disclosure";
 
-                const summary = document.createElement('summary');
-                summary.className = 'stack-history-summary';
+                const summary = document.createElement("summary");
+                summary.className = "stack-history-summary";
                 summary.textContent = `Show activity log (${entry.details.length} lines)`;
 
-                const details = document.createElement('pre');
-                details.className = 'stack-history-details';
-                details.textContent = entry.details.join('\n');
+                const details = document.createElement("pre");
+                details.className = "stack-history-details";
+                details.textContent = entry.details.join("\n");
 
                 disclosure.appendChild(summary);
                 disclosure.appendChild(details);
@@ -1895,41 +2240,48 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const updateStackActionAvailability = (statusSummary) => {
         activeStackStatusSummary = statusSummary || null;
-        const needsReconcile = statusSummary?.state === 'drifted' || statusSummary?.state === 'unbound';
+        const needsReconcile =
+            statusSummary?.state === "drifted" ||
+            statusSummary?.state === "unbound";
 
         if (stackDetailsPullBtn) stackDetailsPullBtn.disabled = needsReconcile;
-        if (stackDetailsRestartBtn) stackDetailsRestartBtn.disabled = needsReconcile;
+        if (stackDetailsRestartBtn)
+            stackDetailsRestartBtn.disabled = needsReconcile;
         if (stackDetailsDownBtn) stackDetailsDownBtn.disabled = needsReconcile;
-        if (stackDetailsReconcileBtn) stackDetailsReconcileBtn.disabled = !needsReconcile;
+        if (stackDetailsReconcileBtn)
+            stackDetailsReconcileBtn.disabled = !needsReconcile;
     };
 
     const renderStackContainers = (containers) => {
         if (!Array.isArray(containers) || containers.length === 0) {
-            stackDetailsContainers.textContent = 'No associated containers found.';
+            stackDetailsContainers.textContent =
+                "No associated containers found.";
             return;
         }
 
-        stackDetailsContainers.innerHTML = '';
+        stackDetailsContainers.innerHTML = "";
         containers.forEach((container) => {
-            const item = document.createElement('div');
-            item.className = 'stack-history-entry';
+            const item = document.createElement("div");
+            item.className = "stack-history-entry";
 
-            const name = document.createElement('div');
-            name.textContent = `${container.name || 'unknown'} (${container.service || 'unknown service'})`;
+            const name = document.createElement("div");
+            name.textContent = `${container.name || "unknown"} (${container.service || "unknown service"})`;
 
-            const state = document.createElement('div');
-            state.className = 'stack-history-time';
-            state.textContent = `${container.state || 'unknown'} - ${container.status || 'no status'}${container.health ? ` - health:${container.health}` : ''}`;
+            const state = document.createElement("div");
+            state.className = "stack-history-time";
+            state.textContent = `${container.state || "unknown"} - ${container.status || "no status"}${container.health ? ` - health:${container.health}` : ""}`;
 
-            const actions = document.createElement('div');
-            actions.className = 'stack-container-actions';
+            const actions = document.createElement("div");
+            actions.className = "stack-container-actions";
 
             if (container.name) {
-                const logsBtn = document.createElement('button');
-                logsBtn.type = 'button';
-                logsBtn.className = 'btn secondary small';
-                logsBtn.textContent = 'Logs';
-                logsBtn.addEventListener('click', () => openLogsModal(container.name));
+                const logsBtn = document.createElement("button");
+                logsBtn.type = "button";
+                logsBtn.className = "btn secondary small";
+                logsBtn.textContent = "Logs";
+                logsBtn.addEventListener("click", () =>
+                    openLogsModal(container.name),
+                );
                 actions.appendChild(logsBtn);
             }
 
@@ -1942,12 +2294,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const formatResolvedPaths = (resolvedPaths) => {
         if (!resolvedPaths) {
-            return 'No resolved path data available.';
+            return "No resolved path data available.";
         }
 
         const lines = [
-            `Host working directory: ${resolvedPaths.working_dir || 'unknown'}`,
-            `Runtime working directory: ${resolvedPaths.runtime_working_dir || 'unknown'}`
+            `Host working directory: ${resolvedPaths.working_dir || "unknown"}`,
+            `Runtime working directory: ${resolvedPaths.runtime_working_dir || "unknown"}`,
         ];
 
         const composeFiles = resolvedPaths.compose_files || [];
@@ -1964,68 +2316,98 @@ document.addEventListener('DOMContentLoaded', () => {
             lines.push(`  Runtime: ${entry.runtime}`);
         });
 
-        return lines.join('\n');
+        return lines.join("\n");
     };
 
     const openStackDetails = async (stack) => {
         try {
             const [detailResponse, historyResponse] = await Promise.all([
-                fetch(withAgentQuery(`/api/stacks/${encodeURIComponent(stack.id)}`), { headers: getAuthHeaders() }),
-                fetch(withAgentQuery(`/api/stacks/${encodeURIComponent(stack.id)}/history`), { headers: getAuthHeaders() })
+                fetch(
+                    withAgentQuery(
+                        `/api/stacks/${encodeURIComponent(stack.id)}`,
+                    ),
+                    { headers: getAuthHeaders() },
+                ),
+                fetch(
+                    withAgentQuery(
+                        `/api/stacks/${encodeURIComponent(stack.id)}/history`,
+                    ),
+                    { headers: getAuthHeaders() },
+                ),
             ]);
 
             const detailData = await detailResponse.json();
             const historyData = await historyResponse.json();
 
             if (!detailResponse.ok) {
-                throw new Error(detailData.error || 'Failed to fetch stack details');
+                throw new Error(
+                    detailData.error || "Failed to fetch stack details",
+                );
             }
             if (!historyResponse.ok) {
-                throw new Error(historyData.error || 'Failed to fetch stack history');
+                throw new Error(
+                    historyData.error || "Failed to fetch stack history",
+                );
             }
 
             activeStackDetails = detailData.stack;
             updateStackActionAvailability(detailData.status_summary);
             stackDetailsTitle.textContent = `Stack Details: ${detailData.stack.name}`;
             stackDetailsDefinition.textContent = `${formatStackStatusSummary(detailData.status_summary)}\n\n${formatStackDefinition(detailData.stack, detailData.validation)}`;
-            stackDetailsPaths.textContent = formatResolvedPaths(detailData.resolved_paths);
+            stackDetailsPaths.textContent = formatResolvedPaths(
+                detailData.resolved_paths,
+            );
 
             if (detailData.validation) {
                 if (detailData.validation.valid) {
-                    const warnings = (detailData.validation.warnings || []).join('\n');
+                    const warnings = (
+                        detailData.validation.warnings || []
+                    ).join("\n");
                     stackDetailsValidation.textContent = warnings
                         ? `Validation status: valid\nWarnings:\n${warnings}`
-                        : 'Validation status: valid';
+                        : "Validation status: valid";
                 } else {
-                    const issues = (detailData.validation.issues || []).join('\n') || 'Unknown validation error';
-                    const warnings = (detailData.validation.warnings || []).join('\n');
+                    const issues =
+                        (detailData.validation.issues || []).join("\n") ||
+                        "Unknown validation error";
+                    const warnings = (
+                        detailData.validation.warnings || []
+                    ).join("\n");
                     stackDetailsValidation.textContent = warnings
                         ? `Validation status: invalid\n${issues}\n\nWarnings:\n${warnings}`
                         : `Validation status: invalid\n${issues}`;
                 }
             } else {
-                stackDetailsValidation.textContent = 'No validation data available.';
+                stackDetailsValidation.textContent =
+                    "No validation data available.";
             }
 
             renderStackContainers(detailData.containers || []);
             renderStackHistoryEntries(historyData.entries || []);
-            stackDetailsModal.classList.remove('hidden');
+            stackDetailsModal.classList.remove("hidden");
         } catch (error) {
-            console.error('Failed to open stack details', error);
+            console.error("Failed to open stack details", error);
             alert(`Failed to load stack details: ${error.message}`);
         }
     };
 
     const deleteStack = async (stack) => {
-        if (!(await showConfirmModal(`Delete registered stack ${stack.name}? This will remove the registration only.`))) {
+        if (
+            !(await showConfirmModal(
+                `Delete registered stack ${stack.name}? This will remove the registration only.`,
+            ))
+        ) {
             return;
         }
 
         try {
-            const response = await fetch(withAgentQuery(`/api/stacks/${encodeURIComponent(stack.id)}`), {
-                method: 'DELETE',
-                headers: getAuthHeaders()
-            });
+            const response = await fetch(
+                withAgentQuery(`/api/stacks/${encodeURIComponent(stack.id)}`),
+                {
+                    method: "DELETE",
+                    headers: getAuthHeaders(),
+                },
+            );
 
             if (!response.ok) {
                 let errorMessage = `Delete failed (${response.status})`;
@@ -2038,29 +2420,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(errorMessage);
             }
 
-            await Promise.all([fetchStacks(), fetchStackCandidates(), fetchContainers(false)]);
+            await Promise.all([
+                fetchStacks(),
+                fetchStackCandidates(),
+                fetchContainers(false),
+            ]);
         } catch (error) {
-            console.error('Failed to delete stack', error);
+            console.error("Failed to delete stack", error);
             alert(`Failed to delete stack: ${error.message}`);
         }
     };
 
-    const setStackProgress = (stackEl, message, state = '') => {
+    const setStackProgress = (stackEl, message, state = "") => {
         if (!stackEl) return;
-        const progressEl = stackEl.querySelector('.stack-progress');
+        const progressEl = stackEl.querySelector(".stack-progress");
         if (!progressEl) return;
 
         progressEl.textContent = message;
-        progressEl.classList.remove('hidden', 'success', 'error');
+        progressEl.classList.remove("hidden", "success", "error");
         if (state) {
             progressEl.classList.add(state);
         }
     };
 
-    const setStackDetailsProgress = (message, state = '') => {
+    const setStackDetailsProgress = (message, state = "") => {
         if (!stackDetailsProgress) return;
         stackDetailsProgress.textContent = message;
-        stackDetailsProgress.classList.remove('hidden', 'success', 'error');
+        stackDetailsProgress.classList.remove("hidden", "success", "error");
         if (state) {
             stackDetailsProgress.classList.add(state);
         }
@@ -2068,14 +2454,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const clearStackDetailsProgress = () => {
         if (!stackDetailsProgress) return;
-        stackDetailsProgress.textContent = '';
-        stackDetailsProgress.classList.add('hidden');
-        stackDetailsProgress.classList.remove('success', 'error');
+        stackDetailsProgress.textContent = "";
+        stackDetailsProgress.classList.add("hidden");
+        stackDetailsProgress.classList.remove("success", "error");
     };
 
     const setStackButtonsDisabled = (stackEl, disabled) => {
         if (!stackEl) return;
-        stackEl.querySelectorAll('.stack-actions .btn').forEach((button) => {
+        stackEl.querySelectorAll(".stack-actions .btn").forEach((button) => {
             button.disabled = disabled;
         });
     };
@@ -2089,7 +2475,7 @@ document.addEventListener('DOMContentLoaded', () => {
             stackDetailsDownBtn,
             stackDetailsReconcileBtn,
             stackDetailsDeployBtn,
-            stackDetailsDeleteBtn
+            stackDetailsDeleteBtn,
         ].forEach((button) => {
             if (button) {
                 button.disabled = disabled;
@@ -2098,38 +2484,42 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const stackActionLabels = {
-        deploy: 'deploy',
-        pull: 'pull images for',
-        restart: 'restart',
-        down: 'bring down'
+        deploy: "deploy",
+        pull: "pull images for",
+        restart: "restart",
+        down: "bring down",
     };
 
     const stackProgressMessages = {
         deploy: {
-            start: 'Starting stack deployment...',
-            success: 'Deployment completed successfully.',
-            failure: 'Deployment failed'
+            start: "Starting stack deployment...",
+            success: "Deployment completed successfully.",
+            failure: "Deployment failed",
         },
         pull: {
-            start: 'Starting stack image pull...',
-            success: 'Image pull completed successfully.',
-            failure: 'Image pull failed'
+            start: "Starting stack image pull...",
+            success: "Image pull completed successfully.",
+            failure: "Image pull failed",
         },
         restart: {
-            start: 'Starting stack restart...',
-            success: 'Restart completed successfully.',
-            failure: 'Restart failed'
+            start: "Starting stack restart...",
+            success: "Restart completed successfully.",
+            failure: "Restart failed",
         },
         down: {
-            start: 'Starting stack shutdown...',
-            success: 'Stack is down.',
-            failure: 'Shutdown failed'
-        }
+            start: "Starting stack shutdown...",
+            success: "Stack is down.",
+            failure: "Shutdown failed",
+        },
     };
 
     const runStackAction = async (stack, action, stackEl) => {
         const actionLabel = stackActionLabels[action] || action;
-        if (!(await showConfirmModal(`Are you sure you want to ${actionLabel} stack ${stack.name}?`))) {
+        if (
+            !(await showConfirmModal(
+                `Are you sure you want to ${actionLabel} stack ${stack.name}?`,
+            ))
+        ) {
             return { attempted: false, success: false };
         }
 
@@ -2137,16 +2527,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             setStackButtonsDisabled(stackEl, true);
-            setStackProgress(stackEl, stackProgressMessages[action]?.start || 'Starting stack action...');
-            if (activeStackDetails && activeStackDetails.id === stack.id && !stackDetailsModal.classList.contains('hidden')) {
+            setStackProgress(
+                stackEl,
+                stackProgressMessages[action]?.start ||
+                    "Starting stack action...",
+            );
+            if (
+                activeStackDetails &&
+                activeStackDetails.id === stack.id &&
+                !stackDetailsModal.classList.contains("hidden")
+            ) {
                 setStackDetailsActionButtonsDisabled(true);
-                setStackDetailsProgress(stackProgressMessages[action]?.start || 'Starting stack action...');
+                setStackDetailsProgress(
+                    stackProgressMessages[action]?.start ||
+                        "Starting stack action...",
+                );
             }
 
-            const response = await fetch(withAgentQuery(`/api/stacks/${encodeURIComponent(stack.id)}/${encodeURIComponent(action)}`), {
-                method: 'POST',
-                headers: getAuthHeaders()
-            });
+            const response = await fetch(
+                withAgentQuery(
+                    `/api/stacks/${encodeURIComponent(stack.id)}/${encodeURIComponent(action)}`,
+                ),
+                {
+                    method: "POST",
+                    headers: getAuthHeaders(),
+                },
+            );
 
             if (!response.ok) {
                 let errorMessage = `Deploy failed (${response.status})`;
@@ -2161,49 +2567,94 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
-            let buffer = '';
+            let buffer = "";
             let sawTerminalEvent = false;
             let sawMeaningfulProgress = false;
 
             const processStackEvent = (data) => {
-                if (data.type === 'start') {
-                    setStackProgress(stackEl, data.message || stackProgressMessages[action]?.start || 'Starting stack action...');
-                    if (activeStackDetails && activeStackDetails.id === stack.id && !stackDetailsModal.classList.contains('hidden')) {
-                        setStackDetailsProgress(data.message || stackProgressMessages[action]?.start || 'Starting stack action...');
+                if (data.type === "start") {
+                    setStackProgress(
+                        stackEl,
+                        data.message ||
+                            stackProgressMessages[action]?.start ||
+                            "Starting stack action...",
+                    );
+                    if (
+                        activeStackDetails &&
+                        activeStackDetails.id === stack.id &&
+                        !stackDetailsModal.classList.contains("hidden")
+                    ) {
+                        setStackDetailsProgress(
+                            data.message ||
+                                stackProgressMessages[action]?.start ||
+                                "Starting stack action...",
+                        );
                     }
-                } else if (data.type === 'progress') {
+                } else if (data.type === "progress") {
                     sawMeaningfulProgress = true;
-                    setStackProgress(stackEl, data.status || 'Working...');
-                    if (activeStackDetails && activeStackDetails.id === stack.id && !stackDetailsModal.classList.contains('hidden')) {
-                        setStackDetailsProgress(data.status || 'Working...');
+                    setStackProgress(stackEl, data.status || "Working...");
+                    if (
+                        activeStackDetails &&
+                        activeStackDetails.id === stack.id &&
+                        !stackDetailsModal.classList.contains("hidden")
+                    ) {
+                        setStackDetailsProgress(data.status || "Working...");
                     }
-                } else if (data.type === 'error') {
+                } else if (data.type === "error") {
                     sawTerminalEvent = true;
-                    setStackProgress(stackEl, data.error || stackProgressMessages[action]?.failure || 'Stack action failed.', 'error');
-                    if (activeStackDetails && activeStackDetails.id === stack.id && !stackDetailsModal.classList.contains('hidden')) {
-                        setStackDetailsProgress(data.error || stackProgressMessages[action]?.failure || 'Stack action failed.', 'error');
+                    setStackProgress(
+                        stackEl,
+                        data.error ||
+                            stackProgressMessages[action]?.failure ||
+                            "Stack action failed.",
+                        "error",
+                    );
+                    if (
+                        activeStackDetails &&
+                        activeStackDetails.id === stack.id &&
+                        !stackDetailsModal.classList.contains("hidden")
+                    ) {
+                        setStackDetailsProgress(
+                            data.error ||
+                                stackProgressMessages[action]?.failure ||
+                                "Stack action failed.",
+                            "error",
+                        );
                     }
-                } else if (data.type === 'done') {
+                } else if (data.type === "done") {
                     sawTerminalEvent = true;
-                    setStackProgress(stackEl, stackProgressMessages[action]?.success || 'Stack action completed successfully.', 'success');
-                    if (activeStackDetails && activeStackDetails.id === stack.id && !stackDetailsModal.classList.contains('hidden')) {
-                        setStackDetailsProgress(stackProgressMessages[action]?.success || 'Stack action completed successfully.', 'success');
+                    setStackProgress(
+                        stackEl,
+                        stackProgressMessages[action]?.success ||
+                            "Stack action completed successfully.",
+                        "success",
+                    );
+                    if (
+                        activeStackDetails &&
+                        activeStackDetails.id === stack.id &&
+                        !stackDetailsModal.classList.contains("hidden")
+                    ) {
+                        setStackDetailsProgress(
+                            stackProgressMessages[action]?.success ||
+                                "Stack action completed successfully.",
+                            "success",
+                        );
                     }
                 }
             };
 
             const processStackBuffer = () => {
-                const parts = buffer.split('\n\n');
-                buffer = parts.pop() || '';
+                const parts = buffer.split("\n\n");
+                buffer = parts.pop() || "";
 
                 for (const part of parts) {
-                    if (!part.startsWith('data: ')) continue;
+                    if (!part.startsWith("data: ")) continue;
                     const jsonStr = part.substring(6);
                     try {
                         const data = JSON.parse(jsonStr);
                         processStackEvent(data);
                     } catch (e) {
-                        console.error('Failed to parse stack deploy event', e);
+                        console.error("Failed to parse stack deploy event", e);
                     }
                 }
             };
@@ -2219,9 +2670,18 @@ document.addEventListener('DOMContentLoaded', () => {
                         break;
                     }
                     if (sawMeaningfulProgress) {
-                        setStackProgress(stackEl, 'Connection dropped after stack progress. Refreshing status...');
-                        if (activeStackDetails && activeStackDetails.id === stack.id && !stackDetailsModal.classList.contains('hidden')) {
-                            setStackDetailsProgress('Connection dropped after stack progress. Refreshing status...');
+                        setStackProgress(
+                            stackEl,
+                            "Connection dropped after stack progress. Refreshing status...",
+                        );
+                        if (
+                            activeStackDetails &&
+                            activeStackDetails.id === stack.id &&
+                            !stackDetailsModal.classList.contains("hidden")
+                        ) {
+                            setStackDetailsProgress(
+                                "Connection dropped after stack progress. Refreshing status...",
+                            );
                         }
                         break;
                     }
@@ -2243,14 +2703,29 @@ document.addEventListener('DOMContentLoaded', () => {
             actionSucceeded = true;
         } catch (error) {
             console.error(`Failed to ${action} stack`, error);
-            setStackProgress(stackEl, `${stackProgressMessages[action]?.failure || 'Stack action failed'}: ${error.message}`, 'error');
-            if (activeStackDetails && activeStackDetails.id === stack.id && !stackDetailsModal.classList.contains('hidden')) {
-                setStackDetailsProgress(`${stackProgressMessages[action]?.failure || 'Stack action failed'}: ${error.message}`, 'error');
+            setStackProgress(
+                stackEl,
+                `${stackProgressMessages[action]?.failure || "Stack action failed"}: ${error.message}`,
+                "error",
+            );
+            if (
+                activeStackDetails &&
+                activeStackDetails.id === stack.id &&
+                !stackDetailsModal.classList.contains("hidden")
+            ) {
+                setStackDetailsProgress(
+                    `${stackProgressMessages[action]?.failure || "Stack action failed"}: ${error.message}`,
+                    "error",
+                );
             }
             await fetchStacks();
         } finally {
             setStackButtonsDisabled(stackEl, false);
-            if (activeStackDetails && activeStackDetails.id === stack.id && !stackDetailsModal.classList.contains('hidden')) {
+            if (
+                activeStackDetails &&
+                activeStackDetails.id === stack.id &&
+                !stackDetailsModal.classList.contains("hidden")
+            ) {
                 setStackDetailsActionButtonsDisabled(false);
                 updateStackActionAvailability(activeStackStatusSummary);
             }
@@ -2265,268 +2740,381 @@ document.addEventListener('DOMContentLoaded', () => {
         listEl.style.minHeight = `${currentHeight}px`;
 
         try {
-            listEl.innerHTML = '';
+            listEl.innerHTML = "";
 
             if (containers.length === 0) {
-                listEl.innerHTML = '<div class="loading">No containers found.</div>';
+                listEl.innerHTML =
+                    '<div class="loading">No containers found.</div>';
                 return;
             }
 
-        let displayContainers = containers;
-        if (currentSearchQuery && !groupByStack) {
-            displayContainers = displayContainers.filter(c => {
-                const cName = c.name ? c.name.toLowerCase() : '';
-                return cName.includes(currentSearchQuery);
-            });
-        }
+            let displayContainers = containers;
+            if (currentSearchQuery && !groupByStack) {
+                displayContainers = displayContainers.filter((c) => {
+                    const cName = c.name ? c.name.toLowerCase() : "";
+                    return cName.includes(currentSearchQuery);
+                });
+            }
 
-        // Split into two groups
-        const withUpdates = displayContainers.filter(c => c.update_available);
-        const withoutUpdates = displayContainers.filter(c => !c.update_available);
+            // Split into two groups
+            const withUpdates = displayContainers.filter(
+                (c) => c.update_available,
+            );
+            const withoutUpdates = displayContainers.filter(
+                (c) => !c.update_available,
+            );
 
-        // Sort each group alphabetically
-        withUpdates.sort((a, b) => a.name.localeCompare(b.name));
-        withoutUpdates.sort((a, b) => a.name.localeCompare(b.name));
+            // Sort each group alphabetically
+            withUpdates.sort((a, b) => a.name.localeCompare(b.name));
+            withoutUpdates.sort((a, b) => a.name.localeCompare(b.name));
 
-        const isMobile = window.innerWidth <= 600;
-        const template = (currentView === 'list' && !isMobile) ? listTemplate : cardTemplate;
+            const isMobile = window.innerWidth <= 600;
+            const template =
+                currentView === "list" && !isMobile
+                    ? listTemplate
+                    : cardTemplate;
 
-        // Force grid classes on mobile even if currentView is list
-        if (isMobile) {
-            listEl.classList.add('grid-list');
-            listEl.classList.remove('list-view');
-        } else {
-            // Restore class based on state
-            if (currentView === 'list') {
-                listEl.classList.remove('grid-list');
-                listEl.classList.add('list-view');
+            // Force grid classes on mobile even if currentView is list
+            if (isMobile) {
+                listEl.classList.add("grid-list");
+                listEl.classList.remove("list-view");
             } else {
-                listEl.classList.add('grid-list');
-                listEl.classList.remove('list-view');
-            }
-        }
-
-        const renderBatch = (batch) => {
-            batch.forEach(container => {
-                const clone = template.content.cloneNode(true);
-                const containerEl = clone.querySelector('.card') || clone.querySelector('.list-item');
-
-                const containerNameEl = clone.querySelector('.container-name');
-                containerNameEl.textContent = container.name;
-
-                clone.querySelector('.image-name').textContent = container.image;
-
-                const tagBadge = clone.querySelector('.tag-badge');
-                if (container.tag && container.tag !== 'latest' && container.tag !== '(digest)') {
-                    tagBadge.textContent = container.tag;
-                    tagBadge.classList.remove('hidden');
-                } else if (container.tag === 'latest') {
-                    tagBadge.textContent = 'latest';
-                    tagBadge.classList.remove('hidden');
-                }
-
-                if (container.stack_managed && container.stack_name) {
-                    const stackBadge = document.createElement('span');
-                    stackBadge.className = 'stack-badge';
-                    stackBadge.textContent = `stack:${container.stack_name}`;
-                    const badgesEl = clone.querySelector('.badges') || clone.querySelector('.image-row');
-                    if (badgesEl) {
-                        badgesEl.appendChild(stackBadge);
-                    }
-                }
-
-                const statusBadge = clone.querySelector('.status-badge');
-                statusBadge.textContent = container.state;
-
-                if (container.state === 'running') {
-                    statusBadge.classList.add('status-running');
-                } else if (container.state === 'exited' || container.state === 'dead') {
-                    statusBadge.classList.add('status-exited');
+                // Restore class based on state
+                if (currentView === "list") {
+                    listEl.classList.remove("grid-list");
+                    listEl.classList.add("list-view");
                 } else {
-                    statusBadge.classList.add('status-other');
+                    listEl.classList.add("grid-list");
+                    listEl.classList.remove("list-view");
                 }
+            }
 
-                // Setup Action Menu
-                const menuBtn = clone.querySelector('.menu-btn');
-                const menuDropdown = clone.querySelector('.menu-dropdown');
-                if (menuBtn && menuDropdown) {
-                    menuBtn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        // Close any other open menus
-                        document.querySelectorAll('.menu-dropdown').forEach(d => {
-                            if (d !== menuDropdown) d.classList.add('hidden');
-                        });
-                        menuDropdown.classList.toggle('hidden');
-                    });
+            const renderBatch = (batch) => {
+                batch.forEach((container) => {
+                    const clone = template.content.cloneNode(true);
+                    const containerEl =
+                        clone.querySelector(".card") ||
+                        clone.querySelector(".list-item");
 
-                    // Disable invalid buttons based on state
-                    const startBtn = menuDropdown.querySelector('[data-action="start"]');
-                    const stopBtn = menuDropdown.querySelector('[data-action="stop"]');
-                    const restartBtn = menuDropdown.querySelector('[data-action="restart"]');
-                    const viewStackBtn = menuDropdown.querySelector('[data-action="view-stack"]');
+                    const containerNameEl =
+                        clone.querySelector(".container-name");
+                    containerNameEl.textContent = container.name;
 
-                    if (container.state === 'running') {
-                        startBtn.disabled = true;
-                    } else if (container.state === 'exited' || container.state === 'created' || container.state === 'dead') {
-                        stopBtn.disabled = true;
-                        restartBtn.disabled = true;
+                    clone.querySelector(".image-name").textContent =
+                        container.image;
+
+                    const tagBadge = clone.querySelector(".tag-badge");
+                    if (
+                        container.tag &&
+                        container.tag !== "latest" &&
+                        container.tag !== "(digest)"
+                    ) {
+                        tagBadge.textContent = container.tag;
+                        tagBadge.classList.remove("hidden");
+                    } else if (container.tag === "latest") {
+                        tagBadge.textContent = "latest";
+                        tagBadge.classList.remove("hidden");
                     }
 
-                    if (viewStackBtn && container.stack_managed && container.stack_id) {
-                        viewStackBtn.classList.remove('hidden');
+                    if (container.stack_managed && container.stack_name) {
+                        const stackBadge = document.createElement("span");
+                        stackBadge.className = "stack-badge";
+                        stackBadge.textContent = `stack:${container.stack_name}`;
+                        const badgesEl =
+                            clone.querySelector(".badges") ||
+                            clone.querySelector(".image-row");
+                        if (badgesEl) {
+                            badgesEl.appendChild(stackBadge);
+                        }
                     }
 
-                    menuDropdown.querySelectorAll('.menu-action-btn').forEach(btn => {
-                        btn.addEventListener('click', async (e) => {
-                            e.preventDefault();
-                            menuDropdown.classList.add('hidden');
+                    const statusBadge = clone.querySelector(".status-badge");
+                    statusBadge.textContent = container.state;
 
-                            const action = e.target.dataset.action;
-                            if (action === 'logs') {
-                                openLogsModal(container.name);
-                            } else if (action === 'view-stack' && container.stack_id) {
-                                await openStackDetails({
-                                    id: container.stack_id,
-                                    name: container.stack_name
+                    if (container.state === "running") {
+                        statusBadge.classList.add("status-running");
+                    } else if (
+                        container.state === "exited" ||
+                        container.state === "dead"
+                    ) {
+                        statusBadge.classList.add("status-exited");
+                    } else {
+                        statusBadge.classList.add("status-other");
+                    }
+
+                    // Setup Action Menu
+                    const menuBtn = clone.querySelector(".menu-btn");
+                    const menuDropdown = clone.querySelector(".menu-dropdown");
+                    if (menuBtn && menuDropdown) {
+                        menuBtn.addEventListener("click", (e) => {
+                            e.stopPropagation();
+                            // Close any other open menus
+                            document
+                                .querySelectorAll(".menu-dropdown")
+                                .forEach((d) => {
+                                    if (d !== menuDropdown)
+                                        d.classList.add("hidden");
                                 });
-                            } else {
-                                await handleContainerAction(container.name, action, containerEl);
-                            }
+                            menuDropdown.classList.toggle("hidden");
                         });
-                    });
-                }
 
-                if (container.update_available) {
-                    const updateSection = clone.querySelector('.update-section');
-                    if (updateSection) {
-                        updateSection.classList.remove('hidden');
-                        const btn = updateSection.querySelector('.btn-update');
-                        btn.textContent = 'Update Now';
-                        btn.addEventListener('click', (e) => {
-                            e.preventDefault();
-                            handleUpdate(container.name, containerEl);
-                        });
+                        // Disable invalid buttons based on state
+                        const startBtn = menuDropdown.querySelector(
+                            '[data-action="start"]',
+                        );
+                        const stopBtn = menuDropdown.querySelector(
+                            '[data-action="stop"]',
+                        );
+                        const restartBtn = menuDropdown.querySelector(
+                            '[data-action="restart"]',
+                        );
+                        const viewStackBtn = menuDropdown.querySelector(
+                            '[data-action="view-stack"]',
+                        );
+
+                        if (container.state === "running") {
+                            startBtn.disabled = true;
+                        } else if (
+                            container.state === "exited" ||
+                            container.state === "created" ||
+                            container.state === "dead"
+                        ) {
+                            stopBtn.disabled = true;
+                            restartBtn.disabled = true;
+                        }
+
+                        if (
+                            viewStackBtn &&
+                            container.stack_managed &&
+                            container.stack_id
+                        ) {
+                            viewStackBtn.classList.remove("hidden");
+                        }
+
+                        menuDropdown
+                            .querySelectorAll(".menu-action-btn")
+                            .forEach((btn) => {
+                                btn.addEventListener("click", async (e) => {
+                                    e.preventDefault();
+                                    menuDropdown.classList.add("hidden");
+
+                                    const action = e.target.dataset.action;
+                                    if (action === "logs") {
+                                        openLogsModal(container.name);
+                                    } else if (
+                                        action === "view-stack" &&
+                                        container.stack_id
+                                    ) {
+                                        await openStackDetails({
+                                            id: container.stack_id,
+                                            name: container.stack_name,
+                                        });
+                                    } else {
+                                        await handleContainerAction(
+                                            container.name,
+                                            action,
+                                            containerEl,
+                                        );
+                                    }
+                                });
+                            });
                     }
-                }
 
-                listEl.appendChild(clone);
-            });
-        };
-
-        // -- Grouped rendering --
-        if (groupByStack) {
-            // Partition: fully-registered stack containers vs everything else
-            const stackGroups = new Map();
-            const ungrouped = [];
-
-            containers.forEach(c => {
-                if (c.stack_registered && c.stack_id) {
-                    if (!stackGroups.has(c.stack_id)) {
-                        stackGroups.set(c.stack_id, { stackId: c.stack_id, stackName: c.stack_name, containers: [] });
+                    if (container.update_available) {
+                        const updateSection =
+                            clone.querySelector(".update-section");
+                        if (updateSection) {
+                            updateSection.classList.remove("hidden");
+                            const btn =
+                                updateSection.querySelector(".btn-update");
+                            btn.textContent = "Update Now";
+                            btn.addEventListener("click", (e) => {
+                                e.preventDefault();
+                                handleUpdate(container.name, containerEl);
+                            });
+                        }
                     }
-                    stackGroups.get(c.stack_id).containers.push(c);
-                } else {
-                    ungrouped.push(c);
-                }
-            });
 
-            let sortedGroups = Array.from(stackGroups.values()).sort((a, b) => a.stackName.localeCompare(b.stackName));
-            let ungroupedItems = ungrouped;
-
-            if (currentSearchQuery) {
-                sortedGroups = sortedGroups.filter(g => {
-                    if (g.stackName.toLowerCase().includes(currentSearchQuery)) return true;
-                    return g.containers.some(c => (c.name || '').toLowerCase().includes(currentSearchQuery));
+                    listEl.appendChild(clone);
                 });
-                ungroupedItems = ungroupedItems.filter(c => {
-                    return (c.name || '').toLowerCase().includes(currentSearchQuery);
-                });
-            }
-
-            const groupsWithUpdates = sortedGroups.filter(g => g.containers.some(c => c.update_available));
-            const groupsWithoutUpdates = sortedGroups.filter(g => !g.containers.some(c => c.update_available));
-
-            const ungroupedWithUpdates = ungroupedItems.filter(c => c.update_available).sort((a, b) => a.name.localeCompare(b.name));
-            const ungroupedWithout = ungroupedItems.filter(c => !c.update_available).sort((a, b) => a.name.localeCompare(b.name));
-
-            const hasAnyUpdates = groupsWithUpdates.length > 0 || ungroupedWithUpdates.length > 0;
-            const hasAnyWithout = groupsWithoutUpdates.length > 0 || ungroupedWithout.length > 0;
-
-            const groupTemplate = (currentView === 'list' && !isMobile) ? stackGroupListTemplate : stackGroupCardTemplate;
-
-            const renderGroup = (group) => {
-                const clone = groupTemplate.content.cloneNode(true);
-                const groupEl = clone.querySelector('.stack-group-card') || clone.querySelector('.stack-group-list-item');
-
-                clone.querySelector('.stack-group-name').textContent = group.stackName;
-
-                const total = group.containers.length;
-                const running = group.containers.filter(c => c.state === 'running').length;
-                clone.querySelector('.stack-group-count-badge').textContent = `${total} container${total !== 1 ? 's' : ''}`;
-                const statusBadge = clone.querySelector('.stack-group-status');
-                statusBadge.textContent = `${running}/${total} running`;
-                if (running === total && total > 0) {
-                    statusBadge.classList.add('status-running');
-                } else if (running === 0) {
-                    statusBadge.classList.add('status-exited');
-                } else {
-                    statusBadge.classList.add('status-other');
-                }
-
-                const services = [...new Set(group.containers.map(c => c.compose_service).filter(Boolean))];
-                clone.querySelector('.stack-group-services').textContent = services.length > 0
-                    ? `Services: ${services.join(', ')}`
-                    : group.containers.map(c => c.name).join(', ');
-
-
-                // Make the group clickable to open modal
-                groupEl.addEventListener('click', (e) => {
-                    if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
-                    openStackContainersModal(group.stackName, group.containers);
-                });
-
-                const hasUpdate = group.containers.some(c => c.update_available);
-                if (hasUpdate) {
-                    const updateSection = clone.querySelector('.update-section');
-                    if (updateSection) {
-                        updateSection.classList.remove('hidden');
-                        const btn = updateSection.querySelector('.btn-update');
-                        btn.addEventListener('click', (e) => {
-                            e.preventDefault();
-                            handleStackGroupUpdate(group.stackId, group.stackName, groupEl);
-                        });
-                    }
-                }
-
-                listEl.appendChild(clone);
             };
 
-            groupsWithUpdates.forEach(renderGroup);
-            renderBatch(ungroupedWithUpdates);
+            // -- Grouped rendering --
+            if (groupByStack) {
+                // Partition: fully-registered stack containers vs everything else
+                const stackGroups = new Map();
+                const ungrouped = [];
 
-            if (hasAnyUpdates && hasAnyWithout) {
-                const hr = document.createElement('hr');
-                hr.className = 'container-divider';
+                containers.forEach((c) => {
+                    if (c.stack_registered && c.stack_id) {
+                        if (!stackGroups.has(c.stack_id)) {
+                            stackGroups.set(c.stack_id, {
+                                stackId: c.stack_id,
+                                stackName: c.stack_name,
+                                containers: [],
+                            });
+                        }
+                        stackGroups.get(c.stack_id).containers.push(c);
+                    } else {
+                        ungrouped.push(c);
+                    }
+                });
+
+                let sortedGroups = Array.from(stackGroups.values()).sort(
+                    (a, b) => a.stackName.localeCompare(b.stackName),
+                );
+                let ungroupedItems = ungrouped;
+
+                if (currentSearchQuery) {
+                    sortedGroups = sortedGroups.filter((g) => {
+                        if (
+                            g.stackName
+                                .toLowerCase()
+                                .includes(currentSearchQuery)
+                        )
+                            return true;
+                        return g.containers.some((c) =>
+                            (c.name || "")
+                                .toLowerCase()
+                                .includes(currentSearchQuery),
+                        );
+                    });
+                    ungroupedItems = ungroupedItems.filter((c) => {
+                        return (c.name || "")
+                            .toLowerCase()
+                            .includes(currentSearchQuery);
+                    });
+                }
+
+                const groupsWithUpdates = sortedGroups.filter((g) =>
+                    g.containers.some((c) => c.update_available),
+                );
+                const groupsWithoutUpdates = sortedGroups.filter(
+                    (g) => !g.containers.some((c) => c.update_available),
+                );
+
+                const ungroupedWithUpdates = ungroupedItems
+                    .filter((c) => c.update_available)
+                    .sort((a, b) => a.name.localeCompare(b.name));
+                const ungroupedWithout = ungroupedItems
+                    .filter((c) => !c.update_available)
+                    .sort((a, b) => a.name.localeCompare(b.name));
+
+                const hasAnyUpdates =
+                    groupsWithUpdates.length > 0 ||
+                    ungroupedWithUpdates.length > 0;
+                const hasAnyWithout =
+                    groupsWithoutUpdates.length > 0 ||
+                    ungroupedWithout.length > 0;
+
+                const groupTemplate =
+                    currentView === "list" && !isMobile
+                        ? stackGroupListTemplate
+                        : stackGroupCardTemplate;
+
+                const renderGroup = (group) => {
+                    const clone = groupTemplate.content.cloneNode(true);
+                    const groupEl =
+                        clone.querySelector(".stack-group-card") ||
+                        clone.querySelector(".stack-group-list-item");
+
+                    clone.querySelector(".stack-group-name").textContent =
+                        group.stackName;
+
+                    const total = group.containers.length;
+                    const running = group.containers.filter(
+                        (c) => c.state === "running",
+                    ).length;
+                    clone.querySelector(
+                        ".stack-group-count-badge",
+                    ).textContent =
+                        `${total} container${total === 1 ? "" : "s"}`;
+                    const statusBadge = clone.querySelector(
+                        ".stack-group-status",
+                    );
+                    statusBadge.textContent = `${running}/${total} running`;
+                    if (running === total && total > 0) {
+                        statusBadge.classList.add("status-running");
+                    } else if (running === 0) {
+                        statusBadge.classList.add("status-exited");
+                    } else {
+                        statusBadge.classList.add("status-other");
+                    }
+
+                    const services = [
+                        ...new Set(
+                            group.containers
+                                .map((c) => c.compose_service)
+                                .filter(Boolean),
+                        ),
+                    ];
+                    clone.querySelector(".stack-group-services").textContent =
+                        services.length > 0
+                            ? `Services: ${services.join(", ")}`
+                            : group.containers.map((c) => c.name).join(", ");
+
+                    // Make the group clickable to open modal
+                    groupEl.addEventListener("click", (e) => {
+                        if (
+                            e.target.tagName === "BUTTON" ||
+                            e.target.closest("button")
+                        )
+                            return;
+                        openStackContainersModal(
+                            group.stackName,
+                            group.containers,
+                        );
+                    });
+
+                    const hasUpdate = group.containers.some(
+                        (c) => c.update_available,
+                    );
+                    if (hasUpdate) {
+                        const updateSection =
+                            clone.querySelector(".update-section");
+                        if (updateSection) {
+                            updateSection.classList.remove("hidden");
+                            const btn =
+                                updateSection.querySelector(".btn-update");
+                            btn.addEventListener("click", (e) => {
+                                e.preventDefault();
+                                handleStackGroupUpdate(
+                                    group.stackId,
+                                    group.stackName,
+                                    groupEl,
+                                );
+                            });
+                        }
+                    }
+
+                    listEl.appendChild(clone);
+                };
+
+                groupsWithUpdates.forEach(renderGroup);
+                renderBatch(ungroupedWithUpdates);
+
+                if (hasAnyUpdates && hasAnyWithout) {
+                    const hr = document.createElement("hr");
+                    hr.className = "container-divider";
+                    listEl.appendChild(hr);
+                }
+
+                groupsWithoutUpdates.forEach(renderGroup);
+                renderBatch(ungroupedWithout);
+                return;
+            }
+
+            renderBatch(withUpdates);
+
+            if (withUpdates.length > 0 && withoutUpdates.length > 0) {
+                const hr = document.createElement("hr");
+                hr.className = "container-divider";
                 listEl.appendChild(hr);
             }
 
-            groupsWithoutUpdates.forEach(renderGroup);
-            renderBatch(ungroupedWithout);
-            return;
-        }
-
-
-        renderBatch(withUpdates);
-
-        if (withUpdates.length > 0 && withoutUpdates.length > 0) {
-            const hr = document.createElement('hr');
-            hr.className = 'container-divider';
-            listEl.appendChild(hr);
-        }
-
-        renderBatch(withoutUpdates);
+            renderBatch(withoutUpdates);
         } finally {
-            listEl.style.minHeight = '';
+            listEl.style.minHeight = "";
             if (currentScrollY > 0) {
                 window.scrollTo(0, currentScrollY);
             }
@@ -2539,16 +3127,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const handleUpdate = async (name, containerEl) => {
         const safeName = getSafeContainerPathSegment(name);
         if (!safeName) {
-            const msgEl = containerEl.querySelector('.update-message');
+            const msgEl = containerEl.querySelector(".update-message");
             if (msgEl) {
-                msgEl.textContent = 'Invalid container name.';
-                msgEl.classList.remove('hidden');
-                msgEl.style.color = 'var(--danger)';
+                msgEl.textContent = "Invalid container name.";
+                msgEl.classList.remove("hidden");
+                msgEl.style.color = "var(--danger)";
             }
             return;
         }
 
-        if (!(await showConfirmModal(`Are you sure you want to update ${name}?`))) {
+        if (
+            !(await showConfirmModal(
+                `Are you sure you want to update ${name}?`,
+            ))
+        ) {
             return;
         }
 
@@ -2561,7 +3153,7 @@ document.addEventListener('DOMContentLoaded', () => {
             token = "";
         } else {
             // Not logged in (or auth not enabled), check legacy token
-            token = sessionStorage.getItem('dockgo_token');
+            token = sessionStorage.getItem("dockgo_token");
             if (!token) {
                 // If Auth is enabled, maybe suggest Login instead of prompt?
                 if (authEnabled) {
@@ -2571,9 +3163,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Only prompt if Legacy Token is actually enabled on backend
                 if (window.apiTokenEnabled) {
-                    token = prompt('Please enter the API Token to authorize this update:');
+                    token = prompt(
+                        "Please enter the API Token to authorize this update:",
+                    );
                     if (!token) return;
-                    sessionStorage.setItem('dockgo_token', token);
+                    sessionStorage.setItem("dockgo_token", token);
                 } else {
                     // Neither User Auth nor API Token is enabled (or we don't know yet)
                     // If backend has NO auth config, it should just work.
@@ -2585,42 +3179,45 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         activeUpdates++;
-        const btn = containerEl.querySelector('.btn-update');
-        const msgEl = containerEl.querySelector('.update-message');
-        const updateSection = containerEl.querySelector('.update-section');
+        const btn = containerEl.querySelector(".btn-update");
+        const msgEl = containerEl.querySelector(".update-message");
+        const updateSection = containerEl.querySelector(".update-section");
 
         if (updateSection) {
-            updateSection.classList.add('hidden');
+            updateSection.classList.add("hidden");
         }
 
-        msgEl.textContent = 'Starting connection...';
-        msgEl.classList.remove('hidden');
-        msgEl.style.color = '';
+        msgEl.textContent = "Starting connection...";
+        msgEl.classList.remove("hidden");
+        msgEl.style.color = "";
 
         try {
             const headers = getAuthHeaders();
             if (token) {
-                headers['Authorization'] = `Bearer ${token}`;
+                headers["Authorization"] = `Bearer ${token}`;
             }
 
-            const response = await fetch(withAgentQuery(`/api/update/${safeName}`), {
-                method: 'POST',
-                headers: headers
-            });
+            const response = await fetch(
+                withAgentQuery(`/api/update/${safeName}`),
+                {
+                    method: "POST",
+                    headers: headers,
+                },
+            );
 
             if (response.status === 401) {
-                msgEl.textContent = 'Error: Unauthorized.';
+                msgEl.textContent = "Error: Unauthorized.";
 
                 if (authEnabled && !isLoggedIn) {
-                    msgEl.textContent += ' Please login.';
+                    msgEl.textContent += " Please login.";
                     showLoginModal();
                 } else {
-                    msgEl.textContent += ' Wrong API Token.';
-                    sessionStorage.removeItem('dockgo_token');
+                    msgEl.textContent += " Wrong API Token.";
+                    sessionStorage.removeItem("dockgo_token");
                 }
 
-                if (updateSection) updateSection.classList.remove('hidden');
-                btn.textContent = 'Retry';
+                if (updateSection) updateSection.classList.remove("hidden");
+                btn.textContent = "Retry";
                 btn.disabled = false;
                 return;
             }
@@ -2631,55 +3228,56 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
-            let buffer = '';
+            let buffer = "";
             let sawTerminalEvent = false;
             let sawMeaningfulProgress = false;
 
             const handleUpdateEvent = (data) => {
-                if (data.type === 'start') {
-                    msgEl.textContent = data.message || 'Starting...';
-                } else if (data.type === 'progress') {
+                if (data.type === "start") {
+                    msgEl.textContent = data.message || "Starting...";
+                } else if (data.type === "progress") {
                     sawMeaningfulProgress = true;
                     let text = data.status;
                     if (data.percent) {
                         text += ` (${data.percent.toFixed(1)}%)`;
                     }
                     msgEl.textContent = text;
-                } else if (data.type === 'pull_progress') {
+                } else if (data.type === "pull_progress") {
                     sawMeaningfulProgress = true;
                     let text = data.status;
                     if (data.percent) {
                         text += ` (${data.percent.toFixed(1)}%)`;
                     }
                     msgEl.textContent = text;
-                } else if (data.type === 'error') {
+                } else if (data.type === "error") {
                     sawTerminalEvent = true;
                     msgEl.textContent = `Error: ${data.error}`;
-                    msgEl.style.color = 'var(--danger)';
-                    if (updateSection) updateSection.classList.remove('hidden');
-                    btn.textContent = 'Retry Update';
+                    msgEl.style.color = "var(--danger)";
+                    if (updateSection) updateSection.classList.remove("hidden");
+                    btn.textContent = "Retry Update";
                     btn.disabled = false;
-                } else if (data.type === 'done') {
+                } else if (data.type === "done") {
                     sawTerminalEvent = true;
                     if (data.success) {
-                        msgEl.textContent = 'Update successful! Refreshing...';
-                        msgEl.style.color = 'var(--success)';
+                        msgEl.textContent = "Update successful! Refreshing...";
+                        msgEl.style.color = "var(--success)";
                         setTimeout(() => fetchContainers(), 1500);
                     } else {
-                        msgEl.textContent = `Failed: ${data.error || 'Unknown error'}`;
-                        msgEl.style.color = 'var(--danger)';
-                        if (updateSection) updateSection.classList.remove('hidden');
+                        msgEl.textContent = `Failed: ${data.error || "Unknown error"}`;
+                        msgEl.style.color = "var(--danger)";
+                        if (updateSection)
+                            updateSection.classList.remove("hidden");
                         btn.disabled = false;
                     }
                 }
             };
 
             const processSSEBuffer = () => {
-                const parts = buffer.split('\n\n');
-                buffer = parts.pop() || '';
+                const parts = buffer.split("\n\n");
+                buffer = parts.pop() || "";
 
                 for (const part of parts) {
-                    if (!part.startsWith('data: ')) {
+                    if (!part.startsWith("data: ")) {
                         continue;
                     }
                     try {
@@ -2687,7 +3285,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const data = JSON.parse(jsonStr);
                         handleUpdateEvent(data);
                     } catch (e) {
-                        console.error('SSE Parse Error', e);
+                        console.error("SSE Parse Error", e);
                     }
                 }
             };
@@ -2703,8 +3301,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         break;
                     }
                     if (sawMeaningfulProgress) {
-                        msgEl.textContent = 'Connection dropped after update progress. Refreshing status...';
-                        msgEl.style.color = 'var(--warning)';
+                        msgEl.textContent =
+                            "Connection dropped after update progress. Refreshing status...";
+                        msgEl.style.color = "var(--warning)";
                         setTimeout(() => fetchContainers(), 1500);
                         break;
                     }
@@ -2721,14 +3320,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 buffer += decoder.decode(value, { stream: true });
                 processSSEBuffer();
             }
-
         } catch (error) {
-            console.error('[Update] Network error:', error);
-            if (!msgEl.textContent.includes('successful') && !msgEl.textContent.includes('Refreshing status')) {
+            console.error("[Update] Network error:", error);
+            if (
+                !msgEl.textContent.includes("successful") &&
+                !msgEl.textContent.includes("Refreshing status")
+            ) {
                 msgEl.textContent = `Network Error: ${error.message}`;
-                msgEl.style.color = 'var(--danger)';
-                if (updateSection) updateSection.classList.remove('hidden');
-                btn.textContent = 'Retry Update';
+                msgEl.style.color = "var(--danger)";
+                if (updateSection) updateSection.classList.remove("hidden");
+                btn.textContent = "Retry Update";
                 btn.disabled = false;
             }
         } finally {
@@ -2737,72 +3338,93 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const handleStackGroupUpdate = async (stackId, stackName, groupEl) => {
-        if (!(await showConfirmModal(`Are you sure you want to update stack ${stackName}?`))) {
+        if (
+            !(await showConfirmModal(
+                `Are you sure you want to update stack ${stackName}?`,
+            ))
+        ) {
             return;
         }
 
-        const msgEl = groupEl ? groupEl.querySelector('.update-message') : null;
-        const updateSection = groupEl ? groupEl.querySelector('.update-section') : null;
-        const btn = updateSection ? updateSection.querySelector('.btn-update') : null;
+        const msgEl = groupEl ? groupEl.querySelector(".update-message") : null;
+        const updateSection = groupEl
+            ? groupEl.querySelector(".update-section")
+            : null;
+        const btn = updateSection
+            ? updateSection.querySelector(".btn-update")
+            : null;
 
         if (msgEl) {
-            msgEl.textContent = 'Starting stack update...';
-            msgEl.classList.remove('hidden');
-            msgEl.style.color = '';
+            msgEl.textContent = "Starting stack update...";
+            msgEl.classList.remove("hidden");
+            msgEl.style.color = "";
         }
         if (btn) btn.disabled = true;
 
         activeUpdates++;
 
         try {
-            const response = await fetch(withAgentQuery(`/api/stacks/${encodeURIComponent(stackId)}/deploy`), {
-                method: 'POST',
-                headers: getAuthHeaders()
-            });
+            const response = await fetch(
+                withAgentQuery(
+                    `/api/stacks/${encodeURIComponent(stackId)}/deploy`,
+                ),
+                {
+                    method: "POST",
+                    headers: getAuthHeaders(),
+                },
+            );
 
             if (!response.ok) {
                 let errorMessage = `Deploy failed (${response.status})`;
                 try {
                     const data = await response.json();
                     errorMessage = data.error || errorMessage;
-                } catch (e) { /* keep fallback */ }
+                } catch (e) {
+                    /* keep fallback */
+                }
                 throw new Error(errorMessage);
             }
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
-            let buffer = '';
+            let buffer = "";
             let sawTerminalEvent = false;
 
             const processEvent = (data) => {
-                if (data.type === 'start' || data.type === 'progress') {
-                    if (msgEl) msgEl.textContent = data.message || data.status || 'Working...';
-                } else if (data.type === 'error') {
+                if (data.type === "start" || data.type === "progress") {
+                    if (msgEl)
+                        msgEl.textContent =
+                            data.message || data.status || "Working...";
+                } else if (data.type === "error") {
                     sawTerminalEvent = true;
                     if (msgEl) {
-                        msgEl.textContent = `Error: ${data.error || 'Stack update failed.'}`;
-                        msgEl.style.color = 'var(--danger)';
+                        msgEl.textContent = `Error: ${data.error || "Stack update failed."}`;
+                        msgEl.style.color = "var(--danger)";
                     }
                     if (btn) btn.disabled = false;
-                } else if (data.type === 'done') {
+                } else if (data.type === "done") {
                     sawTerminalEvent = true;
                     if (msgEl) {
-                        msgEl.textContent = 'Stack update completed successfully!';
-                        msgEl.style.color = 'var(--success)';
+                        msgEl.textContent =
+                            "Stack update completed successfully!";
+                        msgEl.style.color = "var(--success)";
                     }
                     setTimeout(() => fetchContainers(false), 1500);
                 }
             };
 
             const processBuffer = () => {
-                const parts = buffer.split('\n\n');
-                buffer = parts.pop() || '';
+                const parts = buffer.split("\n\n");
+                buffer = parts.pop() || "";
                 for (const part of parts) {
-                    if (!part.startsWith('data: ')) continue;
+                    if (!part.startsWith("data: ")) continue;
                     try {
                         processEvent(JSON.parse(part.substring(6)));
                     } catch (e) {
-                        console.error('SSE parse error (stack group update)', e);
+                        console.error(
+                            "SSE parse error (stack group update)",
+                            e,
+                        );
                     }
                 }
             };
@@ -2820,18 +3442,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     throw streamError;
                 }
                 const { done, value } = readResult;
-                if (done) { buffer += decoder.decode(); processBuffer(); break; }
+                if (done) {
+                    buffer += decoder.decode();
+                    processBuffer();
+                    break;
+                }
                 buffer += decoder.decode(value, { stream: true });
                 processBuffer();
             }
 
             await Promise.all([fetchStacks(), fetchContainers(false)]);
         } catch (error) {
-            console.error('[Stack Group Update] Error:', error);
+            console.error("[Stack Group Update] Error:", error);
             if (msgEl) {
-                if (!msgEl.textContent.includes('completed successfully') && !msgEl.textContent.includes('Refreshing')) {
+                if (
+                    !msgEl.textContent.includes("completed successfully") &&
+                    !msgEl.textContent.includes("Refreshing")
+                ) {
                     msgEl.textContent = `Error: ${error.message}`;
-                    msgEl.style.color = 'var(--danger)';
+                    msgEl.style.color = "var(--danger)";
                 }
             }
             if (btn) btn.disabled = false;
@@ -2842,37 +3471,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const fetchHealth = async () => {
         try {
-            const response = await fetch('/api/health');
+            const response = await fetch("/api/health");
             if (response.ok) {
                 const data = await response.json();
                 if (data.version) {
-                    const el = document.getElementById('app-version');
-                    if (el) el.textContent = 'v' + data.version;
+                    const el = document.getElementById("app-version");
+                    if (el) el.textContent = "v" + data.version;
                 }
             }
         } catch (e) {
-            console.error('Failed to fetch health/version', e);
+            console.error("Failed to fetch health/version", e);
         }
     };
 
     // Global click listener to close dropdowns
-    document.addEventListener('click', (e) => {
-        if (!e.target.closest('.menu')) {
-            document.querySelectorAll('.menu-dropdown').forEach(d => d.classList.add('hidden'));
+    document.addEventListener("click", (e) => {
+        if (!e.target.closest(".menu")) {
+            document
+                .querySelectorAll(".menu-dropdown")
+                .forEach((d) => d.classList.add("hidden"));
         }
     });
 
     const handleContainerAction = async (name, action, containerEl) => {
         const safeName = getSafeContainerPathSegment(name);
         if (!safeName) {
-            const msgEl = containerEl.querySelector('.update-message') || document.createElement('div');
+            const msgEl =
+                containerEl.querySelector(".update-message") ||
+                document.createElement("div");
             if (!msgEl.parentElement) {
-                msgEl.className = 'update-message';
-                containerEl.querySelector('.card-body, .list-col-actions').appendChild(msgEl);
+                msgEl.className = "update-message";
+                containerEl
+                    .querySelector(".card-body, .list-col-actions")
+                    .appendChild(msgEl);
             }
-            msgEl.textContent = 'Invalid container name.';
-            msgEl.classList.remove('hidden');
-            msgEl.style.color = 'var(--danger)';
+            msgEl.textContent = "Invalid container name.";
+            msgEl.classList.remove("hidden");
+            msgEl.style.color = "var(--danger)";
             return;
         }
 
@@ -2881,103 +3516,116 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isLoggedIn) {
             token = "";
         } else {
-            token = sessionStorage.getItem('dockgo_token');
+            token = sessionStorage.getItem("dockgo_token");
             if (!token && window.apiTokenEnabled) {
-                token = prompt(`Please enter the API Token to authorize ${action}:`);
+                token = prompt(
+                    `Please enter the API Token to authorize ${action}:`,
+                );
                 if (!token) return;
-                sessionStorage.setItem('dockgo_token', token);
+                sessionStorage.setItem("dockgo_token", token);
             }
         }
 
-        const msgEl = containerEl.querySelector('.update-message') || document.createElement('div');
+        const msgEl =
+            containerEl.querySelector(".update-message") ||
+            document.createElement("div");
         if (!msgEl.parentElement) {
-            msgEl.className = 'update-message';
-            containerEl.querySelector('.card-body, .list-col-actions').appendChild(msgEl);
+            msgEl.className = "update-message";
+            containerEl
+                .querySelector(".card-body, .list-col-actions")
+                .appendChild(msgEl);
         }
 
         msgEl.textContent = `Executing ${action}...`;
-        msgEl.classList.remove('hidden');
-        msgEl.style.color = 'var(--text-secondary)';
+        msgEl.classList.remove("hidden");
+        msgEl.style.color = "var(--text-secondary)";
 
         try {
             const headers = {
-                'Content-Type': 'application/json'
+                "Content-Type": "application/json",
             };
             if (token) {
-                headers['Authorization'] = `Bearer ${token}`;
+                headers["Authorization"] = `Bearer ${token}`;
             }
             if (isLoggedIn) {
-                headers['X-CSRF-Token'] = getCsrfToken();
+                headers["X-CSRF-Token"] = getCsrfToken();
             }
 
-            const response = await fetch(withAgentQuery(`/api/container/${safeName}/action`), {
-                method: 'POST',
-                headers: headers,
-                body: JSON.stringify({ action: action })
-            });
+            const response = await fetch(
+                withAgentQuery(`/api/container/${safeName}/action`),
+                {
+                    method: "POST",
+                    headers: headers,
+                    body: JSON.stringify({ action: action }),
+                },
+            );
 
             if (response.status === 401 || response.status === 403) {
-                msgEl.textContent = 'Error: Unauthorized.';
-                msgEl.style.color = 'var(--danger)';
+                msgEl.textContent = "Error: Unauthorized.";
+                msgEl.style.color = "var(--danger)";
                 if (authEnabled && !isLoggedIn) {
                     showLoginModal();
                 } else if (window.apiTokenEnabled) {
-                    sessionStorage.removeItem('dockgo_token');
+                    sessionStorage.removeItem("dockgo_token");
                 }
-                setTimeout(() => msgEl.classList.add('hidden'), 3000);
+                setTimeout(() => msgEl.classList.add("hidden"), 3000);
                 return;
             }
 
             const data = await response.json();
 
-            if (!response.ok) {
-                msgEl.textContent = `Error: ${data.error || 'Unknown error'}`;
-                msgEl.style.color = 'var(--danger)';
-            } else {
+            if (response.ok) {
                 msgEl.textContent = `Successfully executed ${action}. Refreshing...`;
-                msgEl.style.color = 'var(--success)';
+                msgEl.style.color = "var(--success)";
                 // Silently fetch the updated container list from the API
                 setTimeout(() => fetchContainers(false), 1000);
+            } else {
+                msgEl.textContent = `Error: ${data.error || "Unknown error"}`;
+                msgEl.style.color = "var(--danger)";
             }
-
         } catch (error) {
             console.error(`[Action] Network error:`, error);
             msgEl.textContent = `Network Error: ${error.message}`;
-            msgEl.style.color = 'var(--danger)';
+            msgEl.style.color = "var(--danger)";
         } finally {
             setTimeout(() => {
-                if (msgEl.textContent.includes('Error')) {
-                    msgEl.classList.add('hidden');
-                    msgEl.style.color = '';
+                if (msgEl.textContent.includes("Error")) {
+                    msgEl.classList.add("hidden");
+                    msgEl.style.color = "";
                 }
             }, 5000);
         }
     };
 
     const formatBytes = (bytes) => {
-        if (bytes === 0 || !bytes) return '0 B';
+        if (bytes === 0 || !bytes) return "0 B";
         const k = 1024;
-        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const sizes = ["B", "KB", "MB", "GB", "TB"];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        return parseFloat((bytes / k ** i).toFixed(2)) + " " + sizes[i];
     };
 
     const fetchServerStats = async () => {
         try {
-            const response = await fetch(withAgentQuery('/api/server/stats'), { headers: getAuthHeaders() });
+            const response = await fetch(withAgentQuery("/api/server/stats"), {
+                headers: getAuthHeaders(),
+            });
             if (response.ok) {
                 const data = await response.json();
-                document.getElementById('stat-cpu').textContent = data.cpu_percent.toFixed(1) + '%';
-                document.getElementById('stat-ram').textContent = `${formatBytes(data.ram_used)} / ${formatBytes(data.ram_total)}`;
-                document.getElementById('stat-disk').textContent = `${formatBytes(data.disk_used)} / ${formatBytes(data.disk_total)}`;
-                
-                const statsRow = document.getElementById('server-stats-row');
+                document.getElementById("stat-cpu").textContent =
+                    data.cpu_percent.toFixed(1) + "%";
+                document.getElementById("stat-ram").textContent =
+                    `${formatBytes(data.ram_used)} / ${formatBytes(data.ram_total)}`;
+                document.getElementById("stat-disk").textContent =
+                    `${formatBytes(data.disk_used)} / ${formatBytes(data.disk_total)}`;
+
+                const statsRow = document.getElementById("server-stats-row");
                 if (statsRow) {
-                    statsRow.classList.remove('hidden');
+                    statsRow.classList.remove("hidden");
                 }
             }
         } catch (e) {
-            console.error('Failed to fetch server stats', e);
+            console.error("Failed to fetch server stats", e);
         }
     };
 
@@ -2985,10 +3633,10 @@ document.addEventListener('DOMContentLoaded', () => {
     Promise.all([checkAuthStatus(), fetchHealth()]).then(() => {
         fetchAgents();
         Promise.all([fetchContainers()]).then(() => {
-            if (currentPrimaryView === 'stacks') {
+            if (currentPrimaryView === "stacks") {
                 loadStacksViewData();
             }
-            if (currentPrimaryView === 'agents') {
+            if (currentPrimaryView === "agents") {
                 fetchAgents();
             }
             if (isLoggedIn || !authEnabled) {
@@ -3001,10 +3649,10 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(() => {
         if (activeUpdates === 0 && (isLoggedIn || !authEnabled)) {
             fetchContainers(false);
-            if (currentPrimaryView === 'stacks') {
+            if (currentPrimaryView === "stacks") {
                 loadStacksViewData();
             }
-            if (currentPrimaryView === 'agents') {
+            if (currentPrimaryView === "agents") {
                 fetchAgents();
             }
         }
