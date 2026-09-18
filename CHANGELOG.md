@@ -1,3 +1,22 @@
+# [1.5.0](https://github.com/Jisevind/dockgo/compare/v1.4.0...v1.5.0) (2026-09-18)
+
+
+### Bug Fixes
+
+* **server:** exclude agent-hosted stacks from local list ([e7efb7b](https://github.com/Jisevind/dockgo/commit/e7efb7bb69e320eb8279551d67833bd2559c98e0))
+* **stacks:** translate host paths during discovery ([add4904](https://github.com/Jisevind/dockgo/commit/add4904aefae8e0031ed2572abfcc849407a51cb))
+* surface command stderr in stack action errors ([fa3c5a0](https://github.com/Jisevind/dockgo/commit/fa3c5a0591ccd8ff6816740876813f311e234b3e))
+* **ui:** fetch agents on successful login ([7f23b79](https://github.com/Jisevind/dockgo/commit/7f23b79b7ce53186db2295f1da775c2c69815993))
+* **ui:** preserve active update progress when switching back to dashboard ([e34f27e](https://github.com/Jisevind/dockgo/commit/e34f27e287c8c16b70f3dadd3c1d239b0b677b60))
+
+
+### Features
+
+* add multi-host management via outbound-dialing agents ([5889af3](https://github.com/Jisevind/dockgo/commit/5889af3283f168a829f8cbe58891c23b6c807a76))
+* remove agent hostname from dropdown options ([e71694b](https://github.com/Jisevind/dockgo/commit/e71694ba91bfd613c0ea8bc33401764ddcbfc059))
+* replace native confirm dialogs with custom UI modal ([4951c27](https://github.com/Jisevind/dockgo/commit/4951c2732f3559f11b9f7ff9dcc88a15255a0a6a))
+* **stacks:** detect actual compose file from config_files label ([6ca1373](https://github.com/Jisevind/dockgo/commit/6ca13734c212cadbb006071dc718542ef2ae1189))
+
 # [1.4.0](https://github.com/Jisevind/dockgo/compare/v1.3.0...v1.4.0) (2026-07-21)
 
 
