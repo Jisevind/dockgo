@@ -102,7 +102,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const option = document.createElement("option");
             option.value = agentRec.id;
             const status = agentRec.status === "online" ? "●" : "○";
-            option.textContent = `${status} ${agentRec.name}${agentRec.hostname ? ` (${agentRec.hostname})` : ""}`;
+            option.textContent = `${status} ${agentRec.name}`;
             hostSelector.appendChild(option);
         });
 
