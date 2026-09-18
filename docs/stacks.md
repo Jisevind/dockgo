@@ -1,5 +1,7 @@
 # Stacks
 
+![DockGo dashboard showing container updates](../screenshots/screenshot-stacks-tab.png)
+
 In DockGo, a stack is a registered Docker Compose project.
 
 If you run Compose apps regularly, stacks should be part of your normal workflow.

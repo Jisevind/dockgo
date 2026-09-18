@@ -2,7 +2,7 @@
 
 > **A lightweight, secure Docker update agent — single binary, no fuss.**
 
-![DockGo dashboard showing container updates](screenshot.png)
+![DockGo dashboard showing container updates](screenshots/screenshot-main.png)
 
 ## What is DockGo?
 
@@ -143,6 +143,8 @@ Configure DockGo using environment variables:
 ---
 
 ## Multi-Host Management (Agents)
+
+![DockGo dashboard showing container updates](screenshots/screenshot-agents-tab.png)
 
 DockGo can manage containers and Compose stacks on **multiple remote hosts**
 from one dashboard. A lightweight agent runs on each managed host, dials **out**

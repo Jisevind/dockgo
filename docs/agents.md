@@ -1,5 +1,7 @@
 # Multi-Host Management with DockGo Agents
 
+![DockGo dashboard showing container updates](../screenshots/screenshot-agents-tab.png)
+
 DockGo can manage Docker containers and Compose stacks on **multiple remote
 hosts from a single dashboard**. A lightweight **agent** runs on each managed
 host (where the Docker socket lives) and establishes an outbound encrypted
