@@ -29,7 +29,6 @@ RUN dos2unix ./entrypoint.sh && chmod +x ./entrypoint.sh
 
 # Environment defaults
 ENV PORT=3131
-ENV DOCKCHECK_BIN=./dockgo
 
 EXPOSE 3131
 

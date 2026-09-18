@@ -126,7 +126,7 @@ Configure DockGo using environment variables:
 | `LOG_COMPRESS` | Compress rotated log files using gzip (`true`/`false`) | `true` |
 | `APPRISE_API_HOST` | Custom Apprise API connection host (e.g. `http://my-notifier:8000`) | `http://apprise:8000` |
 | `APPRISE_URL` | Apprise notification endpoint (e.g., `ntfy://...`) | *(empty)* |
-| `APPRISE_QUEUE_SIZE` | Buffer size for outbound notification events | `200` |
+| `APPRISE_QUEUE_SIZE` | Buffer size for outbound notification events | `100` |
 | `SCAN_INTERVAL` | Background update polling schedule (`s`, `m`, `h`) | `24h` |
 | `AGENT_STORE_PATH` | JSON file persisting registered agent records | `/app/data/agents.json` |
 | `AGENT_MAX_CONCURRENT` | Per-agent concurrent operation cap | `8` |

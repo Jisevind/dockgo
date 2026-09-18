@@ -30,7 +30,7 @@ Once a Compose app is stack-managed, dashboard updates use the registered stack 
 
 ## Linux: Host Native
 
-Use `Host Native` when DockGo sees the Compose project at the same absolute path as the host.
+Use `Host Native` (`"host_native"`) when DockGo sees the Compose project at the same absolute path as the host.
 
 Example:
 
@@ -41,7 +41,7 @@ Recommended on Linux.
 
 ## Windows: Mapped
 
-Use `Mapped` when DockGo sees the Compose project at a different internal path.
+Use `Mapped` (`"mapped"`) when DockGo sees the Compose project at a different internal path.
 
 Example:
 
@@ -51,6 +51,14 @@ Example:
 Typical on Windows with a Linux DockGo container.
 
 ## Important Stack States
+
+DockGo tracks two aspects of a stack: its **ownership mode** and its **operational state**.
+
+**Ownership mode** (`ownership_mode`):
+- `unbound` — the stack definition exists, but DockGo does not yet own any container IDs for it
+- `managed` — the stack owns runtime container IDs
+
+**Operational state** (`state`):
 
 ### Unbound
 
@@ -63,6 +71,22 @@ Common fix:
 
 - `Reconcile` if the containers are already running and correct
 - `Deploy` if you want DockGo to recreate and own them
+
+### Running
+
+All stack containers are running (and healthy, if healthchecks exist).
+
+### Starting
+
+Containers are starting or waiting for healthchecks to pass.
+
+### Degraded
+
+Some stack containers are stopped or unhealthy, but at least one is still running.
+
+### Down
+
+All stack containers are stopped.
 
 ### Drifted
 
@@ -107,6 +131,24 @@ Use `Validate` after editing stack paths or changing mount strategy.
 `Deploy` runs the registered Compose stack definition and then binds runtime ownership.
 
 If deploy succeeds but ownership cannot be bound, DockGo now treats that as an error instead of silently leaving the stack in a misleading success state.
+
+## API Reference
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `GET` | `/api/stacks` | List all registered stacks |
+| `POST` | `/api/stacks` | Register a new stack |
+| `GET` | `/api/stacks/:id` | Get stack details, validation, status, and history |
+| `PUT` | `/api/stacks/:id` | Update a stack definition |
+| `DELETE` | `/api/stacks/:id` | Unregister a stack |
+| `POST` | `/api/stacks/:id/validate` | Validate stack files and paths |
+| `POST` | `/api/stacks/:id/deploy` | Deploy the stack (SSE stream) |
+| `POST` | `/api/stacks/:id/pull` | Pull stack images (SSE stream) |
+| `POST` | `/api/stacks/:id/restart` | Restart stack services (SSE stream) |
+| `POST` | `/api/stacks/:id/down` | Stop stack services (SSE stream) |
+| `POST` | `/api/stacks/:id/reconcile` | Adopt currently running containers |
+| `GET` | `/api/stacks/:id/history` | Get stack action history (supports `?limit=`, `?action=`, `?status=`, `?source=` filters) |
+| `GET` | `/api/stacks/discover` | Discover unregistered Compose projects |
 
 ## Troubleshooting Stack Problems
 

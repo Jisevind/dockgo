@@ -48,6 +48,30 @@ operations (containers, scans, updates, logs, stats, stacks) to the agent.
   **agent host's** filesystem. Git-kind stacks are **not** supported on remote
   agents (server-local only).
 
+> [!NOTE]
+> Stack CRUD operations (`stack_list`, `stack_get`, `stack_create`,
+> `stack_update`, `stack_delete`, `stack_history`) are handled server-side.
+> The agent rejects these with a descriptive error. Only `stack_action`,
+> `stack_validate`, `stack_containers`, and `stack_discover` execute on the
+> agent host.
+
+## API endpoints
+
+| Endpoint | Description |
+| --- | --- |
+| `GET /api/agents` | List all registered agents |
+| `POST /api/agents` | Create a new agent (returns one-time key) |
+| `GET /api/agents/:id` | Get agent details |
+| `DELETE /api/agents/:id` | Delete an agent |
+| `POST /api/agents/:id/rotate-key` | Rotate an agent's registration key |
+| `WS /api/ws/agent` | Agent WebSocket channel (used by agents to connect) |
+| `* /api/agent/:id/*` | Proxy — relays any request to the specified agent over its WebSocket channel |
+
+The `/api/agent/:id/*` proxy transparently relays dashboard operations
+(containers, scans, updates, logs, stats, stacks) to a specific connected
+agent. The server forwards the request, waits for the agent's response, and
+streams it back to the web client.
+
 ## Security model
 
 - The registration endpoint rate limits **failed** handshakes per IP
@@ -132,6 +156,68 @@ provided `Dockerfile.agent` includes them.
   a stack while an agent is selected targets that agent (git-kind disabled).
 - Agents go **offline** in the selector when disconnected; the dashboard shows
   the host as unavailable for operations until the agent reconnects.
+
+## Protocol reference
+
+All messages use a JSON envelope with these fields:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | string | Unique message ID |
+| `type` | string | Message type (see tables below) |
+| `request_id` | string | Correlation ID for request/response matching |
+| `data` | object | Type-specific payload |
+
+### Server → Agent messages
+
+| Type | Description |
+| --- | --- |
+| `register` | Initial handshake (agent sends key, hostname, version) |
+| `containers_list` | List all containers on the agent host |
+| `scan` | Scan for container updates |
+| `update` | Update a specific container |
+| `container_action` | Start/stop/restart a container |
+| `container_logs` | Stream container logs |
+| `server_stats` | Request host CPU/RAM/disk stats |
+| `stack_list` | List stacks (server-side) |
+| `stack_get` | Get stack details (server-side) |
+| `stack_create` | Create a stack (server-side) |
+| `stack_update` | Update a stack (server-side) |
+| `stack_delete` | Delete a stack |
+| `stack_action` | Deploy/pull/restart/down a stack |
+| `stack_validate` | Validate a stack on the agent host |
+| `stack_history` | Get stack action history |
+| `stack_containers` | Get runtime containers for a stack |
+| `stack_discover` | Discover compose projects on the agent host |
+| `disconnect` | Graceful channel shutdown |
+
+### Agent → Server messages
+
+| Type | Description |
+| --- | --- |
+| `welcome` | Successful handshake acknowledgement |
+| `progress` | Streamed progress events (`scan`, `update`, `log`, `stack`) |
+| `result` | Final operation result |
+| `heartbeat` | Agent keepalive |
+| `pong` | Response to server ping |
+| `error` | Operation error |
+
+### Registration handshake
+
+The agent sends a `register` message with:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `key` | string | One-time registration key (`dg_...`) |
+| `jwt` | string | Previously issued JWT (reconnect only) |
+| `hostname` | string | Agent host's hostname |
+| `version` | string | Agent binary version |
+| `agent_id` | string | Learned agent ID (reconnect only) |
+| `name` | string | Display name override |
+
+The server responds with a `welcome` message containing the assigned
+`agent_id`, `server_version`, `capabilities`, `docker_status`, a fresh `jwt`,
+and `heartbeat_sec`.
 
 ## Key rotation
 

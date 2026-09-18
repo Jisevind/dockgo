@@ -37,19 +37,24 @@ By separating discovery from ownership:
 - Docker labels help DockGo find candidates
 - stored ownership tells DockGo what it actually manages
 
-## Stack States
+## Stack Status Model
 
-### Unbound
+The stack status API returns two separate concepts:
 
-The stack exists, but DockGo has not yet established owned container IDs.
+### Ownership Mode (`ownership_mode`)
 
-### Managed
+- `unbound` — the stack has no managed container IDs yet
+- `managed` — the stack owns runtime container IDs and can associate those containers back to the stack
 
-The stack owns runtime container IDs and can safely associate those containers back to the stack.
+### Operational State (`state`)
 
-### Drifted
-
-DockGo has recorded ownership, but the current runtime no longer matches it.
+- `unbound` — no managed containers recorded; deploy or reconcile to establish ownership
+- `running` — all stack containers are running (and healthy, if healthchecks exist)
+- `starting` — containers are starting or waiting for healthchecks
+- `degraded` — some containers are stopped or unhealthy
+- `down` — all stack containers are stopped
+- `drifted` — ownership drift detected; currently running containers don't match recorded ownership
+- `unknown` — runtime inspection failed
 
 This is surfaced explicitly so the UI and API do not silently guess.
 
