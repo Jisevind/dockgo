@@ -228,6 +228,33 @@ func (s *Server) handleStackByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(parts) == 2 && parts[1] == "files" {
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		s.handleStackFiles(w, stack)
+		return
+	}
+
+	if len(parts) == 3 && parts[1] == "file" && parts[2] == "validate" {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		s.handleStackFileValidate(w, stack, r)
+		return
+	}
+
+	if len(parts) == 2 && parts[1] == "file" {
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		s.handleStackFileRead(w, stack, r)
+		return
+	}
+
 	if len(parts) == 2 && parts[1] == "validate" {
 		if r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusMethodNotAllowed)
