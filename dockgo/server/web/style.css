@@ -916,6 +916,11 @@ h1 {
     content: "";
     position: absolute;
     inset: 0;
+    /* Paint the blur behind the modal. .modal is statically positioned, and a
+       positioned pseudo-element with z-index:auto paints above static in-flow
+       siblings, which blurred the modal's own contents. Negative z-index puts
+       it above the overlay background (step 1) but below the modal (step 3). */
+    z-index: -1;
     backdrop-filter: blur(2px);
     pointer-events: none;
 }
