@@ -595,6 +595,14 @@ func (s *Server) handleStackActionStream(
 		return
 	}
 
+	if _, err := stacks.GuardPath(
+		stacks.ResolvePathForRuntime(stack, stack.WorkingDir),
+		s.AllowedPaths,
+	); err != nil {
+		writeError(w, http.StatusForbidden, err.Error())
+		return
+	}
+
 	statusSummary := s.stackStatusSummary(r.Context(), stack)
 	if blocked, reason := blockedStackActionReason(statusSummary, action); blocked {
 		writeJSON(w, http.StatusConflict, map[string]any{
