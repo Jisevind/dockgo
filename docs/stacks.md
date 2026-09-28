@@ -139,6 +139,11 @@ DockGo can edit the compose and env files of a registered stack directly.
   `ALLOWED_COMPOSE_PATHS` when that is configured.
 - For `git_repo` stacks, saving edits the checked-out working copy; a later
   pull may overwrite those edits.
+- Files are addressed with `kind` (`compose` or `env`) and a 0-based `index`
+  within that kind; compose files come first, then env files.
+- Both `validate` and `PUT` take a JSON body of `{"content": "<draft text>"}`.
+- Agent-hosted stacks cannot be edited yet — saving one returns
+  `501 Not Implemented`.
 
 ## Deploy
 
@@ -164,7 +169,7 @@ If deploy succeeds but ownership cannot be bound, DockGo now treats that as an e
 | `POST` | `/api/stacks/:id/down` | Stop and remove stack services (SSE stream) |
 | `GET` | `/api/stacks/:id/files` | List a stack's editable compose and env files |
 | `GET` | `/api/stacks/:id/file?kind=&index=` | Read one compose or env file |
-| `POST` | `/api/stacks/:id/file/validate` | Validate draft content without saving |
+| `POST` | `/api/stacks/:id/file/validate?kind=&index=` | Validate draft content without saving |
 | `PUT` | `/api/stacks/:id/file?kind=&index=` | Save a file (validated, rolled back on failure) |
 | `POST` | `/api/stacks/:id/reconcile` | Adopt currently running containers |
 | `GET` | `/api/stacks/:id/history` | Get stack action history (supports `?limit=`, `?action=`, `?status=`, `?source=` filters) |
