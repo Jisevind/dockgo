@@ -128,3 +128,39 @@ func TestHandleStackFileValidateChecksDraftWithoutWriting(t *testing.T) {
 		t.Fatalf("content = %q, want %q (validation must not write)", saved, original)
 	}
 }
+
+func TestHandleStackFileReadMissingReturnsNotFound(t *testing.T) {
+	srv, stack := newTestStackServer(t)
+	srv.AllowedPaths = []string{filepath.Dir(stack.WorkingDir)}
+
+	// newTestStackServer registers a compose path it never creates, so this is
+	// the deleted-before-read case. GuardPath resolves symlinks before checking
+	// the allow-list, so the miss must still surface as "missing", not as a
+	// generic bad-request.
+	req := httptest.NewRequest(http.MethodGet, "/api/stacks/"+stack.ID+"/file?kind=compose&index=0", nil)
+	rec := httptest.NewRecorder()
+	srv.handleStackByID(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d (body=%s)", rec.Code, http.StatusNotFound, rec.Body.String())
+	}
+}
+
+func TestHandleStackFileReadNonRegularReturnsForbidden(t *testing.T) {
+	srv, stack := newTestStackServer(t)
+	srv.AllowedPaths = []string{filepath.Dir(stack.WorkingDir)}
+
+	// A directory sitting at the registered path exists and passes the
+	// allow-list, but is not editable content, so it must be refused with 403.
+	if err := os.Mkdir(stack.ComposeFiles[0], 0o700); err != nil {
+		t.Fatalf("Mkdir() error = %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/stacks/"+stack.ID+"/file?kind=compose&index=0", nil)
+	rec := httptest.NewRecorder()
+	srv.handleStackByID(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d (body=%s)", rec.Code, http.StatusForbidden, rec.Body.String())
+	}
+}

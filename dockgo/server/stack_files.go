@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -18,11 +19,12 @@ import (
 const maxEditableFileBytes = 1 << 20
 
 // Sentinel errors let handlers map a failed target resolution onto the status
-// codes in the design (403 outside the allow-list, 413 too large, 404 missing)
-// instead of collapsing every failure into 400.
+// codes in the design (403 outside the allow-list or not a regular file, 413 too
+// large, 404 missing) instead of collapsing every failure into 400.
 var (
-	errFileMissing  = errors.New("file does not exist")
-	errFileTooLarge = errors.New("file exceeds the editable size limit")
+	errFileMissing    = errors.New("file does not exist")
+	errFileTooLarge   = errors.New("file exceeds the editable size limit")
+	errFileNotRegular = errors.New("file is not a regular file")
 )
 
 // fileTarget is one editable file of a stack, addressed by kind and index.
@@ -89,6 +91,14 @@ func (s *Server) resolveFileTarget(stack stacks.Stack, kind string, index int) (
 
 	guarded, err := stacks.GuardPath(resolved, s.AllowedPaths)
 	if err != nil {
+		// GuardPath resolves symlinks before checking the allow-list, so a
+		// target that does not exist fails here rather than at the stat
+		// below. Report it as missing so a deleted file is a 404, never the
+		// generic 400; any other failure (including an allow-list rejection)
+		// keeps its own meaning.
+		if errors.Is(err, fs.ErrNotExist) {
+			return fileTarget{}, fmt.Errorf("%w: %s", errFileMissing, chosen)
+		}
 		return fileTarget{}, err
 	}
 
@@ -97,7 +107,7 @@ func (s *Server) resolveFileTarget(stack stacks.Stack, kind string, index int) (
 		return fileTarget{}, fmt.Errorf("%w: %s", errFileMissing, chosen)
 	}
 	if !info.Mode().IsRegular() {
-		return fileTarget{}, fmt.Errorf("not a regular file: %s", chosen)
+		return fileTarget{}, fmt.Errorf("%w: %s", errFileNotRegular, chosen)
 	}
 	if info.Size() > maxEditableFileBytes {
 		return fileTarget{}, fmt.Errorf("%w: %s is %d bytes", errFileTooLarge, chosen, info.Size())
@@ -109,7 +119,7 @@ func (s *Server) resolveFileTarget(stack stacks.Stack, kind string, index int) (
 // fileTargetStatus maps a target-resolution failure onto an HTTP status.
 func fileTargetStatus(err error) int {
 	switch {
-	case errors.Is(err, stacks.ErrPathNotAllowed):
+	case errors.Is(err, stacks.ErrPathNotAllowed), errors.Is(err, errFileNotRegular):
 		return http.StatusForbidden
 	case errors.Is(err, errFileTooLarge):
 		return http.StatusRequestEntityTooLarge
