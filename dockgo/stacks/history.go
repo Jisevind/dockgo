@@ -19,6 +19,8 @@ var priorityHistoryActions = map[string]struct{}{
 	"deploy":  {},
 	"pull":    {},
 	"restart": {},
+	"stop":    {},
+	"start":   {},
 	"down":    {},
 }
 

@@ -25,6 +25,14 @@ func Restart(ctx context.Context, stack Stack, log Logger) error {
 	return executeAction(ctx, stack, "restart", log)
 }
 
+func Stop(ctx context.Context, stack Stack, log Logger) error {
+	return executeAction(ctx, stack, "stop", log)
+}
+
+func Start(ctx context.Context, stack Stack, log Logger) error {
+	return executeAction(ctx, stack, "start", log)
+}
+
 func Down(ctx context.Context, stack Stack, log Logger) error {
 	return executeAction(ctx, stack, "down", log)
 }
@@ -63,6 +71,26 @@ func executeAction(ctx context.Context, stack Stack, action string, log Logger) 
 			}
 		}
 		log("Stack restart completed successfully.")
+		return nil
+	case "stop":
+		log("Stopping stack services...")
+		if err := StreamCommand(ctx, runtimeStack.WorkingDir, log, "docker", append(composeBaseArgs(runtimeStack), "stop")...); err != nil {
+			return fmt.Errorf("stack stop failed: %w", err)
+		}
+		log("Stack services stopped successfully.")
+		return nil
+	case "start":
+		log("Starting stack services...")
+		if err := StreamCommand(ctx, runtimeStack.WorkingDir, log, "docker", append(composeBaseArgs(runtimeStack), "start")...); err != nil {
+			return fmt.Errorf("stack start failed: %w", err)
+		}
+		if stack.HealthPolicy.RequireHealthy || stack.HealthPolicy.StartupGrace > 0 {
+			log("Running post-start verification...")
+			if err := VerifyDeployment(ctx, stack, log); err != nil {
+				return fmt.Errorf("stack verification failed: %w", err)
+			}
+		}
+		log("Stack services started successfully.")
 		return nil
 	case "down":
 		log("Bringing stack down...")

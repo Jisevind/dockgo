@@ -96,7 +96,7 @@ func (s *Server) handleAgentStacksRoute(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 		s.handleAgentStackValidate(w, r, agentID, stack)
-	case "deploy", "pull", "restart", "down":
+	case "deploy", "pull", "restart", "stop", "start", "down":
 		if r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
@@ -290,6 +290,10 @@ func (s *Server) handleAgentStackActionStream(w http.ResponseWriter, r *http.Req
 		actionLabel = "image pull"
 	case "restart":
 		actionLabel = "restart"
+	case "stop":
+		actionLabel = "stop"
+	case "start":
+		actionLabel = "start"
 	case "down":
 		actionLabel = "shutdown"
 	}

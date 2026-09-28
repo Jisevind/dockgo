@@ -262,6 +262,16 @@ func (s *Server) handleStackByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(parts) == 2 && parts[1] == "stop" {
+		s.handleStackActionStream(w, r, stack, "stop", "stop", 5*time.Minute, stacks.Stop)
+		return
+	}
+
+	if len(parts) == 2 && parts[1] == "start" {
+		s.handleStackActionStream(w, r, stack, "start", "start", 5*time.Minute, stacks.Start)
+		return
+	}
+
 	if len(parts) == 2 && parts[1] == "down" {
 		s.handleStackActionStream(w, r, stack, "down", "shutdown", 5*time.Minute, stacks.Down)
 		return
@@ -675,7 +685,7 @@ func blockedStackActionReason(statusSummary map[string]any, action string) (bool
 	}
 
 	switch action {
-	case "pull", "restart", "down":
+	case "pull", "restart", "stop", "start", "down":
 		return true, fmt.Sprintf("stack action '%s' is blocked while the stack is %s; deploy or reconcile the stack first", action, state)
 	default:
 		return false, ""

@@ -314,6 +314,8 @@ func (a *Agent) executeAgentStackAction(ctx context.Context, conn *websocket.Con
 		"deploy":  stacks.Deploy,
 		"pull":    stacks.Pull,
 		"restart": stacks.Restart,
+		"stop":    stacks.Stop,
+		"start":   stacks.Start,
 		"down":    stacks.Down,
 	}[action]
 	if run == nil {
@@ -459,6 +461,10 @@ func (a *Agent) opStackAction(ctx context.Context, conn *websocket.Conn, env Env
 		run = stacks.Pull
 	case "restart":
 		run = stacks.Restart
+	case "stop":
+		run = stacks.Stop
+	case "start":
+		run = stacks.Start
 	case "down":
 		run = stacks.Down
 	default:

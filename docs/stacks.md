@@ -145,7 +145,9 @@ If deploy succeeds but ownership cannot be bound, DockGo now treats that as an e
 | `POST` | `/api/stacks/:id/deploy` | Deploy the stack (SSE stream) |
 | `POST` | `/api/stacks/:id/pull` | Pull stack images (SSE stream) |
 | `POST` | `/api/stacks/:id/restart` | Restart stack services (SSE stream) |
-| `POST` | `/api/stacks/:id/down` | Stop stack services (SSE stream) |
+| `POST` | `/api/stacks/:id/stop` | Stop stack services, leaving containers in place (SSE stream) |
+| `POST` | `/api/stacks/:id/start` | Start previously stopped stack services (SSE stream) |
+| `POST` | `/api/stacks/:id/down` | Stop and remove stack services (SSE stream) |
 | `POST` | `/api/stacks/:id/reconcile` | Adopt currently running containers |
 | `GET` | `/api/stacks/:id/history` | Get stack action history (supports `?limit=`, `?action=`, `?status=`, `?source=` filters) |
 | `GET` | `/api/stacks/discover` | Discover unregistered Compose projects |

@@ -788,7 +788,7 @@ func TestBlockedStackActionReasonBlocksRiskyActionsWhenDrifted(t *testing.T) {
 		"state": "drifted",
 	}
 
-	for _, action := range []string{"pull", "restart", "down"} {
+	for _, action := range []string{"pull", "restart", "stop", "start", "down"} {
 		blocked, reason := blockedStackActionReason(statusSummary, action)
 		if !blocked {
 			t.Fatalf("blockedStackActionReason(%q) blocked = false, want true", action)
@@ -811,7 +811,7 @@ func TestBlockedStackActionReasonBlocksRiskyActionsWhenUnbound(t *testing.T) {
 		"state": "unbound",
 	}
 
-	for _, action := range []string{"pull", "restart", "down"} {
+	for _, action := range []string{"pull", "restart", "stop", "start", "down"} {
 		blocked, reason := blockedStackActionReason(statusSummary, action)
 		if !blocked {
 			t.Fatalf("blockedStackActionReason(%q) blocked = false, want true", action)
@@ -819,6 +819,49 @@ func TestBlockedStackActionReasonBlocksRiskyActionsWhenUnbound(t *testing.T) {
 		if !strings.Contains(reason, "blocked while the stack is unbound") {
 			t.Fatalf("reason = %q, want unbound explanation", reason)
 		}
+	}
+}
+
+// TestHandleStackByIDRecognizesLifecycleActions guards the route table for the
+// stack lifecycle actions surfaced in the dashboard dott menu. A stop/start
+// action must reach handleStackActionStream rather than falling through to the
+// generic "route not found" 404.
+func TestHandleStackByIDRecognizesLifecycleActions(t *testing.T) {
+	for _, action := range []string{"start", "stop", "restart", "down", "pull", "deploy"} {
+		t.Run(action, func(t *testing.T) {
+			srv, stack := newTestStackServer(t)
+
+			req := httptest.NewRequest(http.MethodPost, "/api/stacks/"+stack.ID+"/"+action, nil)
+			rec := httptest.NewRecorder()
+
+			srv.handleStackByID(rec, req)
+
+			if rec.Code == http.StatusNotFound {
+				t.Fatalf("POST /%s = 404, want the action to be routed", action)
+			}
+			if rec.Code == http.StatusMethodNotAllowed {
+				t.Fatalf("POST /%s = 405, want POST to be allowed", action)
+			}
+		})
+	}
+}
+
+// TestHandleStackByIDRejectsGetOnLifecycleActions ensures the lifecycle actions
+// stay POST-only, mirroring the single-container action endpoints.
+func TestHandleStackByIDRejectsGetOnLifecycleActions(t *testing.T) {
+	for _, action := range []string{"start", "stop"} {
+		t.Run(action, func(t *testing.T) {
+			srv, stack := newTestStackServer(t)
+
+			req := httptest.NewRequest(http.MethodGet, "/api/stacks/"+stack.ID+"/"+action, nil)
+			rec := httptest.NewRecorder()
+
+			srv.handleStackByID(rec, req)
+
+			if rec.Code != http.StatusMethodNotAllowed {
+				t.Fatalf("GET /%s status = %d, want %d", action, rec.Code, http.StatusMethodNotAllowed)
+			}
+		})
 	}
 }
 
