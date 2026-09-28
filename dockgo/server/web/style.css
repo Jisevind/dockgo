@@ -838,6 +838,16 @@ h1 {
     overflow-y: auto;
 }
 
+/* Stack group cards report progress through .update-message, which lacks the
+   .stack-progress state classes; mirror them so success/error read the same. */
+.update-message.success {
+    color: var(--success);
+}
+
+.update-message.error {
+    color: var(--danger);
+}
+
 /* Progress Bar */
 .progress-container {
     margin-bottom: 2rem;

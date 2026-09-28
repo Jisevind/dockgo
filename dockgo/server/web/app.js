@@ -1729,6 +1729,89 @@ document.addEventListener("DOMContentLoaded", () => {
         );
     }
 
+    // Derives a stack lifecycle state from a group of containers, mirroring the
+    // server's stackStatusSummary so group-card menus gate actions the same way
+    // server-rendered stack cards do.
+    const stackStateFromContainers = (containers) => {
+        const list = Array.isArray(containers) ? containers : [];
+        if (list.length === 0) return "";
+        const running = list.filter((c) => c.state === "running").length;
+        if (running === list.length) return "running";
+        if (running === 0) return "down";
+        return "degraded";
+    };
+
+    // Wires a stack action dropdown (Start/Stop/Restart/Details/Pull) on a stack
+    // card or stack group card.
+    //
+    // `stack` is the {id, name} identity forwarded straight to the API. It must
+    // NOT be looked up in cachedStacks: that cache is only populated while the
+    // Stacks view is active, so a Dashboard group card would resolve to nothing.
+    //
+    // getState() optionally supplies the lifecycle state used to gate actions.
+    // When absent, every action stays enabled and the server remains the
+    // authority (it returns 409 for drifted/unbound stacks).
+    const wireStackMenu = (
+        root,
+        stack,
+        { feedbackEl = null, getState = null } = {},
+    ) => {
+        const menuBtn = root.querySelector(".menu-btn");
+        const menuDropdown = root.querySelector(".menu-dropdown");
+        if (!menuBtn || !menuDropdown) return;
+
+        // Mirror the container menu: disable actions that cannot do anything
+        // useful for the stack's current lifecycle state.
+        const applyActionAvailability = () => {
+            const state = getState ? getState() : "";
+            if (!state) return;
+
+            // The server rejects these actions while ownership is unresolved.
+            const needsReconcile = state === "drifted" || state === "unbound";
+            const allStopped = state === "down";
+            const allRunning = state === "running";
+
+            const setDisabled = (action, disabled) => {
+                const btn = menuDropdown.querySelector(
+                    `[data-action="${action}"]`,
+                );
+                if (btn) btn.disabled = disabled;
+            };
+
+            for (const action of ["start", "stop", "restart", "pull"]) {
+                setDisabled(action, needsReconcile);
+            }
+            setDisabled("start", needsReconcile || allRunning);
+            setDisabled("stop", needsReconcile || allStopped);
+            setDisabled("restart", needsReconcile || allStopped);
+        };
+
+        applyActionAvailability();
+
+        menuBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            document.querySelectorAll(".menu-dropdown").forEach((d) => {
+                if (d !== menuDropdown) d.classList.add("hidden");
+            });
+            menuDropdown.classList.toggle("hidden");
+        });
+
+        menuDropdown.querySelectorAll(".menu-action-btn").forEach((btn) => {
+            btn.addEventListener("click", async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                menuDropdown.classList.add("hidden");
+
+                const action = btn.dataset.action;
+                if (action === "details") {
+                    await openStackDetails(stack);
+                    return;
+                }
+                await runStackAction(stack, action, root, feedbackEl);
+            });
+        });
+    };
+
     const renderStacks = (stackItems) => {
         const currentScrollY = window.scrollY;
         const currentHeight = stackListEl.offsetHeight;
@@ -1844,6 +1927,12 @@ document.addEventListener("DOMContentLoaded", () => {
                     .addEventListener("click", async () => {
                         await runStackAction(stack, "deploy", stackEl);
                     });
+
+                // status_summary lives on the list item; pass it so the menu
+                // can gate actions on the stack's lifecycle state.
+                wireStackMenu(stackEl, stack, {
+                    getState: () => statusSummary?.state,
+                });
 
                 stackListEl.appendChild(clone);
             });
@@ -2417,7 +2506,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 try {
                     const data = await response.json();
                     errorMessage = data.error || errorMessage;
-                } catch (e) {
+                } catch {
                     // keep fallback
                 }
                 throw new Error(errorMessage);
@@ -2434,9 +2523,15 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     };
 
-    const setStackProgress = (stackEl, message, state = "") => {
+    const setStackProgress = (
+        stackEl,
+        message,
+        state = "",
+        feedbackEl = null,
+    ) => {
         if (!stackEl) return;
-        const progressEl = stackEl.querySelector(".stack-progress");
+        const progressEl =
+            stackEl.querySelector(".stack-progress") || feedbackEl;
         if (!progressEl) return;
 
         progressEl.textContent = message;
@@ -2455,18 +2550,13 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     };
 
-    const clearStackDetailsProgress = () => {
-        if (!stackDetailsProgress) return;
-        stackDetailsProgress.textContent = "";
-        stackDetailsProgress.classList.add("hidden");
-        stackDetailsProgress.classList.remove("success", "error");
-    };
-
     const setStackButtonsDisabled = (stackEl, disabled) => {
         if (!stackEl) return;
-        stackEl.querySelectorAll(".stack-actions .btn").forEach((button) => {
-            button.disabled = disabled;
-        });
+        stackEl
+            .querySelectorAll(".stack-actions .btn, .menu-action-btn")
+            .forEach((button) => {
+                button.disabled = disabled;
+            });
     };
 
     const setStackDetailsActionButtonsDisabled = (disabled) => {
@@ -2490,6 +2580,8 @@ document.addEventListener("DOMContentLoaded", () => {
         deploy: "deploy",
         pull: "pull images for",
         restart: "restart",
+        stop: "stop",
+        start: "start",
         down: "bring down",
     };
 
@@ -2509,6 +2601,16 @@ document.addEventListener("DOMContentLoaded", () => {
             success: "Restart completed successfully.",
             failure: "Restart failed",
         },
+        stop: {
+            start: "Stopping stack services...",
+            success: "Stack services stopped.",
+            failure: "Stop failed",
+        },
+        start: {
+            start: "Starting stack services...",
+            success: "Stack services started.",
+            failure: "Start failed",
+        },
         down: {
             start: "Starting stack shutdown...",
             success: "Stack is down.",
@@ -2516,7 +2618,17 @@ document.addEventListener("DOMContentLoaded", () => {
         },
     };
 
-    const runStackAction = async (stack, action, stackEl) => {
+    const runStackAction = async (
+        stack,
+        action,
+        stackEl,
+        feedbackEl = null,
+    ) => {
+        // Bind stackEl/feedbackEl once so both stack cards (.stack-progress)
+        // and stack group cards (.update-message) report progress.
+        const reportProgress = (message, state = "") =>
+            setStackProgress(stackEl, message, state, feedbackEl);
+
         const actionLabel = stackActionLabels[action] || action;
         if (
             !(await showConfirmModal(
@@ -2530,8 +2642,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         try {
             setStackButtonsDisabled(stackEl, true);
-            setStackProgress(
-                stackEl,
+            reportProgress(
                 stackProgressMessages[action]?.start ||
                     "Starting stack action...",
             );
@@ -2562,7 +2673,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 try {
                     const data = await response.json();
                     errorMessage = data.error || errorMessage;
-                } catch (e) {
+                } catch {
                     // keep fallback
                 }
                 throw new Error(errorMessage);
@@ -2576,8 +2687,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const processStackEvent = (data) => {
                 if (data.type === "start") {
-                    setStackProgress(
-                        stackEl,
+                    reportProgress(
                         data.message ||
                             stackProgressMessages[action]?.start ||
                             "Starting stack action...",
@@ -2595,7 +2705,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
                 } else if (data.type === "progress") {
                     sawMeaningfulProgress = true;
-                    setStackProgress(stackEl, data.status || "Working...");
+                    reportProgress(data.status || "Working...");
                     if (
                         activeStackDetails &&
                         activeStackDetails.id === stack.id &&
@@ -2605,8 +2715,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
                 } else if (data.type === "error") {
                     sawTerminalEvent = true;
-                    setStackProgress(
-                        stackEl,
+                    reportProgress(
                         data.error ||
                             stackProgressMessages[action]?.failure ||
                             "Stack action failed.",
@@ -2626,8 +2735,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
                 } else if (data.type === "done") {
                     sawTerminalEvent = true;
-                    setStackProgress(
-                        stackEl,
+                    reportProgress(
                         stackProgressMessages[action]?.success ||
                             "Stack action completed successfully.",
                         "success",
@@ -2673,8 +2781,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         break;
                     }
                     if (sawMeaningfulProgress) {
-                        setStackProgress(
-                            stackEl,
+                        reportProgress(
                             "Connection dropped after stack progress. Refreshing status...",
                         );
                         if (
@@ -2706,8 +2813,7 @@ document.addEventListener("DOMContentLoaded", () => {
             actionSucceeded = true;
         } catch (error) {
             console.error(`Failed to ${action} stack`, error);
-            setStackProgress(
-                stackEl,
+            reportProgress(
                 `${stackProgressMessages[action]?.failure || "Stack action failed"}: ${error.message}`,
                 "error",
             );
@@ -3090,6 +3196,20 @@ document.addEventListener("DOMContentLoaded", () => {
                         }
                     }
 
+                    // Group cards carry the stack identity from the container
+                    // payload, so the menu works without the stacks cache.
+                    wireStackMenu(
+                        groupEl,
+                        { id: group.stackId, name: group.stackName },
+                        {
+                            feedbackEl: clone.querySelector(
+                                ".update-message",
+                            ),
+                            getState: () =>
+                                stackStateFromContainers(group.containers),
+                        },
+                    );
+
                     listEl.appendChild(clone);
                 };
 
@@ -3382,7 +3502,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 try {
                     const data = await response.json();
                     errorMessage = data.error || errorMessage;
-                } catch (e) {
+                } catch {
                     /* keep fallback */
                 }
                 throw new Error(errorMessage);
