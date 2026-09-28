@@ -126,6 +126,20 @@ Validation checks:
 
 Use `Validate` after editing stack paths or changing mount strategy.
 
+## Editing Compose And Env Files
+
+DockGo can edit the compose and env files of a registered stack directly.
+
+- Content is checked for syntax first (YAML for compose files, `KEY=VALUE` for
+  env files) and rejected if it does not parse.
+- Saves are then validated with `docker compose config`. A save that fails is
+  rolled back and the previous content is restored, so a broken stack cannot be
+  saved.
+- Only files already registered to the stack can be edited, and only within
+  `ALLOWED_COMPOSE_PATHS` when that is configured.
+- For `git_repo` stacks, saving edits the checked-out working copy; a later
+  pull may overwrite those edits.
+
 ## Deploy
 
 `Deploy` runs the registered Compose stack definition and then binds runtime ownership.
@@ -148,6 +162,10 @@ If deploy succeeds but ownership cannot be bound, DockGo now treats that as an e
 | `POST` | `/api/stacks/:id/stop` | Stop stack services, leaving containers in place (SSE stream) |
 | `POST` | `/api/stacks/:id/start` | Start previously stopped stack services (SSE stream) |
 | `POST` | `/api/stacks/:id/down` | Stop and remove stack services (SSE stream) |
+| `GET` | `/api/stacks/:id/files` | List a stack's editable compose and env files |
+| `GET` | `/api/stacks/:id/file?kind=&index=` | Read one compose or env file |
+| `POST` | `/api/stacks/:id/file/validate` | Validate draft content without saving |
+| `PUT` | `/api/stacks/:id/file?kind=&index=` | Save a file (validated, rolled back on failure) |
 | `POST` | `/api/stacks/:id/reconcile` | Adopt currently running containers |
 | `GET` | `/api/stacks/:id/history` | Get stack action history (supports `?limit=`, `?action=`, `?status=`, `?source=` filters) |
 | `GET` | `/api/stacks/discover` | Discover unregistered Compose projects |
