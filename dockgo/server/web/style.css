@@ -552,6 +552,17 @@ h1 {
     display: none;
 }
 
+/* A dropdown opened inside a scrolling ancestor (the stack-containers modal
+   nests three) is otherwise clipped by that ancestor. Floating it against the
+   viewport keeps it fully visible on top; offsets are set inline when it opens. */
+.menu-dropdown-floating {
+    position: fixed;
+    top: auto;
+    right: auto;
+    margin-top: 0;
+    z-index: 3000;
+}
+
 /* Elevate the z-index of any card that has an active menu, so it shows above hovered cards */
 .card:has(.menu-dropdown:not(.hidden)),
 .list-item:has(.menu-dropdown:not(.hidden)),
@@ -559,6 +570,9 @@ h1 {
 .stack-group-card:has(.menu-dropdown:not(.hidden)) {
     z-index: 50;
     position: relative;
+    /* .card:hover applies translateY, which would otherwise make the card the
+       containing block for the floating menu and clip it again. */
+    transform: none;
 }
 
 .menu-action-btn {
@@ -890,10 +904,20 @@ h1 {
     align-items: center;
     justify-content: center;
     z-index: 1000;
-    backdrop-filter: blur(2px);
     padding: 1.5rem;
     box-sizing: border-box;
     overflow-y: auto;
+}
+
+/* The blur lives on a pseudo-element rather than the overlay itself: a
+   backdrop-filter on the overlay would make it the containing block for the
+   floating menus and re-clip them. */
+.modal-overlay::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    backdrop-filter: blur(2px);
+    pointer-events: none;
 }
 
 #logs-modal {

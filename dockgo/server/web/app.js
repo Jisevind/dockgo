@@ -1045,6 +1045,69 @@ document.addEventListener("DOMContentLoaded", () => {
             Number.parseInt(stackHealthStartupGraceInput.value, 10) || 20,
     });
 
+    // Dropdowns are absolutely positioned inside their card, so any scrolling
+    // ancestor clips them — the stack-containers modal nests three (the
+    // container list, the modal body, and the overlay), which cut the menu off.
+    // Float the open dropdown against the viewport instead, anchored to its
+    // trigger, so it always paints in full on top.
+    const FLOATING_MENU_CLASS = "menu-dropdown-floating";
+
+    const closeMenuDropdown = (menuDropdown) => {
+        if (!menuDropdown) return;
+        menuDropdown.classList.add("hidden");
+        menuDropdown.classList.remove(FLOATING_MENU_CLASS);
+        menuDropdown.style.removeProperty("top");
+        menuDropdown.style.removeProperty("left");
+    };
+
+    const closeOtherMenus = (keep) => {
+        document.querySelectorAll(".menu-dropdown").forEach((dropdown) => {
+            if (dropdown !== keep) closeMenuDropdown(dropdown);
+        });
+    };
+
+    const openMenuDropdown = (menuDropdown, menuBtn) => {
+        menuDropdown.classList.remove("hidden");
+        menuDropdown.classList.add(FLOATING_MENU_CLASS);
+
+        const trigger = menuBtn.getBoundingClientRect();
+        const menuWidth = menuDropdown.offsetWidth;
+        const menuHeight = menuDropdown.offsetHeight;
+        const gap = 4;
+        const margin = 8;
+
+        // Open downward, flipping above the trigger when there is no room.
+        let top = trigger.bottom + gap;
+        if (top + menuHeight > window.innerHeight - margin) {
+            top = trigger.top - menuHeight - gap;
+        }
+        top = Math.max(
+            margin,
+            Math.min(top, window.innerHeight - menuHeight - margin),
+        );
+
+        // Right-align with the trigger, clamped to the viewport.
+        const left = Math.max(
+            margin,
+            Math.min(
+                trigger.right - menuWidth,
+                window.innerWidth - menuWidth - margin,
+            ),
+        );
+
+        menuDropdown.style.top = `${Math.round(top)}px`;
+        menuDropdown.style.left = `${Math.round(left)}px`;
+    };
+
+    const toggleMenuDropdown = (menuDropdown, menuBtn) => {
+        closeOtherMenus(menuDropdown);
+        if (menuDropdown.classList.contains("hidden")) {
+            openMenuDropdown(menuDropdown, menuBtn);
+        } else {
+            closeMenuDropdown(menuDropdown);
+        }
+    };
+
     const openStackContainersModal = (stackName, containers) => {
         stackContainersTitle.textContent = `Containers in ${stackName}`;
         stackContainersList.innerHTML = "";
@@ -1091,10 +1154,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (menuBtn && menuDropdown) {
                 menuBtn.addEventListener("click", (e) => {
                     e.stopPropagation();
-                    document.querySelectorAll(".menu-dropdown").forEach((d) => {
-                        if (d !== menuDropdown) d.classList.add("hidden");
-                    });
-                    menuDropdown.classList.toggle("hidden");
+                    toggleMenuDropdown(menuDropdown, menuBtn);
                 });
 
                 const startBtn = menuDropdown.querySelector(
@@ -1134,7 +1194,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     .forEach((btn) => {
                         btn.addEventListener("click", async (e) => {
                             e.preventDefault();
-                            menuDropdown.classList.add("hidden");
+                            closeMenuDropdown(menuDropdown);
                             const action = e.target.dataset.action;
                             if (action === "logs") {
                                 closeStackContainersModal();
@@ -1790,17 +1850,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
         menuBtn.addEventListener("click", (e) => {
             e.stopPropagation();
-            document.querySelectorAll(".menu-dropdown").forEach((d) => {
-                if (d !== menuDropdown) d.classList.add("hidden");
-            });
-            menuDropdown.classList.toggle("hidden");
+            toggleMenuDropdown(menuDropdown, menuBtn);
         });
 
         menuDropdown.querySelectorAll(".menu-action-btn").forEach((btn) => {
             btn.addEventListener("click", async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                menuDropdown.classList.add("hidden");
+                closeMenuDropdown(menuDropdown);
 
                 const action = btn.dataset.action;
                 if (action === "details") {
@@ -2957,14 +3014,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     if (menuBtn && menuDropdown) {
                         menuBtn.addEventListener("click", (e) => {
                             e.stopPropagation();
-                            // Close any other open menus
-                            document
-                                .querySelectorAll(".menu-dropdown")
-                                .forEach((d) => {
-                                    if (d !== menuDropdown)
-                                        d.classList.add("hidden");
-                                });
-                            menuDropdown.classList.toggle("hidden");
+                            toggleMenuDropdown(menuDropdown, menuBtn);
                         });
 
                         // Disable invalid buttons based on state
@@ -3005,7 +3055,7 @@ document.addEventListener("DOMContentLoaded", () => {
                             .forEach((btn) => {
                                 btn.addEventListener("click", async (e) => {
                                     e.preventDefault();
-                                    menuDropdown.classList.add("hidden");
+                                    closeMenuDropdown(menuDropdown);
 
                                     const action = e.target.dataset.action;
                                     if (action === "logs") {
@@ -3612,9 +3662,20 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!e.target.closest(".menu")) {
             document
                 .querySelectorAll(".menu-dropdown")
-                .forEach((d) => d.classList.add("hidden"));
+                .forEach(closeMenuDropdown);
         }
     });
+
+    // A floating menu is anchored to the viewport rather than its card, so
+    // close it when anything scrolls (capture catches inner containers) or the
+    // window resizes, instead of letting it drift away from its trigger.
+    const closeFloatingMenus = () => {
+        document
+            .querySelectorAll(`.${FLOATING_MENU_CLASS}`)
+            .forEach(closeMenuDropdown);
+    };
+    window.addEventListener("scroll", closeFloatingMenus, true);
+    window.addEventListener("resize", closeFloatingMenus);
 
     const handleContainerAction = async (name, action, containerEl) => {
         const safeName = getSafeContainerPathSegment(name);
