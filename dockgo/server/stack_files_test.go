@@ -30,9 +30,12 @@ func TestHandleStackActionStreamAllowsWorkingDirInsideAllowList(t *testing.T) {
 
 	srv.handleStackByID(rec, req)
 
-	// The action itself cannot run without Docker here, but it must get past
-	// the guard: anything other than 403 proves the allow-list admitted it.
-	if rec.Code == http.StatusForbidden {
-		t.Fatalf("status = 403, want the guard to admit an allowed directory (body=%s)", rec.Body.String())
+	// An admitted directory must not be rejected: the request proceeds to the
+	// next gate, which for this unbound stack is the "blocked while unbound"
+	// conflict. Nothing downstream differs between an admitted request and an
+	// unguarded one, so this test cannot prove the guard exists - that comes
+	// from the rejection test above. Its job is to catch over-restriction.
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want %d (body=%s)", rec.Code, http.StatusConflict, rec.Body.String())
 	}
 }
