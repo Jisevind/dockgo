@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"dockgo/engine"
 	"dockgo/stacks"
 )
 
@@ -198,4 +199,107 @@ func (s *Server) handleStackFileValidate(w http.ResponseWriter, stack stacks.Sta
 	}
 
 	writeJSON(w, http.StatusOK, stacks.ValidateSyntax(kind, payload.Content))
+}
+
+// handleStackFileWrite saves new content for one stack file.
+//
+// Order is deliberate: syntax is checked before anything touches the disk, the
+// project lock is taken before the previous content is read so a save cannot
+// interleave with a deploy, and the previous content is restored if docker
+// rejects the result. A save that does not pass semantic validation must never
+// persist.
+func (s *Server) handleStackFileWrite(w http.ResponseWriter, stack stacks.Stack, r *http.Request) {
+	kind, index, err := fileTargetRequest(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	target, err := s.resolveFileTarget(stack, kind, index)
+	if err != nil {
+		writeError(w, fileTargetStatus(err), err.Error())
+		return
+	}
+
+	var payload struct {
+		Content string `json:"content"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if len(payload.Content) > maxEditableFileBytes {
+		writeError(w, http.StatusRequestEntityTooLarge,
+			fmt.Sprintf("content exceeds the %d byte limit", maxEditableFileBytes))
+		return
+	}
+
+	if syntax := stacks.ValidateSyntax(kind, payload.Content); !syntax.Valid {
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{
+			"error":  "file has syntax errors",
+			"syntax": syntax,
+		})
+		return
+	}
+
+	project := stack.Discovery.ComposeProject
+	if project == "" {
+		project = stack.ProjectName
+	}
+	unlock := engine.LockProject(project)
+	defer unlock()
+
+	previous, err := os.ReadFile(target.Path)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	if err := writeFileAtomic(target.Path, payload.Content); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Validate reads the file from disk, so this checks what was just written.
+	if validation := stacks.Validate(r.Context(), stack); !validation.Valid {
+		if restoreErr := writeFileAtomic(target.Path, string(previous)); restoreErr != nil {
+			writeError(w, http.StatusInternalServerError,
+				fmt.Sprintf("validation failed and rollback failed: %v", restoreErr))
+			return
+		}
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{
+			"error":       "file failed compose validation",
+			"validation":  validation,
+			"rolled_back": true,
+		})
+		return
+	}
+
+	action := "edit_compose"
+	if kind == stacks.FileKindEnv {
+		action = "edit_env"
+	}
+	s.recordStackHistory(stack, action, "success",
+		fmt.Sprintf("%s updated (%s, %d bytes)", target.Label, kind, len(payload.Content)))
+
+	writeJSON(w, http.StatusOK, map[string]any{"target": target})
+}
+
+// writeFileAtomic replaces path's contents without ever exposing a partial
+// write, preserving the existing file mode.
+func writeFileAtomic(path string, content string) error {
+	mode := os.FileMode(0o600)
+	if info, err := os.Stat(path); err == nil {
+		mode = info.Mode().Perm()
+	}
+
+	tmpPath := path + ".tmp"
+	if err := os.WriteFile(tmpPath, []byte(content), mode); err != nil {
+		return fmt.Errorf("failed to write temporary file: %w", err)
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("failed to commit file: %w", err)
+	}
+	return nil
 }

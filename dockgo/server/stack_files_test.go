@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -162,5 +163,144 @@ func TestHandleStackFileReadNonRegularReturnsForbidden(t *testing.T) {
 
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("status = %d, want %d (body=%s)", rec.Code, http.StatusForbidden, rec.Body.String())
+	}
+}
+
+// writeFakeDocker installs a stub docker on PATH. When failConfig is true the
+// stub makes `docker compose config` fail, which is what triggers rollback.
+func writeFakeDocker(t *testing.T, failConfig bool) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("stub docker relies on a POSIX shell script")
+	}
+
+	dir := t.TempDir()
+	exit := "0"
+	if failConfig {
+		exit = "1"
+	}
+	script := "#!/bin/sh\n" +
+		"case \"$*\" in\n" +
+		"  *compose*config*)\n" +
+		"    printf '%s' '{\"services\":{\"web\":{\"image\":\"nginx\"}}}'\n" +
+		"    exit " + exit + "\n" +
+		"    ;;\n" +
+		"esac\n" +
+		"exit 0\n"
+	if err := os.WriteFile(filepath.Join(dir, "docker"), []byte(script), 0o700); err != nil {
+		t.Fatalf("WriteFile(docker stub) error = %v", err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+}
+
+func TestHandleStackFileWriteSavesValidContent(t *testing.T) {
+	writeFakeDocker(t, false)
+	srv, stack := newTestStackServer(t)
+	srv.AllowedPaths = []string{filepath.Dir(stack.WorkingDir)}
+
+	if err := os.WriteFile(stack.ComposeFiles[0], []byte("services: {}\n"), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	body := `{"content":"services:\n  web:\n    image: nginx\n"}`
+	req := httptest.NewRequest(http.MethodPut,
+		"/api/stacks/"+stack.ID+"/file?kind=compose&index=0", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	srv.handleStackByID(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
+	}
+
+	saved, err := os.ReadFile(stack.ComposeFiles[0])
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	if !strings.Contains(string(saved), "image: nginx") {
+		t.Fatalf("saved content = %q, want the new content", saved)
+	}
+}
+
+func TestHandleStackFileWriteRejectsInvalidSyntax(t *testing.T) {
+	writeFakeDocker(t, false)
+	srv, stack := newTestStackServer(t)
+	srv.AllowedPaths = []string{filepath.Dir(stack.WorkingDir)}
+
+	original := "services: {}\n"
+	if err := os.WriteFile(stack.ComposeFiles[0], []byte(original), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	body := `{"content":"services:\n  web: [\n"}`
+	req := httptest.NewRequest(http.MethodPut,
+		"/api/stacks/"+stack.ID+"/file?kind=compose&index=0", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	srv.handleStackByID(rec, req)
+
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422", rec.Code)
+	}
+
+	saved, err := os.ReadFile(stack.ComposeFiles[0])
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	if string(saved) != original {
+		t.Fatalf("content = %q, want the original %q (nothing may be written)", saved, original)
+	}
+}
+
+func TestHandleStackFileWriteRollsBackWhenDockerRejects(t *testing.T) {
+	writeFakeDocker(t, true) // docker compose config fails
+	srv, stack := newTestStackServer(t)
+	srv.AllowedPaths = []string{filepath.Dir(stack.WorkingDir)}
+
+	original := "services: {}\n"
+	if err := os.WriteFile(stack.ComposeFiles[0], []byte(original), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	body := `{"content":"services:\n  web:\n    image: nginx\n"}`
+	req := httptest.NewRequest(http.MethodPut,
+		"/api/stacks/"+stack.ID+"/file?kind=compose&index=0", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	srv.handleStackByID(rec, req)
+
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422 (body=%s)", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"rolled_back":true`) {
+		t.Fatalf("body = %s, want rolled_back:true", rec.Body.String())
+	}
+
+	saved, err := os.ReadFile(stack.ComposeFiles[0])
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	if string(saved) != original {
+		t.Fatalf("content = %q, want the original %q restored", saved, original)
+	}
+}
+
+func TestHandleStackFileWriteRejectsWorkingDirOutsideAllowList(t *testing.T) {
+	writeFakeDocker(t, false)
+	srv, stack := newTestStackServer(t)
+	srv.AllowedPaths = []string{t.TempDir()}
+
+	// The guard resolves symlinks (and therefore existence) before checking
+	// the allow-list, so the target must exist for the allow-list rejection to
+	// be reachable; a missing file would surface as 404 first.
+	if err := os.WriteFile(stack.ComposeFiles[0], []byte("services: {}\n"), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	body := `{"content":"services: {}\n"}`
+	req := httptest.NewRequest(http.MethodPut,
+		"/api/stacks/"+stack.ID+"/file?kind=compose&index=0", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	srv.handleStackByID(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want 403 (body=%s)", rec.Code, rec.Body.String())
 	}
 }

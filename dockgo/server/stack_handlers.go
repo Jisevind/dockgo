@@ -247,11 +247,14 @@ func (s *Server) handleStackByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(parts) == 2 && parts[1] == "file" {
-		if r.Method != http.MethodGet {
+		switch r.Method {
+		case http.MethodGet:
+			s.handleStackFileRead(w, stack, r)
+		case http.MethodPut:
+			s.handleStackFileWrite(w, stack, r)
+		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
 		}
-		s.handleStackFileRead(w, stack, r)
 		return
 	}
 
