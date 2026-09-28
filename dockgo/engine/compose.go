@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
-	"strings"
 
 	"dockgo/stacks"
 )
@@ -25,44 +23,15 @@ type ServiceConfig struct {
 // Logger handles streamed command output lines.
 type Logger func(string)
 
-func translateComposePath(workingDir string) string {
-	mappingEnv := os.Getenv("COMPOSE_PATH_MAPPING")
-	if mappingEnv == "" {
-		return workingDir
-	}
-
-	mappings := strings.Split(mappingEnv, ",")
-	for _, mapping := range mappings {
-		lastColon := strings.LastIndex(mapping, ":")
-		if lastColon > 0 {
-			hostPath := strings.TrimSpace(mapping[:lastColon])
-			containerPath := strings.TrimSpace(mapping[lastColon+1:])
-
-			normalizedWorkingDir := strings.ReplaceAll(workingDir, "\\", "/")
-			normalizedHostPath := strings.ReplaceAll(hostPath, "\\", "/")
-
-			if strings.HasPrefix(strings.ToLower(normalizedWorkingDir), strings.ToLower(normalizedHostPath)) {
-				remainder := normalizedWorkingDir[len(normalizedHostPath):]
-				return containerPath + remainder
-			}
-		}
-	}
-
-	return workingDir
-}
-
+// validateWorkingDir resolves a compose working directory and enforces the
+// ALLOWED_COMPOSE_PATHS allow-list through the shared stacks.GuardPath helper,
+// so the engine and the stack actions cannot drift apart again.
 func validateWorkingDir(workingDir string, allowedPaths []string) (string, error) {
-	translatedDir := translateComposePath(workingDir)
+	translatedDir := stacks.TranslatePathForRuntime(workingDir)
 
-	cleanDir := filepath.Clean(translatedDir)
-
-	realDir, err := filepath.EvalSymlinks(cleanDir)
+	realDir, err := stacks.GuardPath(translatedDir, allowedPaths)
 	if err != nil {
-		return "", fmt.Errorf("failed to resolve working directory: %w", err)
-	}
-
-	if !filepath.IsAbs(realDir) {
-		return "", fmt.Errorf("working directory must be an absolute path: %s", realDir)
+		return "", err
 	}
 
 	info, err := os.Stat(realDir)
@@ -71,26 +40,6 @@ func validateWorkingDir(workingDir string, allowedPaths []string) (string, error
 	}
 	if !info.IsDir() {
 		return "", fmt.Errorf("compose working directory is not a directory: %s", realDir)
-	}
-
-	if len(allowedPaths) > 0 {
-		allowed := false
-		for _, allowedBase := range allowedPaths {
-			cleanBase := filepath.Clean(allowedBase)
-			realBase, err := filepath.EvalSymlinks(cleanBase)
-			if err != nil {
-				continue
-			}
-
-			if realDir == realBase || strings.HasPrefix(realDir, realBase+string(filepath.Separator)) {
-				allowed = true
-				break
-			}
-		}
-
-		if !allowed {
-			return "", fmt.Errorf("working directory '%s' is not within allowed paths: %v", realDir, allowedPaths)
-		}
 	}
 
 	return realDir, nil
