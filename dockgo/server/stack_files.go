@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"dockgo/engine"
 	"dockgo/stacks"
@@ -209,6 +211,12 @@ func (s *Server) handleStackFileValidate(w http.ResponseWriter, stack stacks.Sta
 // rejects the result. A save that does not pass semantic validation must never
 // persist.
 func (s *Server) handleStackFileWrite(w http.ResponseWriter, stack stacks.Stack, r *http.Request) {
+	if stack.AgentID != "" {
+		writeError(w, http.StatusNotImplemented,
+			"file editing for agent-hosted stacks is not yet supported")
+		return
+	}
+
 	kind, index, err := fileTargetRequest(r)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -246,7 +254,13 @@ func (s *Server) handleStackFileWrite(w http.ResponseWriter, stack stacks.Stack,
 	if project == "" {
 		project = stack.ProjectName
 	}
-	unlock := engine.LockProject(project)
+
+	var unlock func()
+	if project != "" {
+		unlock = engine.LockProject(project)
+	} else {
+		unlock = engine.LockProject(stack.ID)
+	}
 	defer unlock()
 
 	previous, err := os.ReadFile(target.Path)
@@ -261,7 +275,12 @@ func (s *Server) handleStackFileWrite(w http.ResponseWriter, stack stacks.Stack,
 	}
 
 	// Validate reads the file from disk, so this checks what was just written.
-	if validation := stacks.Validate(r.Context(), stack); !validation.Valid {
+	// Bound it so a hung compose subprocess cannot hold the project lock
+	// indefinitely.
+	validationCtx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	validation := stacks.Validate(validationCtx, stack)
+	cancel()
+	if !validation.Valid {
 		if restoreErr := writeFileAtomic(target.Path, string(previous)); restoreErr != nil {
 			writeError(w, http.StatusInternalServerError,
 				fmt.Sprintf("validation failed and rollback failed: %v", restoreErr))
@@ -279,27 +298,51 @@ func (s *Server) handleStackFileWrite(w http.ResponseWriter, stack stacks.Stack,
 	if kind == stacks.FileKindEnv {
 		action = "edit_env"
 	}
+	delta := len(payload.Content) - len(previous)
 	s.recordStackHistory(stack, action, "success",
-		fmt.Sprintf("%s updated (%s, %d bytes)", target.Label, kind, len(payload.Content)))
+		fmt.Sprintf("%s updated (%s, %+d bytes)", target.Label, kind, delta))
 
 	writeJSON(w, http.StatusOK, map[string]any{"target": target})
 }
 
 // writeFileAtomic replaces path's contents without ever exposing a partial
-// write, preserving the existing file mode.
+// write, preserving the existing file mode. The temp file is created in the
+// same directory, written and synced before the rename so a crash cannot
+// publish un-synced or partially written data.
 func writeFileAtomic(path string, content string) error {
 	mode := os.FileMode(0o600)
 	if info, err := os.Stat(path); err == nil {
 		mode = info.Mode().Perm()
 	}
 
-	tmpPath := path + ".tmp"
-	if err := os.WriteFile(tmpPath, []byte(content), mode); err != nil {
+	tmp, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".tmp-*")
+	if err != nil {
+		return fmt.Errorf("failed to create temporary file: %w", err)
+	}
+	tmpName := tmp.Name()
+	committed := false
+	defer func() {
+		_ = tmp.Close()
+		if !committed {
+			_ = os.Remove(tmpName)
+		}
+	}()
+
+	if err := tmp.Chmod(mode); err != nil {
+		return fmt.Errorf("failed to set temporary file mode: %w", err)
+	}
+	if _, err := tmp.Write([]byte(content)); err != nil {
 		return fmt.Errorf("failed to write temporary file: %w", err)
 	}
-	if err := os.Rename(tmpPath, path); err != nil {
-		_ = os.Remove(tmpPath)
+	if err := tmp.Sync(); err != nil {
+		return fmt.Errorf("failed to sync temporary file: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("failed to close temporary file: %w", err)
+	}
+	if err := os.Rename(tmpName, path); err != nil {
 		return fmt.Errorf("failed to commit file: %w", err)
 	}
+	committed = true
 	return nil
 }

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -8,6 +9,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"dockgo/stacks"
 )
 
 func TestHandleStackActionStreamRejectsWorkingDirOutsideAllowList(t *testing.T) {
@@ -302,5 +305,76 @@ func TestHandleStackFileWriteRejectsWorkingDirOutsideAllowList(t *testing.T) {
 
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("status = %d, want 403 (body=%s)", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHandleStackFileWriteRecordsHistoryWithByteDelta(t *testing.T) {
+	writeFakeDocker(t, false)
+	srv, stack := newTestStackServer(t)
+	srv.AllowedPaths = []string{filepath.Dir(stack.WorkingDir)}
+
+	original := "services: {}\n"
+	if err := os.WriteFile(stack.ComposeFiles[0], []byte(original), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	content := "services:\n  web:\n    image: nginx\n"
+	body := fmt.Sprintf(`{"content":%q}`, content)
+	req := httptest.NewRequest(http.MethodPut,
+		"/api/stacks/"+stack.ID+"/file?kind=compose&index=0", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	srv.handleStackByID(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
+	}
+
+	entries := srv.StackHistory.ListByStackFiltered(stack.ID, stacks.HistoryFilter{
+		Action: "edit_compose",
+		Status: "success",
+	})
+	if len(entries) != 1 {
+		t.Fatalf("history entries = %d, want 1", len(entries))
+	}
+
+	want := fmt.Sprintf("%+d bytes", len(content)-len(original))
+	if !strings.Contains(entries[0].Message, want) {
+		t.Fatalf("history message = %q, want it to contain %q", entries[0].Message, want)
+	}
+}
+
+func TestHandleStackFileWriteRejectsAgentHostedStack(t *testing.T) {
+	srv, stack := newTestStackServer(t)
+	srv.AllowedPaths = []string{filepath.Dir(stack.WorkingDir)}
+
+	// A stack hosted on a remote agent stores paths that are only valid on the
+	// agent host. The save path must fail closed rather than resolve them
+	// against this server's local filesystem.
+	stack.AgentID = "agent-1"
+	if _, err := srv.StackStore.Save(stack); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	original := "services: {}\n"
+	if err := os.WriteFile(stack.ComposeFiles[0], []byte(original), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	body := `{"content":"services:\n  web:\n    image: nginx\n"}`
+	req := httptest.NewRequest(http.MethodPut,
+		"/api/stacks/"+stack.ID+"/file?kind=compose&index=0", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	srv.handleStackByID(rec, req)
+
+	if rec.Code != http.StatusNotImplemented {
+		t.Fatalf("status = %d, want 501 (body=%s)", rec.Code, rec.Body.String())
+	}
+
+	saved, err := os.ReadFile(stack.ComposeFiles[0])
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	if string(saved) != original {
+		t.Fatalf("content = %q, want the original %q (agent save must not touch the file)", saved, original)
 	}
 }
