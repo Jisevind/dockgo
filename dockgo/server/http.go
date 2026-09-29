@@ -291,7 +291,7 @@ func NewServer(port string) (*Server, error) {
 }
 
 // Start starts the HTTP server.
-func (s *Server) Start() error {
+func (s *Server) Start(ctx context.Context) error {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/api/health", s.handleHealth)
@@ -338,8 +338,8 @@ func (s *Server) Start() error {
 		logger.String("address", "localhost:"+s.Port),
 	)
 
-	go s.StartScheduler(context.Background())
-	go s.cleanupRateLimiters(context.Background())
+	go s.StartScheduler(ctx)
+	go s.cleanupRateLimiters(ctx)
 
 	go func() {
 		if s.Notifier.WaitUntilReady(15 * time.Second) {
@@ -361,7 +361,24 @@ func (s *Server) Start() error {
 		IdleTimeout:       60 * time.Second,
 	}
 
-	return srv.ListenAndServe()
+	go func() {
+		<-ctx.Done()
+		serverLog.Info("Shutdown signal received, draining connections...")
+
+		s.saveAuthState()
+
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			serverLog.Error("HTTP server shutdown error", logger.Any("error", err))
+		}
+	}()
+
+	err = srv.ListenAndServe()
+	if err == http.ErrServerClosed {
+		return nil
+	}
+	return err
 }
 
 func (s *Server) enableCors(next http.HandlerFunc) http.HandlerFunc {

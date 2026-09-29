@@ -10,6 +10,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 	"strconv"
 	"sync"
 
@@ -80,7 +82,10 @@ func handleServe(args []string) {
 		fmt.Printf("Failed to initialize server: %v\n", err)
 		os.Exit(1)
 	}
-	if err := srv.Start(); err != nil {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	if err := srv.Start(ctx); err != nil {
 		fmt.Printf("Server failed: %v\n", err)
 		os.Exit(1)
 	}
