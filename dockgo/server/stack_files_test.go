@@ -1,7 +1,6 @@
 package server
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -429,30 +428,6 @@ func TestHandleStackFileRoutesFailClosedForAgentHostedStack(t *testing.T) {
 	}
 }
 
-func TestReadEditableFileRejectsOversizedFile(t *testing.T) {
-	dir := t.TempDir()
-
-	exact := filepath.Join(dir, "exact.yaml")
-	if err := os.WriteFile(exact, make([]byte, maxEditableFileBytes), 0o600); err != nil {
-		t.Fatalf("WriteFile(exact) error = %v", err)
-	}
-	got, err := readEditableFile(exact)
-	if err != nil {
-		t.Fatalf("readEditableFile(exact) error = %v, want nil", err)
-	}
-	if len(got) != maxEditableFileBytes {
-		t.Fatalf("readEditableFile(exact) length = %d, want %d", len(got), maxEditableFileBytes)
-	}
-
-	over := filepath.Join(dir, "over.yaml")
-	if err := os.WriteFile(over, make([]byte, maxEditableFileBytes+1), 0o600); err != nil {
-		t.Fatalf("WriteFile(over) error = %v", err)
-	}
-	if _, err := readEditableFile(over); !errors.Is(err, errFileTooLarge) {
-		t.Fatalf("readEditableFile(over) error = %v, want errFileTooLarge", err)
-	}
-}
-
 func TestHandleStackFileRejectsOversizedRequestBody(t *testing.T) {
 	writeFakeDocker(t, false)
 	srv, stack := newTestStackServer(t)
@@ -466,7 +441,7 @@ func TestHandleStackFileRejectsOversizedRequestBody(t *testing.T) {
 	// The decoded content is tiny, but the raw body is padded past the decode
 	// cap, so a 413 here proves MaxBytesReader is applied before the
 	// post-decode content check.
-	oversized := `{"content":"services: {}"` + strings.Repeat(" ", maxEditableFileBytes+4096) + `}`
+	oversized := `{"content":"services: {}"` + strings.Repeat(" ", stacks.MaxEditableFileBytes+4096) + `}`
 	tests := []struct {
 		name   string
 		method string
