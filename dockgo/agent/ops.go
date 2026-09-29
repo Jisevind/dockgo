@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"path/filepath"
 	"context"
 	"errors"
 	"fmt"
@@ -259,6 +260,8 @@ func (a *Agent) opContainerLogs(ctx context.Context, conn *websocket.Conn, env E
 	_, err = stdcopy.StdCopy(stdoutWriter, stderrWriter, logsReader)
 	if err != nil {
 		emitLine(fmt.Sprintf("--- Stream interrupted: %v ---", err))
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
 	} else {
 		emitLine("--- Stream disconnected ---")
 	}
@@ -626,26 +629,42 @@ func (a *Agent) agentStackFileWrite(ctx context.Context, req StackFileWriteReque
 	unlock := engine.LockProject(stackProjectName(req.Stack))
 	defer unlock()
 
-	previous, err := stacks.ReadEditableFile(target.Path)
+	f, err := os.CreateTemp(filepath.Dir(target.Path), "dockgo-draft-*.tmp")
 	if err != nil {
 		return nil, err
 	}
+	defer os.Remove(f.Name())
 
-	if err := stacks.WriteFileAtomic(target.Path, req.Content); err != nil {
+	if err := f.Chmod(0600); err != nil {
 		return nil, err
 	}
+	if _, err := f.Write([]byte(req.Content)); err != nil {
+		return nil, err
+	}
+	f.Sync()
+	f.Close()
 
-	// Validate reads the file back from disk, so it checks what was just
-	// written rather than the draft in memory.
+	valStack := *req.Stack.Clone()
+	if req.Kind == "compose" {
+		valStack.ComposeFiles[req.Index] = f.Name()
+	} else if req.Kind == "env" {
+		valStack.EnvFiles[req.Index] = f.Name()
+	}
+
 	validationCtx, cancel := context.WithTimeout(ctx, agentStackFileValidationTimeout)
-	validation := stacks.Validate(validationCtx, req.Stack)
+	validation := stacks.Validate(validationCtx, valStack)
 	cancel()
 
 	if !validation.Valid {
-		if restoreErr := stacks.WriteFileAtomic(target.Path, previous); restoreErr != nil {
-			return nil, fmt.Errorf("%w: %v", errStackFileRollbackFailed, restoreErr)
+		message := "invalid semantic configuration"
+		if len(validation.Issues) > 0 {
+			message = validation.Issues[0]
 		}
-		return nil, fmt.Errorf("%w: %s", errStackFileValidationFailed, strings.Join(validation.Issues, "; "))
+		return nil, fmt.Errorf("%w: %s", errStackFileValidationFailed, message)
+	}
+
+	if err := os.Rename(f.Name(), target.Path); err != nil {
+		return nil, err
 	}
 
 	return map[string]any{"target": target}, nil
