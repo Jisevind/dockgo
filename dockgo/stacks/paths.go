@@ -78,6 +78,9 @@ func translatePath(path string, mappings []PathMapping) string {
 
 		if strings.HasPrefix(strings.ToLower(normalizedPath), strings.ToLower(hostPath)) {
 			remainder := normalizedPath[len(hostPath):]
+			if remainder != "" && !strings.HasPrefix(remainder, "/") {
+				continue
+			}
 			return filepath.Clean(containerPath + remainder)
 		}
 	}
@@ -100,6 +103,9 @@ func reverseTranslatePath(path string, mappings []PathMapping) string {
 
 		if strings.HasPrefix(strings.ToLower(normalizedPath), strings.ToLower(containerPath)) {
 			remainder := normalizedPath[len(containerPath):]
+			if remainder != "" && !strings.HasPrefix(remainder, "/") {
+				continue
+			}
 			if IsWindowsAbs(hostPath) || strings.Contains(hostPath, "\\") {
 				remainder = strings.ReplaceAll(remainder, "/", "\\")
 				hostPath = strings.ReplaceAll(hostPath, "/", "\\")

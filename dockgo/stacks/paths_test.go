@@ -90,3 +90,42 @@ func TestNormalizeStackForStorageReverseTranslatesMappedPaths(t *testing.T) {
 		t.Fatalf("EnvFiles[0] = %q, want %q", got.EnvFiles[0], `D:\Docker\bazarr\.env`)
 	}
 }
+
+func TestTranslatePathRejectsSiblingDirectory(t *testing.T) {
+	mappings := []PathMapping{{HostPath: "/app", ContainerPath: "/compose"}}
+
+	// "/app-secret/file.txt" must NOT match the "/app" mapping
+	got := translatePath("/app-secret/file.txt", mappings)
+	if got != "/app-secret/file.txt" {
+		t.Fatalf("translatePath() = %q, want unchanged (sibling dir must not match)", got)
+	}
+
+	// "/app/file.txt" SHOULD match
+	got = translatePath("/app/file.txt", mappings)
+	want := "/compose/file.txt"
+	if strings.ReplaceAll(got, `\`, `/`) != want {
+		t.Fatalf("translatePath() = %q, want %q", got, want)
+	}
+
+	// Exact match (no remainder) should work
+	got = translatePath("/app", mappings)
+	want = "/compose"
+	if strings.ReplaceAll(got, `\`, `/`) != want {
+		t.Fatalf("translatePath() = %q, want %q", got, want)
+	}
+}
+
+func TestReverseTranslatePathRejectsSiblingDirectory(t *testing.T) {
+	mappings := []PathMapping{{HostPath: "/host/data", ContainerPath: "/compose"}}
+
+	got := reverseTranslatePath("/compose-other/file.txt", mappings)
+	if got != "/compose-other/file.txt" {
+		t.Fatalf("reverseTranslatePath() = %q, want unchanged", got)
+	}
+
+	got = reverseTranslatePath("/compose/file.txt", mappings)
+	want := "/host/data/file.txt"
+	if strings.ReplaceAll(got, `\`, `/`) != want {
+		t.Fatalf("reverseTranslatePath() = %q, want %q", got, want)
+	}
+}
