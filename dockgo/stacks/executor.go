@@ -181,10 +181,8 @@ func composeBaseArgs(stack Stack) []string {
 	for _, envFile := range stack.EnvFiles {
 		args = append(args, "--env-file", envFile)
 	}
-	if len(stack.Profiles) > 0 {
-		for _, profile := range stack.Profiles {
-			args = append(args, "--profile", profile)
-		}
+	for _, profile := range stack.Profiles {
+		args = append(args, "--profile", profile)
 	}
 	return args[:len(args):len(args)]
 }
@@ -229,6 +227,7 @@ func StreamCommand(ctx context.Context, dir string, log func(string), name strin
 	go func() {
 		defer wg.Done()
 		scanner := bufio.NewScanner(stdout)
+		scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 		scanner.Split(splitFunc)
 		for scanner.Scan() {
 			line := strings.TrimSpace(scanner.Text())
@@ -236,11 +235,15 @@ func StreamCommand(ctx context.Context, dir string, log func(string), name strin
 				log(line)
 			}
 		}
+		if err := scanner.Err(); err != nil {
+			log(fmt.Sprintf("dockgo: stdout scanner error: %v", err))
+		}
 	}()
 
 	go func() {
 		defer wg.Done()
 		scanner := bufio.NewScanner(stderr)
+		scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 		scanner.Split(splitFunc)
 		for scanner.Scan() {
 			line := strings.TrimSpace(scanner.Text())
@@ -255,6 +258,9 @@ func StreamCommand(ctx context.Context, dir string, log func(string), name strin
 				}
 				errMu.Unlock()
 			}
+		}
+		if err := scanner.Err(); err != nil {
+			log(fmt.Sprintf("dockgo: stderr scanner error: %v", err))
 		}
 	}()
 
