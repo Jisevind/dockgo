@@ -398,6 +398,7 @@
                 <div class="modal-body">
                     <div class="stack-details-toolbar">
                         <button id="stack-details-edit-btn" class="btn secondary">Edit</button>
+                        <button id="stack-details-edit-files-btn" class="btn secondary">Edit Files</button>
                         <button id="stack-details-validate-btn" class="btn secondary">Validate</button>
                         <button id="stack-details-pull-btn" class="btn secondary">Pull</button>
                         <button id="stack-details-restart-btn" class="btn secondary">Restart</button>
@@ -595,6 +596,7 @@
                             <button class="menu-action-btn" data-action="restart">Restart</button>
                             <hr style="margin: 4px 0; border: 0; border-top: 1px solid var(--border);">
                             <button class="menu-action-btn" data-action="details">Details</button>
+                            <button class="menu-action-btn" data-action="edit-files">Edit Files</button>
                             <button class="menu-action-btn" data-action="pull">Pull Images</button>
                         </div>
                     </div>
@@ -648,6 +650,7 @@
                             <button class="menu-action-btn" data-action="restart">Restart</button>
                             <hr style="margin: 4px 0; border: 0; border-top: 1px solid var(--border);">
                             <button class="menu-action-btn" data-action="details">Details</button>
+                            <button class="menu-action-btn" data-action="edit-files">Edit Files</button>
                         </div>
                     </div>
                 </div>
@@ -685,6 +688,7 @@
                         <button class="menu-action-btn" data-action="restart">Restart</button>
                         <hr style="margin: 4px 0; border: 0; border-top: 1px solid var(--border);">
                         <button class="menu-action-btn" data-action="details">Details</button>
+                        <button class="menu-action-btn" data-action="edit-files">Edit Files</button>
                     </div>
                 </div>
                 <div class="update-section hidden">
@@ -695,6 +699,30 @@
             </div>
         </div>
     </template>
+
+    <!-- Compose & Env File Editor Modal -->
+    <div id="file-editor-modal" class="modal-overlay hidden">
+        <div class="modal file-editor-modal-content">
+            <div class="modal-header">
+                <h2 id="file-editor-title">Edit Files</h2>
+                <button id="close-file-editor-btn" class="close-btn" title="Close">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="file-editor-warning" class="file-editor-warning hidden"></div>
+                <div class="file-editor-toolbar">
+                    <label for="file-editor-target">File</label>
+                    <select id="file-editor-target"></select>
+                </div>
+                <textarea id="file-editor-text" class="file-editor-text" spellcheck="false"
+                    autocomplete="off" autocapitalize="off" wrap="off"></textarea>
+                <div id="file-editor-status" class="file-editor-status"></div>
+            </div>
+            <div class="file-editor-actions">
+                <button id="file-editor-revert-btn" class="btn secondary">Revert</button>
+                <button id="file-editor-save-btn" class="btn primary">Save</button>
+            </div>
+        </div>
+    </div>
 </body>
 
 </html>

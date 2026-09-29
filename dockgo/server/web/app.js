@@ -717,6 +717,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const stackDetailsDeleteBtn = document.getElementById(
         "stack-details-delete-btn",
     );
+    const stackDetailsEditFilesBtn = document.getElementById(
+        "stack-details-edit-files-btn",
+    );
     const stackContainersModal = document.getElementById(
         "stack-containers-modal",
     );
@@ -729,18 +732,31 @@ document.addEventListener("DOMContentLoaded", () => {
     const stackContainersTitle = document.getElementById(
         "stack-containers-title",
     );
+    const fileEditorModal = document.getElementById("file-editor-modal");
+    const closeFileEditorBtn = document.getElementById(
+        "close-file-editor-btn",
+    );
+    const fileEditorTitle = document.getElementById("file-editor-title");
+    const fileEditorWarning = document.getElementById("file-editor-warning");
+    const fileEditorTarget = document.getElementById("file-editor-target");
+    const fileEditorText = document.getElementById("file-editor-text");
+    const fileEditorStatus = document.getElementById("file-editor-status");
+    const fileEditorRevertBtn = document.getElementById("file-editor-revert-btn");
+    const fileEditorSaveBtn = document.getElementById("file-editor-save-btn");
     let stackFormMode = "create";
     let editingStackId = null;
     let activeStackDetails = null;
     let stackFormDiscoverySelector = {};
     let stackFormLabels = {};
-    let stackFormProfiles = [];
-    let stackFormProjectEnv = {};
-    let stackFormUpdatePolicy = null;
-    let stackFormHealthPolicy = null;
-    let stackFormPathMappings = [];
     let stackFormKind = "compose_files";
     let activeStackStatusSummary = null;
+
+    // Compose/env file editor state: { stack, targets, targetIndex, original,
+    // dirty, busy, valid }. `valid === false` blocks saving client-side, but the
+    // server re-validates on save and is the authority.
+    let fileEditorState = null;
+    let fileEditorValidateTimer = null;
+    let fileEditorValidateAbort = null;
 
     // Auth Functions
     const getCsrfToken = () => {
@@ -938,7 +954,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         try {
             mappings = parsePathMappings(stackPathMappingsInput.value.trim());
-        } catch (error) {
+        } catch {
             mappings = [];
         }
 
@@ -1254,11 +1270,6 @@ document.addEventListener("DOMContentLoaded", () => {
             setHealthPolicyFields(stack.health_policy);
             stackFormDiscoverySelector = stack.discovery_selector || {};
             stackFormLabels = stack.labels || {};
-            stackFormProfiles = stack.profiles || [];
-            stackFormProjectEnv = stack.project_env || {};
-            stackFormUpdatePolicy = stack.update_policy || null;
-            stackFormHealthPolicy = stack.health_policy || null;
-            stackFormPathMappings = stack.path_mappings || [];
             stackFormKind = stack.kind || "compose_files";
         } else {
             stackModalTitle.textContent = "Register Stack";
@@ -1292,11 +1303,6 @@ document.addEventListener("DOMContentLoaded", () => {
                   }
                 : {};
             stackFormLabels = {};
-            stackFormProfiles = [];
-            stackFormProjectEnv = {};
-            stackFormUpdatePolicy = null;
-            stackFormHealthPolicy = null;
-            stackFormPathMappings = [];
             stackFormKind = "compose_files";
         }
 
@@ -1486,6 +1492,12 @@ document.addEventListener("DOMContentLoaded", () => {
             if (result.attempted) {
                 await openStackDetails(stackToDeploy);
             }
+        });
+    }
+    if (stackDetailsEditFilesBtn) {
+        stackDetailsEditFilesBtn.addEventListener("click", async () => {
+            if (!activeStackDetails) return;
+            await openFileEditor(activeStackDetails);
         });
     }
     if (stackDetailsDeleteBtn) {
@@ -1864,10 +1876,402 @@ document.addEventListener("DOMContentLoaded", () => {
                     await openStackDetails(stack);
                     return;
                 }
+                if (action === "edit-files") {
+                    await openFileEditor(stack);
+                    return;
+                }
                 await runStackAction(stack, action, root, feedbackEl);
             });
         });
     };
+
+    // ── Compose & env file editor ─────────────────────────────────────────
+    //
+    // Drafts are validated server-side while typing, debounced, with the
+    // in-flight request aborted when a newer draft exists so a slow response
+    // cannot overwrite a newer result. A save is rejected unless the server
+    // validates it; on rejection the server restores the previous content and
+    // `rolled_back` reports whether that succeeded. `rolled_back === false`
+    // means the rejected draft may still be on disk, so it is surfaced loudly.
+    const FILE_EDITOR_VALIDATE_DEBOUNCE_MS = 400;
+
+    const fileEditorTargetsUrl = (stack) =>
+        withAgentQuery(`/api/stacks/${encodeURIComponent(stack.id)}/files`);
+
+    const fileEditorFileUrl = (stack, target) =>
+        withAgentQuery(
+            `/api/stacks/${encodeURIComponent(stack.id)}/file?kind=` +
+                `${encodeURIComponent(target.kind)}&index=${encodeURIComponent(target.index)}`,
+        );
+
+    const fileEditorValidateUrl = (stack, target) =>
+        withAgentQuery(
+            `/api/stacks/${encodeURIComponent(stack.id)}/file/validate?kind=` +
+                `${encodeURIComponent(target.kind)}&index=${encodeURIComponent(target.index)}`,
+        );
+
+    const fileEditorCurrentTarget = () => {
+        if (!fileEditorState) return null;
+        return fileEditorState.targets[fileEditorState.targetIndex] || null;
+    };
+
+    const setFileEditorStatus = (message, state = "") => {
+        if (!fileEditorStatus) return;
+        fileEditorStatus.textContent = message;
+        fileEditorStatus.className = "file-editor-status";
+        if (state) fileEditorStatus.classList.add(state);
+    };
+
+    const updateFileEditorButtons = () => {
+        if (!fileEditorState) return;
+        const target = fileEditorCurrentTarget();
+        const blocked = !target || target.editable === false;
+        const { dirty, busy, valid } = fileEditorState;
+        if (fileEditorSaveBtn) {
+            fileEditorSaveBtn.disabled =
+                busy || blocked || !dirty || valid === false;
+        }
+        if (fileEditorRevertBtn) {
+            fileEditorRevertBtn.disabled = busy || blocked || !dirty;
+        }
+    };
+
+    const setFileEditorBusy = (busy) => {
+        if (!fileEditorState) return;
+        fileEditorState.busy = busy;
+        if (fileEditorText) fileEditorText.disabled = busy;
+        if (fileEditorTarget) fileEditorTarget.disabled = busy;
+        updateFileEditorButtons();
+    };
+
+    const renderFileEditorTargets = () => {
+        if (!fileEditorTarget || !fileEditorState) return;
+        fileEditorTarget.innerHTML = "";
+        fileEditorState.targets.forEach((target, index) => {
+            const option = document.createElement("option");
+            option.value = String(index);
+            let label = target.label || `${target.kind} ${target.index}`;
+            if (target.kind === "env") label += " (env)";
+            if (target.exists === false) label += " — missing";
+            if (target.editable === false) label += " — not editable";
+            option.textContent = label;
+            fileEditorTarget.appendChild(option);
+        });
+        fileEditorTarget.value = String(fileEditorState.targetIndex);
+    };
+
+    const applyFileEditorWarning = () => {
+        if (!fileEditorWarning || !fileEditorState) return;
+        const messages = [];
+        if (fileEditorState.stack.kind === "git_repo") {
+            messages.push(
+                "This stack is tracked from a git repository. Saving edits the " +
+                    "checked-out working copy, and a later git pull may overwrite your changes.",
+            );
+        }
+        const target = fileEditorCurrentTarget();
+        if (target && target.editable === false) {
+            messages.push(
+                "This file cannot be edited: it is missing, or it is outside the " +
+                    "allowed compose paths for its host.",
+            );
+        }
+        fileEditorWarning.textContent = messages.join(" ");
+        fileEditorWarning.classList.toggle("hidden", messages.length === 0);
+    };
+
+    const renderFileEditorValidation = (result) => {
+        if (!fileEditorState) return;
+        if (!result || result.valid) {
+            fileEditorState.valid = true;
+            setFileEditorStatus("Valid.", "success");
+            return;
+        }
+        fileEditorState.valid = false;
+        const errors = Array.isArray(result.errors) ? result.errors : [];
+        const first = errors[0];
+        const detail = first
+            ? `line ${first.line}, column ${first.column}: ${first.message}`
+            : "invalid syntax";
+        const more = errors.length > 1 ? ` (+${errors.length - 1} more)` : "";
+        setFileEditorStatus(`Invalid — ${detail}${more}`, "error");
+    };
+
+    const validateFileEditorDraft = async () => {
+        const target = fileEditorCurrentTarget();
+        if (!fileEditorState || !target || target.editable === false) return;
+
+        if (fileEditorValidateAbort) fileEditorValidateAbort.abort();
+        const controller = new AbortController();
+        fileEditorValidateAbort = controller;
+        const content = fileEditorText.value;
+
+        try {
+            const response = await fetch(
+                fileEditorValidateUrl(fileEditorState.stack, target),
+                {
+                    method: "POST",
+                    headers: getAuthHeaders(true),
+                    body: JSON.stringify({ content }),
+                    signal: controller.signal,
+                },
+            );
+            const data = await response.json().catch(() => ({}));
+            if (controller.signal.aborted) return;
+            if (!response.ok) {
+                throw new Error(
+                    data.error || `Validation failed (${response.status})`,
+                );
+            }
+            // Ignore a result for text the user has already moved past.
+            if (!fileEditorState || content !== fileEditorText.value) return;
+            renderFileEditorValidation(data);
+            updateFileEditorButtons();
+        } catch (error) {
+            if (error.name === "AbortError") return;
+            setFileEditorStatus(`Validation failed: ${error.message}`, "error");
+        }
+    };
+
+    const scheduleFileValidation = (immediate = false) => {
+        if (fileEditorValidateTimer) clearTimeout(fileEditorValidateTimer);
+        fileEditorValidateTimer = null;
+        if (immediate) {
+            validateFileEditorDraft();
+            return;
+        }
+        setFileEditorStatus("Checking…", "");
+        fileEditorValidateTimer = setTimeout(
+            validateFileEditorDraft,
+            FILE_EDITOR_VALIDATE_DEBOUNCE_MS,
+        );
+    };
+
+    const loadFileEditorTarget = async (index) => {
+        if (!fileEditorState) return;
+        fileEditorState.targetIndex = index;
+        const target = fileEditorCurrentTarget();
+        applyFileEditorWarning();
+        if (!target) return;
+
+        if (target.editable === false) {
+            fileEditorText.value = "";
+            fileEditorState.original = "";
+            fileEditorState.dirty = false;
+            fileEditorState.valid = true;
+            setFileEditorStatus("This file cannot be edited.", "error");
+            updateFileEditorButtons();
+            return;
+        }
+
+        setFileEditorBusy(true);
+        setFileEditorStatus("Loading…", "");
+        try {
+            const response = await fetch(
+                fileEditorFileUrl(fileEditorState.stack, target),
+                { headers: getAuthHeaders() },
+            );
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(
+                    data.error || `Failed to read file (${response.status})`,
+                );
+            }
+            fileEditorText.value = data.content || "";
+            fileEditorState.original = data.content || "";
+            fileEditorState.dirty = false;
+            fileEditorState.valid = true;
+            setFileEditorStatus("Loaded.", "");
+            scheduleFileValidation(true);
+        } catch (error) {
+            setFileEditorStatus(`Failed to read file: ${error.message}`, "error");
+        } finally {
+            setFileEditorBusy(false);
+        }
+    };
+
+    const saveFileEditor = async () => {
+        const target = fileEditorCurrentTarget();
+        if (!fileEditorState || !target || target.editable === false) return;
+
+        setFileEditorBusy(true);
+        setFileEditorStatus("Saving…", "");
+        try {
+            const response = await fetch(
+                fileEditorFileUrl(fileEditorState.stack, target),
+                {
+                    method: "PUT",
+                    headers: getAuthHeaders(true),
+                    body: JSON.stringify({ content: fileEditorText.value }),
+                },
+            );
+            const data = await response.json().catch(() => ({}));
+
+            if (response.ok) {
+                fileEditorState.original = fileEditorText.value;
+                fileEditorState.dirty = false;
+                fileEditorState.valid = true;
+                setFileEditorStatus("Saved.", "success");
+                await Promise.all([fetchStacks(), fetchContainers(false)]);
+                return;
+            }
+
+            const issues = [];
+            if (data.syntax && Array.isArray(data.syntax.errors)) {
+                data.syntax.errors.forEach((err) =>
+                    issues.push(`line ${err.line}: ${err.message}`),
+                );
+            }
+            if (data.validation && Array.isArray(data.validation.issues)) {
+                issues.push(...data.validation.issues);
+            }
+            const detail = issues.length ? `\n${issues.join("\n")}` : "";
+            let restoreNote = "";
+            if (data.rolled_back === true) {
+                restoreNote = " The previous content was restored.";
+            } else if (data.rolled_back === false) {
+                restoreNote =
+                    " WARNING: the previous content could NOT be restored, so the " +
+                    "file may be left in an invalid state on its host.";
+            }
+            setFileEditorStatus(
+                `Save rejected: ${data.error || `HTTP ${response.status}`}${detail}${restoreNote}`,
+                "error",
+            );
+            await fetchStacks();
+        } catch (error) {
+            setFileEditorStatus(`Save failed: ${error.message}`, "error");
+        } finally {
+            setFileEditorBusy(false);
+        }
+    };
+
+    const revertFileEditor = () => {
+        if (!fileEditorState || !fileEditorText) return;
+        fileEditorText.value = fileEditorState.original;
+        fileEditorState.dirty = false;
+        fileEditorState.valid = true;
+        scheduleFileValidation(true);
+        updateFileEditorButtons();
+    };
+
+    const closeFileEditor = () => {
+        if (fileEditorValidateTimer) clearTimeout(fileEditorValidateTimer);
+        if (fileEditorValidateAbort) fileEditorValidateAbort.abort();
+        fileEditorValidateTimer = null;
+        fileEditorValidateAbort = null;
+        fileEditorState = null;
+        if (fileEditorModal) fileEditorModal.classList.add("hidden");
+    };
+
+    const requestCloseFileEditor = async () => {
+        if (fileEditorState && fileEditorState.dirty) {
+            const discard = await showConfirmModal(
+                "Discard unsaved changes to this file?",
+            );
+            if (!discard) return;
+        }
+        closeFileEditor();
+    };
+
+    const openFileEditor = async (stack) => {
+        if (!fileEditorModal) return;
+        fileEditorState = {
+            stack,
+            targets: [],
+            targetIndex: 0,
+            original: "",
+            dirty: false,
+            busy: true,
+            valid: true,
+        };
+        if (fileEditorTitle) {
+            fileEditorTitle.textContent = `Edit Files: ${stack.name}`;
+        }
+        if (fileEditorText) fileEditorText.value = "";
+        if (fileEditorWarning) fileEditorWarning.classList.add("hidden");
+        setFileEditorStatus("Loading files…", "");
+        updateFileEditorButtons();
+        fileEditorModal.classList.remove("hidden");
+
+        try {
+            const response = await fetch(fileEditorTargetsUrl(stack), {
+                headers: getAuthHeaders(),
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(
+                    data.error || `Failed to list files (${response.status})`,
+                );
+            }
+            const targets = Array.isArray(data.files) ? data.files : [];
+            if (targets.length === 0) {
+                fileEditorState.busy = false;
+                setFileEditorStatus(
+                    "This stack has no compose or env files registered.",
+                    "error",
+                );
+                updateFileEditorButtons();
+                return;
+            }
+            fileEditorState.targets = targets;
+            fileEditorState.targetIndex = 0;
+            renderFileEditorTargets();
+            fileEditorState.busy = false;
+            await loadFileEditorTarget(0);
+        } catch (error) {
+            fileEditorState.busy = false;
+            setFileEditorStatus(
+                `Failed to open the file editor: ${error.message}`,
+                "error",
+            );
+            updateFileEditorButtons();
+        }
+    };
+
+    if (fileEditorText) {
+        fileEditorText.addEventListener("input", () => {
+            if (!fileEditorState) return;
+            fileEditorState.dirty =
+                fileEditorText.value !== fileEditorState.original;
+            fileEditorState.valid = undefined;
+            updateFileEditorButtons();
+            scheduleFileValidation();
+        });
+    }
+
+    if (fileEditorTarget) {
+        fileEditorTarget.addEventListener("change", async () => {
+            if (!fileEditorState) return;
+            const next = Number.parseInt(fileEditorTarget.value, 10) || 0;
+            if (next === fileEditorState.targetIndex) return;
+            if (fileEditorState.dirty) {
+                const discard = await showConfirmModal(
+                    "Discard unsaved changes to this file?",
+                );
+                if (!discard) {
+                    fileEditorTarget.value = String(fileEditorState.targetIndex);
+                    return;
+                }
+            }
+            await loadFileEditorTarget(next);
+        });
+    }
+
+    if (fileEditorSaveBtn) {
+        fileEditorSaveBtn.addEventListener("click", saveFileEditor);
+    }
+    if (fileEditorRevertBtn) {
+        fileEditorRevertBtn.addEventListener("click", revertFileEditor);
+    }
+    if (closeFileEditorBtn) {
+        closeFileEditorBtn.addEventListener("click", requestCloseFileEditor);
+    }
+    if (fileEditorModal) {
+        fileEditorModal.addEventListener("click", (e) => {
+            if (e.target === fileEditorModal) requestCloseFileEditor();
+        });
+    }
 
     const renderStacks = (stackItems) => {
         const currentScrollY = window.scrollY;
