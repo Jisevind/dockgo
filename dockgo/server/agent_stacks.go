@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -114,6 +115,41 @@ func (s *Server) handleAgentStacksRoute(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 		s.handleAgentStackHistory(w, r, agentID, stack)
+	case "files":
+		if len(parts) != 2 {
+			writeError(w, http.StatusNotFound, "route not found")
+			return
+		}
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		s.handleAgentStackFiles(w, r, agentID, stack)
+	case "file":
+		// "file/validate" is the three-segment draft check. It is recognised
+		// before the two-segment read/save case for the same reason
+		// handleStackByID orders them that way: a draft check must never be
+		// answered as a read of the stored file.
+		if len(parts) == 3 && parts[2] == "validate" {
+			if r.Method != http.MethodPost {
+				w.WriteHeader(http.StatusMethodNotAllowed)
+				return
+			}
+			s.handleAgentStackFileValidate(w, r, agentID, stack)
+			return
+		}
+		if len(parts) != 2 {
+			writeError(w, http.StatusNotFound, "route not found")
+			return
+		}
+		switch r.Method {
+		case http.MethodGet:
+			s.handleAgentStackFileRead(w, r, agentID, stack)
+		case http.MethodPut:
+			s.handleAgentStackFileWrite(w, r, agentID, stack)
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		}
 	default:
 		writeError(w, http.StatusNotFound, "route not found")
 	}
@@ -520,6 +556,288 @@ func (s *Server) handleAgentStackHistory(w http.ResponseWriter, r *http.Request,
 			Limit:  limit,
 		}),
 	})
+}
+
+// The agent reports a stack-file failure as a message and nothing else:
+// ResultData carries only Error and Value, so the proxy classifies a refusal by
+// its text. These are the exact texts dockgo/agent/ops.go produces
+// (errStackFileInvalidSyntax, errStackFileValidationFailed,
+// errStackFileRollbackFailed and errGitStackUnsupported). That package's
+// TestAgentStackFileErrorTextsAreDistinguishableOnTheWire keeps the three write
+// refusals from sharing a prefix or a substring, which is the only thing that
+// lets a prefix match here tell them apart - the agent's sentinels are
+// unexported, so this duplication is the sole contract between the two sides.
+const (
+	agentFileSyntaxRefusal     = "file has syntax errors"
+	agentFileValidationRefusal = "file failed compose validation"
+	agentFileRollbackRefusal   = "rollback failed: the previous content could not be restored"
+	agentFileGitStackRefusal   = "git-kind stacks are not supported on remote agents"
+)
+
+// agentStackFileErrorStatus maps an agent stack-file failure onto the status the
+// local route answers the same condition with (see fileTargetStatus), so a
+// client sees one answer per condition whichever host holds the stack.
+func agentStackFileErrorStatus(message string) int {
+	switch {
+	// The failed rollback is classified FIRST. Its text describes a file that
+	// was left invalid on the agent host, so it must never be answered with the
+	// status of the clean refusal. dockgo/agent reworded the two texts so that
+	// neither is a prefix of the other; keeping the failed rollback ahead of the
+	// clean one means a later reword that reintroduces a shared prefix turns
+	// into "the worst case wins" instead of a failed rollback being reported as
+	// a restored file.
+	case strings.HasPrefix(message, agentFileRollbackRefusal):
+		return http.StatusInternalServerError
+	case strings.HasPrefix(message, agentFileValidationRefusal), strings.HasPrefix(message, agentFileSyntaxRefusal):
+		// A draft the agent refused, which the local write answers with 422.
+		return http.StatusUnprocessableEntity
+	case strings.HasPrefix(message, stacks.ErrFileMissing.Error()):
+		return http.StatusNotFound
+	case strings.HasPrefix(message, stacks.ErrFileNotRegular.Error()),
+		strings.HasPrefix(message, stacks.ErrPathNotAllowed.Error()):
+		return http.StatusForbidden
+	case strings.HasPrefix(message, stacks.ErrFileTooLarge.Error()):
+		return http.StatusRequestEntityTooLarge
+	case strings.HasPrefix(message, agentFileGitStackRefusal):
+		// A git-backed stack has no file on the agent host to edit, and this
+		// server rejects one with the same 400 (handleAgentStackCreate).
+		return http.StatusBadRequest
+	default:
+		// An agent-side failure the request does not explain, which is what the
+		// local route reports as 500 for a read or a write.
+		return http.StatusInternalServerError
+	}
+}
+
+// agentStackFileWriteRefusal answers a write the agent refused. A clean refusal
+// means the previous content was restored; a failed rollback means the rejected
+// draft is still on the agent's disk. The two stay distinguishable in both
+// status and body, because a client that read a failed rollback as a restored
+// file would leave a stack invalid without telling its owner.
+func agentStackFileWriteRefusal(w http.ResponseWriter, message string) {
+	status := agentStackFileErrorStatus(message)
+	switch {
+	// Ordered as in agentStackFileErrorStatus, and for the same reason: the
+	// rollback text is recognised before the validation text so that a rewording
+	// which reintroduces a shared prefix reports the file that was NOT restored
+	// rather than the one that was.
+	case strings.HasPrefix(message, agentFileRollbackRefusal):
+		writeJSON(w, status, map[string]any{"error": message, "rolled_back": false})
+	case strings.HasPrefix(message, agentFileValidationRefusal):
+		writeJSON(w, status, map[string]any{"error": message, "rolled_back": true})
+	default:
+		writeError(w, status, message)
+	}
+}
+
+// agentFileTarget parses the kind/index selector and refuses one this stack does
+// not have. Both hosts resolve a selector against the stack's own ComposeFiles /
+// EnvFiles list before touching a filesystem (stacks.ResolveFileTarget), and the
+// local route answers a selector that does not resolve with 400. Checking it
+// here, where that list is authoritative, keeps an agent-hosted stack from
+// answering the same client error with a different status; the messages are the
+// ones stacks.ResolveFileTarget produces for the same selector.
+func agentFileTarget(w http.ResponseWriter, stack stacks.Stack, r *http.Request) (string, int, bool) {
+	kind, index, err := fileTargetRequest(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return "", 0, false
+	}
+
+	var count int
+	switch kind {
+	case stacks.FileKindCompose:
+		count = len(stack.ComposeFiles)
+	case stacks.FileKindEnv:
+		count = len(stack.EnvFiles)
+	default:
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("unsupported file kind: %s", kind))
+		return "", 0, false
+	}
+	if index < 0 {
+		writeError(w, http.StatusBadRequest, "index must not be negative")
+		return "", 0, false
+	}
+	if index >= count {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("%s index %d is out of range", kind, index))
+		return "", 0, false
+	}
+	return kind, index, true
+}
+
+// decodeAgentFileContent reads the draft body behind the same size cap the local
+// route applies, so an oversized body is refused before it is allocated.
+func decodeAgentFileContent(w http.ResponseWriter, r *http.Request) (string, bool) {
+	var payload fileContentPayload
+	if err := decodeFileContentPayload(w, r, &payload); err != nil {
+		if errors.Is(err, errBodyTooLarge) {
+			writeError(w, http.StatusRequestEntityTooLarge, err.Error())
+			return "", false
+		}
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return "", false
+	}
+	return payload.Content, true
+}
+
+// writeAgentStackFileValue forwards the agent's own JSON, so the proxy answers
+// with the shape the local route produces - {"files": ...} for a listing,
+// {"target": ..., "content": ...} for a read, the syntax result for a draft
+// check and {"target": ...} for a save - instead of re-wrapping it.
+func writeAgentStackFileValue(w http.ResponseWriter, value json.RawMessage) {
+	writeJSON(w, http.StatusOK, value)
+}
+
+// agentStackFileExchange dispatches one stack-file operation and returns the
+// agent's terminal result. A transport failure means the operation never ran, so
+// it is answered here and ok is false: 503 when the agent cannot be reached, 504
+// when it did not answer inside the request's context.
+func (s *Server) agentStackFileExchange(ctx context.Context, w http.ResponseWriter, agentID, msgType string, payload any) (agent.ResultData, bool) {
+	response, _, err := s.dispatchToAgent(ctx, agentID, msgType, payload, nil)
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, err.Error())
+		return agent.ResultData{}, false
+	}
+
+	select {
+	case env := <-response:
+		var result agent.ResultData
+		if err := env.Decode(&result); err != nil {
+			writeError(w, http.StatusInternalServerError, "invalid agent response")
+			return agent.ResultData{}, false
+		}
+		return result, true
+	case <-ctx.Done():
+		writeError(w, http.StatusGatewayTimeout, "agent request timed out")
+		return agent.ResultData{}, false
+	}
+}
+
+// handleAgentStackFiles proxies the stack's editable-file listing. The agent
+// owns the filesystem, so it decides which of the stack's files are editable
+// there.
+func (s *Server) handleAgentStackFiles(w http.ResponseWriter, r *http.Request, agentID string, stack stacks.Stack) {
+	ctx, cancel := context.WithTimeout(r.Context(), agentOpTimeout)
+	defer cancel()
+
+	result, ok := s.agentStackFileExchange(ctx, w, agentID, agent.TypeStackFileList, agent.StackFileRequest{Stack: stack})
+	if !ok {
+		return
+	}
+	if result.Error != "" {
+		writeError(w, agentStackFileErrorStatus(result.Error), result.Error)
+		return
+	}
+	writeAgentStackFileValue(w, result.Value)
+}
+
+// handleAgentStackFileRead proxies the content of one file of an agent-hosted
+// stack.
+func (s *Server) handleAgentStackFileRead(w http.ResponseWriter, r *http.Request, agentID string, stack stacks.Stack) {
+	kind, index, ok := agentFileTarget(w, stack, r)
+	if !ok {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), agentOpTimeout)
+	defer cancel()
+
+	result, ok := s.agentStackFileExchange(ctx, w, agentID, agent.TypeStackFileRead, agent.StackFileRequest{
+		Stack: stack, Kind: kind, Index: index,
+	})
+	if !ok {
+		return
+	}
+	if result.Error != "" {
+		writeError(w, agentStackFileErrorStatus(result.Error), result.Error)
+		return
+	}
+	writeAgentStackFileValue(w, result.Value)
+}
+
+// handleAgentStackFileValidate asks the agent to syntax-check draft content
+// without writing it, so the editor can validate while typing.
+func (s *Server) handleAgentStackFileValidate(w http.ResponseWriter, r *http.Request, agentID string, stack stacks.Stack) {
+	kind, index, ok := agentFileTarget(w, stack, r)
+	if !ok {
+		return
+	}
+	content, ok := decodeAgentFileContent(w, r)
+	if !ok {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), agentOpTimeout)
+	defer cancel()
+
+	result, ok := s.agentStackFileExchange(ctx, w, agentID, agent.TypeStackFileValidate, agent.StackFileWriteRequest{
+		Stack: stack, Kind: kind, Index: index, Content: content,
+	})
+	if !ok {
+		return
+	}
+	if result.Error != "" {
+		writeError(w, agentStackFileErrorStatus(result.Error), result.Error)
+		return
+	}
+	writeAgentStackFileValue(w, result.Value)
+}
+
+// handleAgentStackFileWrite proxies a save and records the history entry the
+// local write records: the agent keeps no stack history, this server owns the
+// store.
+func (s *Server) handleAgentStackFileWrite(w http.ResponseWriter, r *http.Request, agentID string, stack stacks.Stack) {
+	kind, index, ok := agentFileTarget(w, stack, r)
+	if !ok {
+		return
+	}
+	content, ok := decodeAgentFileContent(w, r)
+	if !ok {
+		return
+	}
+	// The agent enforces the same cap first - matching the local write's order -
+	// but refusing an oversized draft here keeps it off the wire.
+	if len(content) > stacks.MaxEditableFileBytes {
+		writeError(w, http.StatusRequestEntityTooLarge,
+			fmt.Sprintf("content exceeds the %d byte limit", stacks.MaxEditableFileBytes))
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), agentOpTimeout)
+	defer cancel()
+
+	result, ok := s.agentStackFileExchange(ctx, w, agentID, agent.TypeStackFileWrite, agent.StackFileWriteRequest{
+		Stack: stack, Kind: kind, Index: index, Content: content,
+	})
+	if !ok {
+		return
+	}
+	if result.Error != "" {
+		agentStackFileWriteRefusal(w, result.Error)
+		return
+	}
+
+	writeAgentStackFileValue(w, result.Value)
+
+	// result.Value is the agent's {"target": ...} payload. The agent resolved the
+	// target before it wrote, so the target it reports carries the previous
+	// content's size - the quantity the local write uses for its delta. Decoding
+	// it is best effort: the save already succeeded, so a payload this proxy
+	// cannot read must not turn a completed save into a reported failure.
+	message := fmt.Sprintf("stack file updated (%s)", kind)
+	var written struct {
+		Target stacks.FileTarget `json:"target"`
+	}
+	if err := json.Unmarshal(result.Value, &written); err == nil && written.Target.Label != "" {
+		message = fmt.Sprintf("%s updated (%s, %+d bytes)",
+			written.Target.Label, kind, len(content)-int(written.Target.Size))
+	}
+
+	action := "edit_compose"
+	if kind == stacks.FileKindEnv {
+		action = "edit_env"
+	}
+	s.recordStackHistory(stack, action, "success", message)
 }
 
 // agentValidateStack runs stack validation on the agent host.
