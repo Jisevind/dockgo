@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -56,6 +57,7 @@ func main() {
 	if stackStorePath == "" {
 		stackStorePath = "/app/data/agent_stacks.json"
 	}
+	allowedPaths := splitCommaList(os.Getenv("ALLOWED_COMPOSE_PATHS"))
 
 	agentImpl, err := agent.New(agent.Config{
 		ServerURL:         url,
@@ -66,6 +68,7 @@ func main() {
 		ReconnectMult:     reconnectMult,
 		HeartbeatInterval: heartbeat,
 		StackStorePath:    stackStorePath,
+		AllowedPaths:      allowedPaths,
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to initialize agent: %v\n", err)
@@ -89,6 +92,21 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Agent failed: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+// splitCommaList splits a comma-separated env value, trimming blanks.
+func splitCommaList(raw string) []string {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if trimmed := strings.TrimSpace(part); trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return out
 }
 
 func parseDuration(envKey string, fallback time.Duration) time.Duration {

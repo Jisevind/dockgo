@@ -36,6 +36,10 @@ type Config struct {
 	// StorePaths for the agent-local compose store (used only to keep the
 	// engine compose helpers self-contained; remote stacks pass data in-band).
 	StackStorePath string
+
+	// AllowedPaths mirrors the server's ALLOWED_COMPOSE_PATHS: the base paths
+	// this agent will edit stack files under. Empty means no restriction.
+	AllowedPaths []string
 }
 
 // Agent is a DockGo agent client.

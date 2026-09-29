@@ -142,6 +142,16 @@ Agent environment variables:
 | `AGENT_RECONNECT_MULT` | `2.0` | Backoff multiplier |
 | `AGENT_HEARTBEAT_INTERVAL` | `30s` | Keepalive ping interval |
 | `STACK_STORE_PATH` | `/app/data/agent_stacks.json` | Agent-local compose store (mostly internal) |
+| `ALLOWED_COMPOSE_PATHS` | *(empty)* | Comma-separated base paths this agent may edit stack files under. Empty means no restriction. Guards **file editing only** — see the note below |
+
+> [!WARNING]
+> `ALLOWED_COMPOSE_PATHS` guards **file editing only**. The agent's existing
+> stack actions — `deploy`, `pull`, `restart`, `stop`, `start`, and `down` —
+> are **not** allow-list checked. A stack assigned to this agent can still be
+> deployed, pulled, restarted, stopped, started, or brought down even when its
+> files live outside the listed paths. This mirrors the behaviour the DockGo
+> server itself had before Phase 1 and is a known, recorded gap: do not read the
+> presence of this variable as meaning the agent is restricted to these paths.
 
 The agent needs the Docker CLI and Compose plugin for stack orchestration. The
 provided `Dockerfile.agent` includes them.
