@@ -6,6 +6,7 @@ data
 
 .contextignore
 
+/AGENTS.md
 docs/superpowers/
 
 CODEBASE.md
