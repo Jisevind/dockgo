@@ -459,8 +459,6 @@ func opTimeout(msgType string) time.Duration {
 	case TypeContainersList, TypeServerStats:
 		return 2 * time.Minute
 	case TypeStackFileList, TypeStackFileRead, TypeStackFileValidate, TypeStackFileWrite:
-		// Reading or writing one file is not a ten-minute operation, and an
-		// unbounded window would hold the project lock for that long.
 		return 2 * time.Minute
 	default:
 		// Stack ops (validate/containers/discover) touch the daemon and the

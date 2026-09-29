@@ -240,12 +240,13 @@ func (s *Server) handleStackByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Phase 1 ships local file editing only. Every file endpoint fails closed
-	// for an agent-hosted stack so the agent's stored paths are never resolved
-	// against this server's filesystem.
+	// An agent-hosted stack is edited through these same routes once the request
+	// carries the agent query parameter. Without it the agent's stored paths
+	// would be resolved against this server's filesystem, so this fails closed
+	// rather than guess.
 	if stack.AgentID != "" && isStackFileRoute(parts) {
 		writeError(w, http.StatusNotImplemented,
-			"file editing for agent-hosted stacks is not yet supported")
+			"editing an agent-hosted stack requires the agent query parameter (?agent=<id>)")
 		return
 	}
 

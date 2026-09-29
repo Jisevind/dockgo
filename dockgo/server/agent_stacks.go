@@ -817,8 +817,6 @@ func (s *Server) handleAgentStackFileWrite(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	writeAgentStackFileValue(w, result.Value)
-
 	// result.Value is the agent's {"target": ...} payload. The agent resolved the
 	// target before it wrote, so the target it reports carries the previous
 	// content's size - the quantity the local write uses for its delta. Decoding
@@ -837,7 +835,11 @@ func (s *Server) handleAgentStackFileWrite(w http.ResponseWriter, r *http.Reques
 	if kind == stacks.FileKindEnv {
 		action = "edit_env"
 	}
+	// Record before responding, matching the local write: a client that reads
+	// history as soon as the save returns must see its own entry.
 	s.recordStackHistory(stack, action, "success", message)
+
+	writeAgentStackFileValue(w, result.Value)
 }
 
 // agentValidateStack runs stack validation on the agent host.
