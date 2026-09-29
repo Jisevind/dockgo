@@ -451,8 +451,11 @@ var errStackFileValidationFailed = errors.New("file failed compose validation")
 // errStackFileRollbackFailed reports a draft that was rejected by docker AND
 // whose previous content could not be restored. It is deliberately distinct
 // from errStackFileValidationFailed: the rejected draft is still on disk, so
-// this must never be reported as a successful save.
-var errStackFileRollbackFailed = errors.New("file failed compose validation and the previous content could not be restored")
+// this must never be reported as a successful save. The text matters as much as
+// the identity - the wire carries the message and no code, so it must not begin
+// with (or contain) the validation text, or a proxy matching that text by
+// prefix would report a failed rollback as a clean one.
+var errStackFileRollbackFailed = errors.New("rollback failed: the previous content could not be restored")
 
 // agentStackFileValidationTimeout bounds the docker call a save makes while it
 // holds the project lock. The server bounds the same call identically.
@@ -545,15 +548,15 @@ func agentRejectGitStack(stack stacks.Stack) error {
 	return nil
 }
 
-// agentStackFileList reports the stack's editable files. It is read-only: no
-// lock, no write. Targets outside this agent's allow-list are listed but
-// reported as not editable, so the client can tell "not there" from "not
-// allowed".
+// agentStackFileList reports the stack's editable files in the same
+// {"files": ...} shape the local listing returns. It is read-only: no lock, no
+// write. Targets outside this agent's allow-list are listed but reported as not
+// editable, so the client can tell "not there" from "not allowed".
 func (a *Agent) agentStackFileList(req StackFileRequest) (any, error) {
 	if err := agentRejectGitStack(req.Stack); err != nil {
 		return nil, err
 	}
-	return stacks.FileTargets(req.Stack, a.cfg.AllowedPaths), nil
+	return map[string]any{"files": stacks.FileTargets(req.Stack, a.cfg.AllowedPaths)}, nil
 }
 
 // agentStackFileRead returns one file's content and the target it read. It is
@@ -610,9 +613,14 @@ func (a *Agent) agentStackFileWrite(ctx context.Context, req StackFileWriteReque
 	}
 
 	if syntax := stacks.ValidateSyntax(req.Kind, req.Content); !syntax.Valid {
-		// ValidateSyntax appends at least one positioned error whenever it
-		// reports a draft as invalid, so the first is what stopped this save.
-		return nil, fmt.Errorf("%w: %s", errStackFileInvalidSyntax, syntax.Errors[0].Message)
+		// ValidateSyntax sets an error for every invalid draft it reports today,
+		// but the message is decoration: defaulting keeps a future change in
+		// that package from panicking this path instead of failing one save.
+		message := "invalid syntax"
+		if len(syntax.Errors) > 0 {
+			message = syntax.Errors[0].Message
+		}
+		return nil, fmt.Errorf("%w: %s", errStackFileInvalidSyntax, message)
 	}
 
 	unlock := engine.LockProject(stackProjectName(req.Stack))

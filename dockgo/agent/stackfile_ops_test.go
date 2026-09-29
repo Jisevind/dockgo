@@ -212,9 +212,13 @@ func TestAgentStackFileTargetAllowsEmptyAllowList(t *testing.T) {
 	if err != nil {
 		t.Fatalf("agentStackFileList() error = %v", err)
 	}
-	targets, ok := files.([]stacks.FileTarget)
+	payload, ok := files.(map[string]any)
 	if !ok {
-		t.Fatalf("agentStackFileList() result = %T, want []stacks.FileTarget", files)
+		t.Fatalf("agentStackFileList() result = %T, want the {\"files\": ...} payload the local listing returns", files)
+	}
+	targets, ok := payload["files"].([]stacks.FileTarget)
+	if !ok {
+		t.Fatalf("payload[\"files\"] = %T, want []stacks.FileTarget", payload["files"])
 	}
 	if len(targets) != 2 {
 		t.Fatalf("listed %d targets, want 2 (compose then env)", len(targets))
@@ -340,6 +344,11 @@ func TestAgentStackFileWriteRestoresPreviousContentWhenValidationFails(t *testin
 	if errors.Is(err, errStackFileRollbackFailed) {
 		t.Fatalf("agentStackFileWrite() error = %v, want a restored rollback, not a failed one", err)
 	}
+	// The proxy has only the message, so the clean-rollback text must still be
+	// matchable by prefix.
+	if !strings.HasPrefix(err.Error(), errStackFileValidationFailed.Error()) {
+		t.Fatalf("error text %q does not start with %q, so a prefix match would miss the clean rollback", err.Error(), errStackFileValidationFailed.Error())
+	}
 
 	// The draft must have reached the disk before validation ran, otherwise
 	// this test would pass because the save was refused earlier.
@@ -464,6 +473,12 @@ func TestAgentStackFileWriteReportsFailedRollbackDistinctly(t *testing.T) {
 	if errors.Is(err, errStackFileValidationFailed) {
 		t.Fatalf("agentStackFileWrite() error = %v, want a distinct failed-rollback error", err)
 	}
+	// The message is the only channel the proxy has: if it started with the
+	// clean-rollback text, a failed rollback would be reported as a restored
+	// file while the rejected draft is still on disk.
+	if strings.HasPrefix(err.Error(), errStackFileValidationFailed.Error()) {
+		t.Fatalf("error text %q starts with the clean-rollback text %q", err.Error(), errStackFileValidationFailed.Error())
+	}
 
 	// Guard the scenario itself: if the stub never replaced the directory, the
 	// rollback would have succeeded and the assertions above would be testing
@@ -517,6 +532,33 @@ func TestAgentStackFileOperationsRejectGitKindStack(t *testing.T) {
 	}
 
 	requireAgentFileUnchanged(t, composePath, before)
+}
+
+// TestAgentStackFileErrorTextsAreDistinguishableOnTheWire pins the only channel
+// a proxy has: ResultData carries the message and no code, so the texts have to
+// stay distinguishable on their own. A failed rollback whose message begins with
+// the clean-rollback text would be answered as "rolled back: true" while the
+// rejected draft is still on the agent's disk.
+func TestAgentStackFileErrorTextsAreDistinguishableOnTheWire(t *testing.T) {
+	texts := map[string]string{
+		"validation": errStackFileValidationFailed.Error(),
+		"rollback":   errStackFileRollbackFailed.Error(),
+		"syntax":     errStackFileInvalidSyntax.Error(),
+	}
+
+	for name, text := range texts {
+		for otherName, other := range texts {
+			if name == otherName {
+				continue
+			}
+			if strings.HasPrefix(text, other) {
+				t.Fatalf("%s text %q starts with the %s text %q: a prefix match cannot tell them apart", name, text, otherName, other)
+			}
+			if strings.Contains(text, other) {
+				t.Fatalf("%s text %q contains the %s text %q: a substring match cannot tell them apart", name, text, otherName, other)
+			}
+		}
+	}
 }
 
 func TestAgentStackFileValidateIsKindAware(t *testing.T) {
