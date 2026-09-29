@@ -2,9 +2,11 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"dockgo/api"
 	"dockgo/engine"
@@ -428,6 +430,215 @@ func (a *Agent) opStackDiscover(ctx context.Context, conn *websocket.Conn, env E
 	}
 
 	a.sendResult(ctx, conn, env.RequestID, map[string]any{"candidates": out})
+}
+
+// Stack file operations. These run on the host that owns the files, so targets
+// are resolved against THIS agent's allow-list: the server's list can differ,
+// and a path the server accepts may not exist here at all.
+
+// errGitStackUnsupported reports a git-backed stack, which has no local files
+// for the agent to edit. The text matches every other agent stack op.
+var errGitStackUnsupported = errors.New("git-kind stacks are not supported on remote agents")
+
+// errStackFileInvalidSyntax reports a draft that failed the syntax check, which
+// runs before anything touches the disk.
+var errStackFileInvalidSyntax = errors.New("file has syntax errors")
+
+// errStackFileValidationFailed reports a draft that was written and then
+// rejected by docker, with the previous content already restored.
+var errStackFileValidationFailed = errors.New("file failed compose validation")
+
+// errStackFileRollbackFailed reports a draft that was rejected by docker AND
+// whose previous content could not be restored. It is deliberately distinct
+// from errStackFileValidationFailed: the rejected draft is still on disk, so
+// this must never be reported as a successful save.
+var errStackFileRollbackFailed = errors.New("file failed compose validation and the previous content could not be restored")
+
+// agentStackFileValidationTimeout bounds the docker call a save makes while it
+// holds the project lock. The server bounds the same call identically.
+const agentStackFileValidationTimeout = 30 * time.Second
+
+// opStackFileList lists the editable files of an agent-hosted stack.
+func (a *Agent) opStackFileList(ctx context.Context, conn *websocket.Conn, env Envelope) {
+	var req StackFileRequest
+	if err := env.Decode(&req); err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+
+	result, err := a.agentStackFileList(req)
+	if err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+
+	a.sendResult(ctx, conn, env.RequestID, result)
+}
+
+// opStackFileRead returns the content of one editable file.
+func (a *Agent) opStackFileRead(ctx context.Context, conn *websocket.Conn, env Envelope) {
+	var req StackFileRequest
+	if err := env.Decode(&req); err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+
+	result, err := a.agentStackFileRead(req)
+	if err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+
+	a.sendResult(ctx, conn, env.RequestID, result)
+}
+
+// opStackFileValidate syntax-checks draft content without writing it.
+func (a *Agent) opStackFileValidate(ctx context.Context, conn *websocket.Conn, env Envelope) {
+	var req StackFileWriteRequest
+	if err := env.Decode(&req); err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+
+	result, err := a.agentStackFileValidate(req)
+	if err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+
+	a.sendResult(ctx, conn, env.RequestID, result)
+}
+
+// opStackFileWrite saves one editable file on the agent host.
+func (a *Agent) opStackFileWrite(ctx context.Context, conn *websocket.Conn, env Envelope) {
+	var req StackFileWriteRequest
+	if err := env.Decode(&req); err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+
+	result, err := a.agentStackFileWrite(ctx, req)
+	if err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+
+	a.sendResult(ctx, conn, env.RequestID, result)
+}
+
+// agentStackFileTarget refuses git-backed stacks and resolves one of a stack's
+// editable files through this agent's allow-list, so the guard runs before any
+// read or write. Every file operation resolves through it.
+func (a *Agent) agentStackFileTarget(stack stacks.Stack, kind string, index int) (stacks.FileTarget, error) {
+	if err := agentRejectGitStack(stack); err != nil {
+		return stacks.FileTarget{}, err
+	}
+	return stacks.ResolveFileTarget(stack, kind, index, a.cfg.AllowedPaths)
+}
+
+// agentRejectGitStack refuses git-backed stacks, which have no local files on
+// this host.
+func agentRejectGitStack(stack stacks.Stack) error {
+	if stack.Kind == stacks.KindGitRepo || (stack.GitSource != nil && stack.GitSource.RepoURL != "") {
+		return errGitStackUnsupported
+	}
+	return nil
+}
+
+// agentStackFileList reports the stack's editable files. It is read-only: no
+// lock, no write. Targets outside this agent's allow-list are listed but
+// reported as not editable, so the client can tell "not there" from "not
+// allowed".
+func (a *Agent) agentStackFileList(req StackFileRequest) (any, error) {
+	if err := agentRejectGitStack(req.Stack); err != nil {
+		return nil, err
+	}
+	return stacks.FileTargets(req.Stack, a.cfg.AllowedPaths), nil
+}
+
+// agentStackFileRead returns one file's content and the target it read. It is
+// read-only: no lock, no write.
+func (a *Agent) agentStackFileRead(req StackFileRequest) (any, error) {
+	target, err := a.agentStackFileTarget(req.Stack, req.Kind, req.Index)
+	if err != nil {
+		return nil, err
+	}
+
+	content, err := stacks.ReadEditableFile(target.Path)
+	if err != nil {
+		return nil, err
+	}
+
+	return StackFileResult{Target: target, Content: content}, nil
+}
+
+// agentStackFileValidate syntax-checks draft content against one file kind. It
+// resolves the target first so a draft for a file this agent may not edit is
+// refused, then never touches the disk.
+func (a *Agent) agentStackFileValidate(req StackFileWriteRequest) (any, error) {
+	if _, err := a.agentStackFileTarget(req.Stack, req.Kind, req.Index); err != nil {
+		return nil, err
+	}
+	return stacks.ValidateSyntax(req.Kind, req.Content), nil
+}
+
+// agentStackFileWrite saves one file and returns the same success payload the
+// local server returns ({"target": ...}).
+//
+// The order is the safety property:
+//  1. syntax check, so an unparseable draft never reaches the disk;
+//  2. size cap, so an oversized draft cannot be written;
+//  3. project lock, so a save cannot interleave with a deploy of the project;
+//  4. backup read INSIDE the lock - a backup taken before the lock could race a
+//     concurrent write and would then restore stale content;
+//  5. atomic write;
+//  6. semantic validation under a bounded context, because an unbounded docker
+//     call would hold the project lock and stall every other op on it;
+//  7. restore the backup when validation rejects the draft. A restore that
+//     itself fails returns errStackFileRollbackFailed, never success: at that
+//     point the rejected draft is what remains on disk.
+func (a *Agent) agentStackFileWrite(ctx context.Context, req StackFileWriteRequest) (any, error) {
+	target, err := a.agentStackFileTarget(req.Stack, req.Kind, req.Index)
+	if err != nil {
+		return nil, err
+	}
+
+	if syntax := stacks.ValidateSyntax(req.Kind, req.Content); !syntax.Valid {
+		// ValidateSyntax appends at least one positioned error whenever it
+		// reports a draft as invalid, so the first is what stopped this save.
+		return nil, fmt.Errorf("%w: %s", errStackFileInvalidSyntax, syntax.Errors[0].Message)
+	}
+
+	if len(req.Content) > stacks.MaxEditableFileBytes {
+		return nil, fmt.Errorf("%w: content exceeds the %d byte limit", stacks.ErrFileTooLarge, stacks.MaxEditableFileBytes)
+	}
+
+	unlock := engine.LockProject(stackProjectName(req.Stack))
+	defer unlock()
+
+	previous, err := stacks.ReadEditableFile(target.Path)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := stacks.WriteFileAtomic(target.Path, req.Content); err != nil {
+		return nil, err
+	}
+
+	// Validate reads the file back from disk, so it checks what was just
+	// written rather than the draft in memory.
+	validationCtx, cancel := context.WithTimeout(ctx, agentStackFileValidationTimeout)
+	validation := stacks.Validate(validationCtx, req.Stack)
+	cancel()
+
+	if !validation.Valid {
+		if restoreErr := stacks.WriteFileAtomic(target.Path, previous); restoreErr != nil {
+			return nil, fmt.Errorf("%w: %v", errStackFileRollbackFailed, restoreErr)
+		}
+		return nil, fmt.Errorf("%w: %s", errStackFileValidationFailed, strings.Join(validation.Issues, "; "))
+	}
+
+	return map[string]any{"target": target}, nil
 }
 
 // opStackAction runs deploy/pull/restart/down on the agent host, streaming logs.
