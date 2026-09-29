@@ -435,6 +435,14 @@ func (a *Agent) runOp(ctx context.Context, conn *websocket.Conn, env Envelope) {
 		a.opStackContainers(ctx, conn, env)
 	case TypeStackDiscover:
 		a.opStackDiscover(ctx, conn, env)
+	case TypeStackFileList:
+		a.opStackFileList(ctx, conn, env)
+	case TypeStackFileRead:
+		a.opStackFileRead(ctx, conn, env)
+	case TypeStackFileValidate:
+		a.opStackFileValidate(ctx, conn, env)
+	case TypeStackFileWrite:
+		a.opStackFileWrite(ctx, conn, env)
 	default:
 		a.sendError(ctx, conn, env.RequestID, fmt.Errorf("unsupported operation: %s", env.Type))
 	}
@@ -449,6 +457,10 @@ func opTimeout(msgType string) time.Duration {
 	case TypeContainerLogs:
 		return 10 * time.Minute
 	case TypeContainersList, TypeServerStats:
+		return 2 * time.Minute
+	case TypeStackFileList, TypeStackFileRead, TypeStackFileValidate, TypeStackFileWrite:
+		// Reading or writing one file is not a ten-minute operation, and an
+		// unbounded window would hold the project lock for that long.
 		return 2 * time.Minute
 	default:
 		// Stack ops (validate/containers/discover) touch the daemon and the
