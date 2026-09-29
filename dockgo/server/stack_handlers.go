@@ -134,6 +134,18 @@ func (s *Server) handleStacks(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// isStackFileRoute reports whether the path suffix (split on "/") names one of
+// the four file-editor endpoints: list, read, validate, or save.
+func isStackFileRoute(parts []string) bool {
+	if len(parts) == 2 && parts[1] == "files" {
+		return true
+	}
+	if len(parts) == 3 && parts[1] == "file" && parts[2] == "validate" {
+		return true
+	}
+	return len(parts) == 2 && parts[1] == "file"
+}
+
 func (s *Server) handleStackByID(w http.ResponseWriter, r *http.Request) {
 	if _, ok := agentQueryAgentID(r); ok {
 		s.handleAgentStacksRoute(w, r)
@@ -225,6 +237,15 @@ func (s *Server) handleStackByID(w http.ResponseWriter, r *http.Request) {
 		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)
 		}
+		return
+	}
+
+	// Phase 1 ships local file editing only. Every file endpoint fails closed
+	// for an agent-hosted stack so the agent's stored paths are never resolved
+	// against this server's filesystem.
+	if stack.AgentID != "" && isStackFileRoute(parts) {
+		writeError(w, http.StatusNotImplemented,
+			"file editing for agent-hosted stacks is not yet supported")
 		return
 	}
 

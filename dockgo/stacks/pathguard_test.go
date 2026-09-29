@@ -37,6 +37,10 @@ func TestGuardPathAllowList(t *testing.T) {
 		t.Fatalf("MkdirAll(%s) error = %v", sibling, err)
 	}
 
+	// The filesystem root is a valid allow-list entry and must admit ordinary
+	// absolute descendants, not only the exact root itself.
+	fsRoot := filepath.VolumeName(root) + string(filepath.Separator)
+
 	tests := []struct {
 		name    string
 		path    string
@@ -44,6 +48,7 @@ func TestGuardPathAllowList(t *testing.T) {
 		wantErr bool
 	}{
 		{name: "inside allow-list", path: target, allowed: []string{root}},
+		{name: "filesystem root admits descendants", path: target, allowed: []string{fsRoot}},
 		{name: "outside allow-list", path: outsideTarget, allowed: []string{root}, wantErr: true},
 		{name: "sibling prefix is not a match", path: target, allowed: []string{sibling}, wantErr: true},
 		{name: "empty allow-list disables the check", path: outsideTarget, allowed: nil},

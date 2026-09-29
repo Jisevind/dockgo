@@ -65,7 +65,11 @@ func GuardPath(path string, allowedPaths []string) (string, error) {
 		if !ok {
 			continue
 		}
-		if realPath == realBase || strings.HasPrefix(realPath, realBase+string(filepath.Separator)) {
+		base := realBase
+		if !strings.HasSuffix(base, string(filepath.Separator)) {
+			base += string(filepath.Separator)
+		}
+		if realPath == realBase || strings.HasPrefix(realPath, base) {
 			return realPath, nil
 		}
 	}

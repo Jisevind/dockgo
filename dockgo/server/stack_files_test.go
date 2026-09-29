@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -377,4 +378,203 @@ func TestHandleStackFileWriteRejectsAgentHostedStack(t *testing.T) {
 	if string(saved) != original {
 		t.Fatalf("content = %q, want the original %q (agent save must not touch the file)", saved, original)
 	}
+}
+
+func TestHandleStackFileRoutesFailClosedForAgentHostedStack(t *testing.T) {
+	srv, stack := newTestStackServer(t)
+	srv.AllowedPaths = []string{filepath.Dir(stack.WorkingDir)}
+
+	original := "services:\n  web:\n    image: nginx\n"
+	if err := os.WriteFile(stack.ComposeFiles[0], []byte(original), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	stack.AgentID = "agent-1"
+	if _, err := srv.StackStore.Save(stack); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	tests := []struct {
+		name   string
+		method string
+		target string
+		body   string
+	}{
+		{name: "list", method: http.MethodGet, target: "/api/stacks/" + stack.ID + "/files"},
+		{name: "read", method: http.MethodGet, target: "/api/stacks/" + stack.ID + "/file?kind=compose&index=0"},
+		{name: "validate", method: http.MethodPost, target: "/api/stacks/" + stack.ID + "/file/validate?kind=compose&index=0", body: `{"content":"services: {}"}`},
+		{name: "write", method: http.MethodPut, target: "/api/stacks/" + stack.ID + "/file?kind=compose&index=0", body: `{"content":"services:\n  web:\n    image: nginx\n"}`},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, tc.target, strings.NewReader(tc.body))
+			rec := httptest.NewRecorder()
+			srv.handleStackByID(rec, req)
+
+			if rec.Code != http.StatusNotImplemented {
+				t.Fatalf("status = %d, want 501 (body=%s)", rec.Code, rec.Body.String())
+			}
+			if strings.Contains(rec.Body.String(), "image: nginx") {
+				t.Fatalf("body = %s, must not leak the file content", rec.Body.String())
+			}
+		})
+	}
+
+	saved, err := os.ReadFile(stack.ComposeFiles[0])
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	if string(saved) != original {
+		t.Fatalf("content = %q, want the original %q (agent file routes must not touch the file)", saved, original)
+	}
+}
+
+func TestReadEditableFileRejectsOversizedFile(t *testing.T) {
+	dir := t.TempDir()
+
+	exact := filepath.Join(dir, "exact.yaml")
+	if err := os.WriteFile(exact, make([]byte, maxEditableFileBytes), 0o600); err != nil {
+		t.Fatalf("WriteFile(exact) error = %v", err)
+	}
+	got, err := readEditableFile(exact)
+	if err != nil {
+		t.Fatalf("readEditableFile(exact) error = %v, want nil", err)
+	}
+	if len(got) != maxEditableFileBytes {
+		t.Fatalf("readEditableFile(exact) length = %d, want %d", len(got), maxEditableFileBytes)
+	}
+
+	over := filepath.Join(dir, "over.yaml")
+	if err := os.WriteFile(over, make([]byte, maxEditableFileBytes+1), 0o600); err != nil {
+		t.Fatalf("WriteFile(over) error = %v", err)
+	}
+	if _, err := readEditableFile(over); !errors.Is(err, errFileTooLarge) {
+		t.Fatalf("readEditableFile(over) error = %v, want errFileTooLarge", err)
+	}
+}
+
+func TestHandleStackFileRejectsOversizedRequestBody(t *testing.T) {
+	writeFakeDocker(t, false)
+	srv, stack := newTestStackServer(t)
+	srv.AllowedPaths = []string{filepath.Dir(stack.WorkingDir)}
+
+	original := "services: {}\n"
+	if err := os.WriteFile(stack.ComposeFiles[0], []byte(original), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	// The decoded content is tiny, but the raw body is padded past the decode
+	// cap, so a 413 here proves MaxBytesReader is applied before the
+	// post-decode content check.
+	oversized := `{"content":"services: {}"` + strings.Repeat(" ", maxEditableFileBytes+4096) + `}`
+	tests := []struct {
+		name   string
+		method string
+		target string
+	}{
+		{name: "validate", method: http.MethodPost, target: "/api/stacks/" + stack.ID + "/file/validate?kind=compose&index=0"},
+		{name: "write", method: http.MethodPut, target: "/api/stacks/" + stack.ID + "/file?kind=compose&index=0"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, tc.target, strings.NewReader(oversized))
+			rec := httptest.NewRecorder()
+			srv.handleStackByID(rec, req)
+
+			if rec.Code != http.StatusRequestEntityTooLarge {
+				t.Fatalf("status = %d, want 413 (body=%s)", rec.Code, rec.Body.String())
+			}
+		})
+	}
+
+	saved, err := os.ReadFile(stack.ComposeFiles[0])
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	if string(saved) != original {
+		t.Fatalf("content = %q, want the original %q (oversized body must not touch the file)", saved, original)
+	}
+}
+
+func TestHandleStackFilesListsResolvedGuardedTargets(t *testing.T) {
+	srv, stack := newTestStackServer(t)
+
+	mappedDir := t.TempDir()
+	compose := filepath.Join(mappedDir, "compose.yaml")
+	if err := os.WriteFile(compose, []byte("services: {}\n"), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	stack.PathMode = stacks.PathModeMapped
+	stack.PathMappings = []stacks.PathMapping{{HostPath: "/host/docker", ContainerPath: mappedDir}}
+	stack.ComposeFiles = []string{"/host/docker/compose.yaml"}
+	if _, err := srv.StackStore.Save(stack); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	t.Run("inside allow-list", func(t *testing.T) {
+		srv.AllowedPaths = []string{mappedDir}
+		req := httptest.NewRequest(http.MethodGet, "/api/stacks/"+stack.ID+"/files", nil)
+		rec := httptest.NewRecorder()
+		srv.handleStackByID(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
+		}
+		body := rec.Body.String()
+		wantPath := fmt.Sprintf(`"path":%q`, compose)
+		if !strings.Contains(body, wantPath) {
+			t.Fatalf("body = %s, want the resolved path %q", body, compose)
+		}
+		if !strings.Contains(body, `"exists":true`) {
+			t.Fatalf("body = %s, want exists:true", body)
+		}
+		if !strings.Contains(body, `"editable":true`) {
+			t.Fatalf("body = %s, want editable:true", body)
+		}
+		if !strings.Contains(body, `"size":13`) {
+			t.Fatalf("body = %s, want the resolved size", body)
+		}
+	})
+
+	t.Run("outside allow-list is not editable", func(t *testing.T) {
+		srv.AllowedPaths = []string{t.TempDir()}
+		req := httptest.NewRequest(http.MethodGet, "/api/stacks/"+stack.ID+"/files", nil)
+		rec := httptest.NewRecorder()
+		srv.handleStackByID(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
+		}
+		body := rec.Body.String()
+		if !strings.Contains(body, `"exists":true`) {
+			t.Fatalf("body = %s, want exists:true", body)
+		}
+		if !strings.Contains(body, `"editable":false`) {
+			t.Fatalf("body = %s, want editable:false", body)
+		}
+	})
+
+	t.Run("missing target is not editable", func(t *testing.T) {
+		srv.AllowedPaths = []string{mappedDir}
+		stack.ComposeFiles = []string{"/host/docker/missing.yaml"}
+		if _, err := srv.StackStore.Save(stack); err != nil {
+			t.Fatalf("Save() error = %v", err)
+		}
+
+		req := httptest.NewRequest(http.MethodGet, "/api/stacks/"+stack.ID+"/files", nil)
+		rec := httptest.NewRecorder()
+		srv.handleStackByID(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
+		}
+		body := rec.Body.String()
+		if !strings.Contains(body, `"exists":false`) {
+			t.Fatalf("body = %s, want exists:false", body)
+		}
+		if !strings.Contains(body, `"editable":false`) {
+			t.Fatalf("body = %s, want editable:false", body)
+		}
+	})
 }

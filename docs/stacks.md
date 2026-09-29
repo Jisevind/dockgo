@@ -132,9 +132,9 @@ DockGo can edit the compose and env files of a registered stack directly.
 
 - Content is checked for syntax first (YAML for compose files, `KEY=VALUE` for
   env files) and rejected if it does not parse.
-- Saves are then validated with `docker compose config`. A save that fails is
-  rolled back and the previous content is restored, so a broken stack cannot be
-  saved.
+- Saves are then validated with `docker compose config`. A save that fails
+  triggers a rollback to the previous content, so a broken stack cannot be
+  saved; if the rollback write itself fails, the save returns an error.
 - Only files already registered to the stack can be edited, and only within
   `ALLOWED_COMPOSE_PATHS` when that is configured.
 - For `git_repo` stacks, saving edits the checked-out working copy; a later
