@@ -128,7 +128,30 @@ Use `Validate` after editing stack paths or changing mount strategy.
 
 ## Editing Compose And Env Files
 
-DockGo can edit the compose and env files of a registered stack directly.
+DockGo can edit the compose and env files of a registered stack directly, from
+the dashboard or through the API.
+
+### From the dashboard
+
+Open the editor from a stack's **⋮** menu → **Edit Files**, or from a stack's
+Details view → **Edit Files**. The selector at the top lists the stack's compose
+files first, then its env files.
+
+The draft is validated as you type, and **Save** stays disabled while it is known
+to be invalid. Validating never touches the file — nothing is written until you
+save. A save runs the same two checks the API does, and a save that fails either
+one is rejected with the previous content restored, so a stack cannot be left
+holding a compose file Docker refuses to read. If restoring the previous content
+itself fails, the editor says so explicitly: that is the only case in which a
+rejected draft may still be on disk, and it is reported rather than hidden.
+Closing the editor, or switching files, with unsaved changes asks for
+confirmation first.
+
+A `git_repo` stack shows a warning that saving edits the checked-out working copy
+and that a later `git pull` may overwrite it. Agent-hosted stacks are edited the
+same way from the dashboard; the server proxies each operation to the agent.
+
+### Behaviour and limits
 
 - Content is checked for syntax first (YAML for compose files, `KEY=VALUE` for
   env files) and rejected if it does not parse.
@@ -158,6 +181,17 @@ DockGo can edit the compose and env files of a registered stack directly.
   is refused with `501 Not Implemented`. That refusal is deliberate and narrow:
   without the parameter the server would resolve the agent's stored paths
   against its own filesystem, so it fails closed instead of guessing.
+
+### Status codes
+
+| Status | Meaning |
+| --- | --- |
+| `400` | Unknown `kind`, out-of-range `index`, or a malformed request body |
+| `403` | The file is outside `ALLOWED_COMPOSE_PATHS`, or is not a regular file |
+| `404` | The file does not exist |
+| `413` | The file, or the request body, exceeds the 1 MiB cap |
+| `422` | The draft failed validation; the body carries the reason |
+| `501` | A file request for an agent-hosted stack that omits the `agent` parameter |
 
 ## Deploy
 
