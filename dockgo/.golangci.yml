@@ -24,16 +24,11 @@ linters-settings:
 
   gosec:
     excludes:
-      - G104 # ignoring errors sometimes acceptable
       - G401 # weak crypto sometimes used for hashing
       - G204 # exec.Command with variable
 
 issues:
   exclude-rules:
-    - linters:
-        - gosec
-      text: "G104"
-
     - linters:
         - errcheck
       source: "json.Marshal"
