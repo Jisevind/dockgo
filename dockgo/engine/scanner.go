@@ -318,6 +318,7 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 			seenNames[u.Name] = true
 		}
 
+		var recheckWg sync.WaitGroup
 		for _, c := range recheckContainers {
 			if len(c.Names) == 0 {
 				continue
@@ -333,8 +334,14 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 				continue
 			}
 
-			// This container appeared during the scan. Do a quick inspect + registry
-			// check synchronously (small expected count).
+			totalToCheck++
+
+			recheckWg.Add(1)
+			go func() {
+				defer recheckWg.Done()
+
+				// This container appeared during the scan. Do a quick inspect + registry
+				// check concurrently.
 			recheckCtx, recheckCancel := context.WithTimeout(ctx, containerScanTimeout)
 			resolvedName, _, repoDigests, cOs, cArch, inspectErr := discovery.GetContainerImageDetails(recheckCtx, c.ID)
 			upd := api.ContainerUpdate{
@@ -379,16 +386,18 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 			}
 			recheckCancel()
 
-			totalToCheck++
 			mu.Lock()
 			updates = append(updates, upd)
 			mu.Unlock()
 			newCount := atomic.AddInt32(&processedCount, 1)
 
 			if onProgress != nil {
+				// We pass a lock to prevent concurrent maps issues, but wait, onProgress might be thread-safe.
 				onProgress(upd, int(newCount), totalToCheck)
 			}
+			}()
 		}
+		recheckWg.Wait()
 	}
 
 	return updates, nil
