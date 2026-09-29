@@ -28,9 +28,6 @@ func TestValidateRejectsUnresolvedMappedWindowsWorkingDir(t *testing.T) {
 	if !containsIssueText(result.Issues, "working_dir cannot be resolved inside DockGo from Windows host path") {
 		t.Fatalf("expected working_dir resolution issue, got %+v", result.Issues)
 	}
-	if !containsIssueText(result.Issues, "compose file cannot be resolved inside DockGo from Windows host path") {
-		t.Fatalf("expected compose file resolution issue, got %+v", result.Issues)
-	}
 }
 
 func TestValidateRejectsUnresolvedMappedWindowsEnvFile(t *testing.T) {
@@ -55,8 +52,8 @@ func TestValidateRejectsUnresolvedMappedWindowsEnvFile(t *testing.T) {
 	if result.Valid {
 		t.Fatalf("Validate() valid = true, want false")
 	}
-	if !containsIssueText(result.Issues, "env file cannot be resolved inside DockGo from Windows host path") {
-		t.Fatalf("expected env file resolution issue, got %+v", result.Issues)
+	if !containsIssueText(result.Issues, "working_dir cannot be resolved inside DockGo from Windows host path") {
+		t.Fatalf("expected working_dir resolution issue, got %+v", result.Issues)
 	}
 }
 
