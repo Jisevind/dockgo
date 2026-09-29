@@ -97,3 +97,53 @@ func DefaultHealthPolicy() HealthPolicy {
 		StartupGrace:       20,
 	}
 }
+
+// Clone returns a deep copy of the Stack.
+func (s *Stack) Clone() *Stack {
+	if s == nil {
+		return nil
+	}
+	c := *s
+
+	if s.ComposeFiles != nil {
+		c.ComposeFiles = make([]string, len(s.ComposeFiles))
+		copy(c.ComposeFiles, s.ComposeFiles)
+	}
+	if s.EnvFiles != nil {
+		c.EnvFiles = make([]string, len(s.EnvFiles))
+		copy(c.EnvFiles, s.EnvFiles)
+	}
+	if s.Profiles != nil {
+		c.Profiles = make([]string, len(s.Profiles))
+		copy(c.Profiles, s.Profiles)
+	}
+	if s.ProjectEnv != nil {
+		c.ProjectEnv = make(map[string]string, len(s.ProjectEnv))
+		for k, v := range s.ProjectEnv {
+			c.ProjectEnv[k] = v
+		}
+	}
+	if s.PathMappings != nil {
+		c.PathMappings = make([]PathMapping, len(s.PathMappings))
+		copy(c.PathMappings, s.PathMappings)
+	}
+	if s.GitSource != nil {
+		gs := *s.GitSource
+		c.GitSource = &gs
+	}
+	if s.Labels != nil {
+		c.Labels = make(map[string]string, len(s.Labels))
+		for k, v := range s.Labels {
+			c.Labels[k] = v
+		}
+	}
+	if s.ManagedContainers != nil {
+		c.ManagedContainers = make([]string, len(s.ManagedContainers))
+		copy(c.ManagedContainers, s.ManagedContainers)
+	}
+	if s.LastDeployAt != nil {
+		t := *s.LastDeployAt
+		c.LastDeployAt = &t
+	}
+	return &c
+}

@@ -330,13 +330,33 @@ func (s *Store) persistLocked() error {
 		return fmt.Errorf("failed to encode stack store: %w", err)
 	}
 
-	tmpPath := s.path + ".tmp"
-	if err := os.WriteFile(tmpPath, data, 0600); err != nil {
-		return fmt.Errorf("failed to write temporary stack store: %w", err)
+	f, err := os.CreateTemp(filepath.Dir(s.path), "dockgo-*.json")
+	if err != nil {
+		return fmt.Errorf("failed to create temporary file: %w", err)
+	}
+	tmpPath := f.Name()
+	
+	if err := f.Chmod(0600); err != nil {
+		f.Close()
+		os.Remove(tmpPath)
+		return fmt.Errorf("failed to chmod temp file: %w", err)
 	}
 
+	if _, err := f.Write(data); err != nil {
+		f.Close()
+		os.Remove(tmpPath)
+		return fmt.Errorf("failed to write temp file: %w", err)
+	}
+	if err := f.Sync(); err != nil {
+		f.Close()
+		os.Remove(tmpPath)
+		return fmt.Errorf("failed to sync temp file: %w", err)
+	}
+	f.Close()
+
 	if err := os.Rename(tmpPath, s.path); err != nil {
-		return fmt.Errorf("failed to commit stack store: %w", err)
+		os.Remove(tmpPath)
+		return fmt.Errorf("failed to commit store: %w", err)
 	}
 
 	return nil
