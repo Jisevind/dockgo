@@ -136,14 +136,28 @@ DockGo can edit the compose and env files of a registered stack directly.
   triggers a rollback to the previous content, so a broken stack cannot be
   saved; if the rollback write itself fails, the save returns an error.
 - Only files already registered to the stack can be edited, and only within
-  `ALLOWED_COMPOSE_PATHS` when that is configured.
+  `ALLOWED_COMPOSE_PATHS` when that is configured. The server and an agent each
+  apply their own value, so the two can differ, and an empty value means no
+  restriction on that host — [Agents](./agents.md) documents the agent's.
+- Allow-list entries are translated through `COMPOSE_PATH_MAPPING` before they
+  are compared, and an entry that cannot be resolved is skipped rather than
+  kept. Skipping is per entry, so the check stays active: an allow-list made
+  entirely of host-style paths whose mapping is missing blocks every save while
+  still looking configured. If every save is rejected as outside the
+  allow-list, check the mapping before concluding the allow-list is empty.
 - For `git_repo` stacks, saving edits the checked-out working copy; a later
   pull may overwrite those edits.
 - Files are addressed with `kind` (`compose` or `env`) and a 0-based `index`
   within that kind; compose files come first, then env files.
 - Both `validate` and `PUT` take a JSON body of `{"content": "<draft text>"}`.
-- Agent-hosted stacks cannot be edited yet — saving one returns
-  `501 Not Implemented`.
+- Agent-hosted stacks are editable through these same endpoints. Add the
+  `agent` query parameter — exactly as the other agent stack routes take it —
+  and the server proxies the operation to the agent, which lists, reads,
+  validates, and writes its own copy of the files.
+- A file request for an agent-hosted stack that **omits** the `agent` parameter
+  is refused with `501 Not Implemented`. That refusal is deliberate and narrow:
+  without the parameter the server would resolve the agent's stored paths
+  against its own filesystem, so it fails closed instead of guessing.
 
 ## Deploy
 
