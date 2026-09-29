@@ -182,7 +182,9 @@ func extractAttrs(ctx context.Context) []any {
 		return nil
 	}
 	if id, ok := ctx.Value(UpdateIDKey).(string); ok {
-		return []any{slog.String("update_id", id)}
+		res := make([]any, 0, 1)
+		res = append(res, slog.String("update_id", id))
+		return res
 	}
 	return nil
 }
