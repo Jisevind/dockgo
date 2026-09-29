@@ -571,7 +571,13 @@ h1 {
     z-index: 50;
     position: relative;
     /* .card:hover applies translateY, which would otherwise make the card the
-       containing block for the floating menu and clip it again. */
+       containing block for the floating menu and clip it again.
+       The transition must be switched off too: while transform animates it is
+       still a non-none transform, so the card remains the containing block for
+       a fixed-position menu for the length of the transition. The menu would
+       then be placed relative to the card and jump to the right spot when the
+       transition ended. */
+    transition: none;
     transform: none;
 }
 
