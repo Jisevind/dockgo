@@ -206,6 +206,13 @@ func (s *Store) Update(agent Agent) (Agent, error) {
 	if agent.Name == "" {
 		agent.Name = existing.Name
 	}
+	if !strings.EqualFold(agent.Name, existing.Name) {
+		for _, other := range s.store {
+			if other.ID != agent.ID && strings.EqualFold(other.Name, agent.Name) {
+				return Agent{}, fmt.Errorf("agent with name %q already exists", agent.Name)
+			}
+		}
+	}
 	if agent.Hostname == "" {
 		agent.Hostname = existing.Hostname
 	}

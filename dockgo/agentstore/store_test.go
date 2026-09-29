@@ -244,3 +244,28 @@ func mustReadStoreFile(t *testing.T, path string) []byte {
 	}
 	return data
 }
+
+func TestStoreUpdateRejectsDuplicateName(t *testing.T) {
+	store := newTestStore(t)
+
+	agentA, _, err := store.Create("agent-a")
+	if err != nil {
+		t.Fatalf("Create(agent-a) error = %v", err)
+	}
+	_, _, err = store.Create("agent-b")
+	if err != nil {
+		t.Fatalf("Create(agent-b) error = %v", err)
+	}
+
+	// Rename agent-a to agent-b should fail
+	_, err = store.Update(Agent{ID: agentA.ID, Name: "agent-b"})
+	if err == nil {
+		t.Fatal("Update() with duplicate name succeeded, want error")
+	}
+
+	// Rename to own name (case variation) should succeed
+	_, err = store.Update(Agent{ID: agentA.ID, Name: "AGENT-A"})
+	if err != nil {
+		t.Fatalf("Update() to own name with different case error = %v", err)
+	}
+}
