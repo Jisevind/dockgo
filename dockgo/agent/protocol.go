@@ -31,6 +31,7 @@ const (
 	TypeStackContainers = "stack_containers"
 	TypeStackDiscover   = "stack_discover"
 	TypeDisconnect      = "disconnect"
+	TypeCancel          = "cancel"
 
 	TypeStackFileList     = "stack_file_list"
 	TypeStackFileRead     = "stack_file_read"

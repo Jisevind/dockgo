@@ -343,6 +343,12 @@ func (ac *AgentConn) Cancel(requestID string) {
 	ac.mu.Unlock()
 
 	if ok {
+		// Send cancel envelope to the agent to abort the actual work.
+		_ = ac.SendRaw(context.Background(), agent.Envelope{
+			Type:      agent.TypeCancel,
+			RequestID: requestID,
+		})
+
 		op.complete(agent.Envelope{
 			Type: agent.TypeResult,
 			Data: mustJSON(agent.ResultData{Error: "operation cancelled by server"}),

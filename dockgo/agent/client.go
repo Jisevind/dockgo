@@ -57,6 +57,8 @@ type Agent struct {
 
 	conn   *websocket.Conn
 	connMu sync.Mutex
+	inflight map[string]context.CancelFunc
+	inflightMu sync.Mutex
 
 	sendMu sync.Mutex
 	stop   chan struct{}
@@ -381,6 +383,13 @@ func (a *Agent) handleEnvelope(ctx context.Context, conn *websocket.Conn, env En
 	case TypeDisconnect:
 		agentLog.Info("Server requested disconnect")
 		return fmt.Errorf("server requested disconnect")
+	case TypeCancel:
+		a.inflightMu.Lock()
+		if cancel, ok := a.inflight[env.RequestID]; ok {
+			cancel()
+		}
+		a.inflightMu.Unlock()
+		return nil
 	default:
 	}
 
@@ -400,7 +409,20 @@ func (a *Agent) handleEnvelope(ctx context.Context, conn *websocket.Conn, env En
 // runOp executes a single request operation and streams progress/result.
 func (a *Agent) runOp(ctx context.Context, conn *websocket.Conn, env Envelope) {
 	ctx, cancel := context.WithTimeout(ctx, opTimeout(env.Type))
-	defer cancel()
+	
+	a.inflightMu.Lock()
+	if a.inflight == nil {
+		a.inflight = make(map[string]context.CancelFunc)
+	}
+	a.inflight[env.RequestID] = cancel
+	a.inflightMu.Unlock()
+	
+	defer func() {
+		a.inflightMu.Lock()
+		delete(a.inflight, env.RequestID)
+		a.inflightMu.Unlock()
+		cancel()
+	}()
 
 	switch env.Type {
 	case TypeContainersList:
