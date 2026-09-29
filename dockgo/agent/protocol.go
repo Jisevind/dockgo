@@ -32,6 +32,11 @@ const (
 	TypeStackDiscover   = "stack_discover"
 	TypeDisconnect      = "disconnect"
 
+	TypeStackFileList     = "stack_file_list"
+	TypeStackFileRead     = "stack_file_read"
+	TypeStackFileValidate = "stack_file_validate"
+	TypeStackFileWrite    = "stack_file_write"
+
 	// Agent -> Server: response/stream messages.
 	TypeWelcome   = "welcome"
 	TypeProgress  = "progress"
@@ -191,6 +196,29 @@ type StackContainersRequest struct {
 
 // StackDiscoverRequest discovers compose projects on the agent host.
 type StackDiscoverRequest struct{}
+
+// StackFileRequest addresses one file of an agent-hosted stack. The client
+// never sends a path: Kind and Index select an entry from the stack's own
+// ComposeFiles or EnvFiles list.
+type StackFileRequest struct {
+	Stack stacks.Stack `json:"stack"`
+	Kind  string       `json:"kind"`
+	Index int          `json:"index"`
+}
+
+// StackFileWriteRequest carries draft content for one file.
+type StackFileWriteRequest struct {
+	Stack   stacks.Stack `json:"stack"`
+	Kind    string       `json:"kind"`
+	Index   int          `json:"index"`
+	Content string       `json:"content"`
+}
+
+// StackFileResult is the response for a file read.
+type StackFileResult struct {
+	Target  stacks.FileTarget `json:"target"`
+	Content string            `json:"content"`
+}
 
 // ProgressData is the payload of a progress message.
 type ProgressData struct {
