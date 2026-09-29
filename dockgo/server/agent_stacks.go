@@ -13,8 +13,7 @@ import (
 	"dockgo/agent"
 	"dockgo/stacks"
 
-	"github.com/google/uuid"
-)
+	)
 
 // handleAgentStacksRoute proxies stack operations for stacks assigned to a
 // remote agent. The server store remains the single source of truth; the agent
@@ -1142,4 +1141,3 @@ func (s *Server) dispatchAgentStackDiscover(w http.ResponseWriter, r *http.Reque
 	}
 }
 
-var _ = uuid.NewString
