@@ -586,8 +586,10 @@ func (a *Agent) agentStackFileValidate(req StackFileWriteRequest) (any, error) {
 // local server returns ({"target": ...}).
 //
 // The order is the safety property:
-//  1. syntax check, so an unparseable draft never reaches the disk;
-//  2. size cap, so an oversized draft cannot be written;
+//  1. size cap, so an oversized draft cannot be written - the server's first
+//     refusal too, so a draft that is both oversized and unparseable gets the
+//     same answer on either host;
+//  2. syntax check, so an unparseable draft never reaches the disk;
 //  3. project lock, so a save cannot interleave with a deploy of the project;
 //  4. backup read INSIDE the lock - a backup taken before the lock could race a
 //     concurrent write and would then restore stale content;
@@ -603,14 +605,14 @@ func (a *Agent) agentStackFileWrite(ctx context.Context, req StackFileWriteReque
 		return nil, err
 	}
 
+	if len(req.Content) > stacks.MaxEditableFileBytes {
+		return nil, fmt.Errorf("%w: content exceeds the %d byte limit", stacks.ErrFileTooLarge, stacks.MaxEditableFileBytes)
+	}
+
 	if syntax := stacks.ValidateSyntax(req.Kind, req.Content); !syntax.Valid {
 		// ValidateSyntax appends at least one positioned error whenever it
 		// reports a draft as invalid, so the first is what stopped this save.
 		return nil, fmt.Errorf("%w: %s", errStackFileInvalidSyntax, syntax.Errors[0].Message)
-	}
-
-	if len(req.Content) > stacks.MaxEditableFileBytes {
-		return nil, fmt.Errorf("%w: content exceeds the %d byte limit", stacks.ErrFileTooLarge, stacks.MaxEditableFileBytes)
 	}
 
 	unlock := engine.LockProject(stackProjectName(req.Stack))

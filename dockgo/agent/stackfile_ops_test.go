@@ -290,6 +290,26 @@ func TestAgentStackFileWriteRejectsOversizeContent(t *testing.T) {
 	requireAgentFileUnchanged(t, composePath, before)
 }
 
+func TestAgentStackFileWriteRejectsOversizeContentBeforeSyntax(t *testing.T) {
+	a, stack, composePath, _ := newAgentFileFixture(t, nil)
+	before := readAgentFile(t, composePath)
+
+	// Both refusals apply to this draft: it is over the cap AND unparseable.
+	// The cap must win, because that is the server's first refusal, so a client
+	// that tells "too large" from "syntax error" sees one answer on both hosts.
+	draft := strings.Repeat("#", stacks.MaxEditableFileBytes+1) + "\nservices: [\n"
+	_, err := a.agentStackFileWrite(context.Background(),
+		StackFileWriteRequest{Stack: stack, Kind: stacks.FileKindCompose, Index: 0, Content: draft})
+	if !errors.Is(err, stacks.ErrFileTooLarge) {
+		t.Fatalf("agentStackFileWrite() error = %v, want %v (the cap must be checked before syntax)", err, stacks.ErrFileTooLarge)
+	}
+	if errors.Is(err, errStackFileInvalidSyntax) {
+		t.Fatalf("agentStackFileWrite() error = %v, want the cap refusal, not the syntax refusal", err)
+	}
+
+	requireAgentFileUnchanged(t, composePath, before)
+}
+
 func TestAgentStackFileWriteRejectsInvalidSyntaxWithoutWriting(t *testing.T) {
 	a, stack, composePath, _ := newAgentFileFixture(t, nil)
 	before := readAgentFile(t, composePath)
