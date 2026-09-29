@@ -160,9 +160,14 @@ func waitRunning(ctx context.Context, cli *client.Client, containerID string) (b
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
+	sawRunning := false
+
 	for {
 		select {
 		case <-ctx.Done():
+			if !sawRunning {
+				return false, fmt.Errorf("stability check for container %s timed out without a successful inspection", containerID[:min(12, len(containerID))])
+			}
 			return true, nil
 		case <-ticker.C:
 			inspect, err := dockerContainerInspect(ctx, cli, containerID)
@@ -170,7 +175,7 @@ func waitRunning(ctx context.Context, cli *client.Client, containerID string) (b
 				if isTransientDockerErr(err) {
 					continue
 				}
-				return false, fmt.Errorf("failed to inspect container %s during stability wait: %w", containerID[:12], err)
+				return false, fmt.Errorf("failed to inspect container %s during stability wait: %w", containerID[:min(12, len(containerID))], err)
 			}
 			if inspect.State == nil || !inspect.State.Running {
 				return false, fmt.Errorf("container %s stopped during stability wait", trimName(inspect.Name))
@@ -178,6 +183,7 @@ func waitRunning(ctx context.Context, cli *client.Client, containerID string) (b
 			if inspect.State.Health != nil && inspect.State.Health.Status == "unhealthy" {
 				return false, fmt.Errorf("container %s became unhealthy during stability wait", trimName(inspect.Name))
 			}
+			sawRunning = true
 		}
 	}
 }
