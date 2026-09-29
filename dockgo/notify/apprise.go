@@ -154,18 +154,18 @@ func (a *AppriseNotifier) worker(ctx context.Context) {
 			for {
 				select {
 				case n := <-a.queue:
-					a.send(client, n)
+					a.send(ctx, client, n)
 				default:
 					return
 				}
 			}
 		case n := <-a.queue:
-			a.send(client, n)
+			a.send(ctx, client, n)
 		}
 	}
 }
 
-func (a *AppriseNotifier) send(client *http.Client, n Notification) {
+func (a *AppriseNotifier) send(ctx context.Context, client *http.Client, n Notification) {
 	appriseType := string(n.Type)
 	if n.Type == TypeFailure {
 		appriseType = "error"
@@ -189,7 +189,12 @@ func (a *AppriseNotifier) send(client *http.Client, n Notification) {
 
 		maxRetries := 3
 		for i := 0; i < maxRetries; i++ {
-			resp, err := client.Post(targetURL, "application/json", bytes.NewBuffer(b))
+			req, reqErr := http.NewRequestWithContext(ctx, "POST", targetURL, bytes.NewBuffer(b))
+			if reqErr != nil {
+				return
+			}
+			req.Header.Set("Content-Type", "application/json")
+			resp, err := client.Do(req)
 			if err != nil {
 				if i == maxRetries-1 {
 					notifyLog.Error("Apprise: Send failed after retries",
@@ -202,11 +207,11 @@ func (a *AppriseNotifier) send(client *http.Client, n Notification) {
 						logger.Int("attempt", i+1),
 						logger.Int("max_retries", maxRetries),
 					)
-					b := make([]byte, 2)
-					if _, err := cryptorand.Read(b); err != nil {
+					randBytes := make([]byte, 2)
+					if _, err := cryptorand.Read(randBytes); err != nil {
 						panic(fmt.Sprintf("crypto/rand failed to generate jitter: %v", err))
 					}
-					jitterMs := (int(b[0])<<8 | int(b[1])) % 1000
+					jitterMs := (int(randBytes[0])<<8 | int(randBytes[1])) % 1000
 					jitter := time.Duration(jitterMs) * time.Millisecond
 					time.Sleep(2*time.Second + jitter)
 				}
@@ -227,11 +232,11 @@ func (a *AppriseNotifier) send(client *http.Client, n Notification) {
 						logger.Int("attempt", i+1),
 						logger.Int("max_retries", maxRetries),
 					)
-					b := make([]byte, 2)
-					if _, err := cryptorand.Read(b); err != nil {
+					randBytes := make([]byte, 2)
+					if _, err := cryptorand.Read(randBytes); err != nil {
 						panic(fmt.Sprintf("crypto/rand failed to generate jitter: %v", err))
 					}
-					jitterMs := (int(b[0])<<8 | int(b[1])) % 1000
+					jitterMs := (int(randBytes[0])<<8 | int(randBytes[1])) % 1000
 					jitter := time.Duration(jitterMs) * time.Millisecond
 					time.Sleep(2*time.Second + jitter)
 				}
