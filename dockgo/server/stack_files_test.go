@@ -330,7 +330,7 @@ func TestHandleStackFileWriteRecordsHistoryWithByteDelta(t *testing.T) {
 	}
 
 	entries := srv.StackHistory.ListByStackFiltered(stack.ID, stacks.HistoryFilter{
-		Action: "edit_compose",
+		Action: "edit compose",
 		Status: "success",
 	})
 	if len(entries) != 1 {

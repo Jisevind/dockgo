@@ -831,9 +831,9 @@ func (s *Server) handleAgentStackFileWrite(w http.ResponseWriter, r *http.Reques
 			written.Target.Label, kind, len(content)-int(written.Target.Size))
 	}
 
-	action := "edit_compose"
+	action := "edit compose"
 	if kind == stacks.FileKindEnv {
-		action = "edit_env"
+		action = "edit env"
 	}
 	// Record before responding, matching the local write: a client that reads
 	// history as soon as the save returns must see its own entry.

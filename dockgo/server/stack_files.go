@@ -219,9 +219,9 @@ func (s *Server) handleStackFileWrite(w http.ResponseWriter, stack stacks.Stack,
 		return
 	}
 
-	action := "edit_compose"
+	action := "edit compose"
 	if kind == stacks.FileKindEnv {
-		action = "edit_env"
+		action = "edit env"
 	}
 	delta := len(payload.Content) - len(previous)
 	s.recordStackHistory(stack, action, "success",

@@ -308,7 +308,7 @@ func TestAgentStackFileWriteRecordsHistoryOnSuccess(t *testing.T) {
 			label:      "compose.yaml",
 			path:       agentFileComposePath,
 			index:      0,
-			wantAction: "edit_compose",
+			wantAction: "edit compose",
 			wantDelta:  "compose.yaml updated (compose, +8 bytes)",
 		},
 		{
@@ -318,7 +318,7 @@ func TestAgentStackFileWriteRecordsHistoryOnSuccess(t *testing.T) {
 			label:      ".env",
 			path:       agentFileEnvPath,
 			index:      0,
-			wantAction: "edit_env",
+			wantAction: "edit env",
 			wantDelta:  ".env updated (env, +8 bytes)",
 		},
 	}
