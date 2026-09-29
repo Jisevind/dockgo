@@ -48,7 +48,7 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 
 	json.Config.Image = imageName
 
-	if strings.HasPrefix(json.ID, json.Config.Hostname) || json.Config.Hostname == json.ID[:12] {
+	if strings.HasPrefix(json.ID, json.Config.Hostname) || (len(json.ID) >= 12 && json.Config.Hostname == json.ID[:12]) {
 		json.Config.Hostname = ""
 	}
 
@@ -119,8 +119,10 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 
 	newContainer, err := d.Client.ContainerCreate(ctx, json.Config, json.HostConfig, networkingConfig, nil, name)
 	if err != nil {
-		_ = d.Client.ContainerRename(ctx, containerID, name)
-		_ = d.Client.ContainerStart(ctx, containerID, container.StartOptions{})
+		rollbackCtx, rollbackCancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Minute)
+		defer rollbackCancel()
+		_ = d.Client.ContainerRename(rollbackCtx, containerID, name)
+		_ = d.Client.ContainerStart(rollbackCtx, containerID, container.StartOptions{})
 		return fmt.Errorf("failed to create new container: %w", err)
 	}
 
@@ -131,9 +133,11 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 			logger.String("container", name),
 		)
 		emitLog("⚠️ " + failMsg)
-		_ = d.Client.ContainerRemove(ctx, newContainer.ID, container.RemoveOptions{Force: true})
-		_ = d.Client.ContainerRename(ctx, containerID, name)
-		_ = d.Client.ContainerStart(ctx, containerID, container.StartOptions{})
+		rollbackCtx, rollbackCancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Minute)
+		defer rollbackCancel()
+		_ = d.Client.ContainerRemove(rollbackCtx, newContainer.ID, container.RemoveOptions{Force: true})
+		_ = d.Client.ContainerRename(rollbackCtx, containerID, name)
+		_ = d.Client.ContainerStart(rollbackCtx, containerID, container.StartOptions{})
 		return fmt.Errorf("failed to start new container: %w", err)
 	}
 
@@ -275,14 +279,16 @@ EndVerify:
 			logger.String("container", name),
 		)
 		emitLog("❌ Verification failed. Rolling back...")
-		if err := d.Client.ContainerStop(ctx, newContainer.ID, container.StopOptions{}); err != nil {
+		rollbackCtx, rollbackCancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Minute)
+		defer rollbackCancel()
+		if err := d.Client.ContainerStop(rollbackCtx, newContainer.ID, container.StopOptions{}); err != nil {
 			engineLog.WarnContext(ctx, "Failed to stop new container during rollback", logger.Any("error", err))
 		}
-		if err := d.Client.ContainerRemove(ctx, newContainer.ID, container.RemoveOptions{Force: true}); err != nil {
+		if err := d.Client.ContainerRemove(rollbackCtx, newContainer.ID, container.RemoveOptions{Force: true}); err != nil {
 			engineLog.WarnContext(ctx, "Failed to remove new container during rollback", logger.Any("error", err))
 		}
 
-		renameErr := d.Client.ContainerRename(ctx, containerID, name)
+		renameErr := d.Client.ContainerRename(rollbackCtx, containerID, name)
 		if renameErr != nil {
 			engineLog.ErrorContext(ctx, "CRITICAL: Failed to rename old container back",
 				logger.String("container", name),
@@ -291,7 +297,7 @@ EndVerify:
 			return fmt.Errorf("verification failed and rollback failed (rename): %v", renameErr)
 		}
 
-		startErr := d.Client.ContainerStart(ctx, containerID, container.StartOptions{})
+		startErr := d.Client.ContainerStart(rollbackCtx, containerID, container.StartOptions{})
 		if startErr != nil {
 			engineLog.ErrorContext(ctx, "CRITICAL: Failed to restart old container",
 				logger.String("container", name),
