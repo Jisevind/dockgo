@@ -6,6 +6,8 @@ data
 
 .contextignore
 
+docs/superpowers/
+
 CODEBASE.md
 *.log
 *.old
