@@ -1,7 +1,12 @@
 #!/bin/sh
 
 # Get the Group ID of the docker socket
-SOCKET_GID=$(stat -c '%g' /var/run/docker.sock)
+if [ -S /var/run/docker.sock ]; then
+    SOCKET_GID=$(stat -c '%g' /var/run/docker.sock)
+else
+    echo "Warning: /var/run/docker.sock is not mounted or not a socket."
+    SOCKET_GID=""
+fi
 
 if [ -z "$SOCKET_GID" ]; then
     echo "Could not determine GID of docker socket."

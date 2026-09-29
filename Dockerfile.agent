@@ -12,7 +12,7 @@ RUN go mod download
 RUN go build -ldflags "-X 'dockgo/agent.Version=${VERSION}'" -o dockgo-agent ./cmd/dockgo-agent
 
 # Final Stage
-FROM alpine:latest
+FROM alpine:3.20
 
 WORKDIR /app
 

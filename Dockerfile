@@ -12,7 +12,7 @@ RUN go mod download
 RUN go build -ldflags "-X 'dockgo/server.Version=${VERSION}'" -o dockgo ./cmd/dockgo
 
 # Final Stage
-FROM alpine:latest
+FROM alpine:3.20
 
 WORKDIR /app
 
