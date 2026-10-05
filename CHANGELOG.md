@@ -1,3 +1,54 @@
+# [1.6.0](https://github.com/Jisevind/dockgo/compare/v1.5.0...v1.6.0) (2026-10-05)
+
+
+### Bug Fixes
+
+* **agent:** check the size cap before syntax in stack file saves ([4960fad](https://github.com/Jisevind/dockgo/commit/4960fad4b43f25a7c50f7e6130f64975a4329efd))
+* **agent:** keep the failed-rollback message out of the clean one's prefix ([97cdc60](https://github.com/Jisevind/dockgo/commit/97cdc60fd0065975e3bb2bbbe1b687b58c2d06ad))
+* **agent:** prevent stack edit TOCTOU and report log stream errors ([107df00](https://github.com/Jisevind/dockgo/commit/107df001705e6c45969ef40d3d0cf2b4cd41b3fc))
+* **agentstore:** enforce name uniqueness on agent update ([9301682](https://github.com/Jisevind/dockgo/commit/930168218ea0ced4dfd894e98beccac9ac75075b))
+* **agentstore:** use secure temp files for persistence ([7adc4a2](https://github.com/Jisevind/dockgo/commit/7adc4a21b52d96a92050e65d234d6aec2932337d))
+* close compose file editor review findings ([8e98ac5](https://github.com/Jisevind/dockgo/commit/8e98ac52a228800290c7e701d24fa4f3249b518e))
+* **engine:** ensure safe container rollback on context cancellation ([05fb5e4](https://github.com/Jisevind/dockgo/commit/05fb5e4ddf438300f9edfa532e7a22acbc27dc4d))
+* **notify:** respect context cancellation in apprise worker ([8ac6225](https://github.com/Jisevind/dockgo/commit/8ac622582d9987dfa254268863a7d0e013dbd028))
+* **server,agent:** correct agent file save history order and stale messages ([c02a3d2](https://github.com/Jisevind/dockgo/commit/c02a3d296562abe5660bf6c3233eab134ebf0d00))
+* **server:** enforce ALLOWED_COMPOSE_PATHS on stack actions ([a3da50e](https://github.com/Jisevind/dockgo/commit/a3da50ea5ff4dade170d92dae33105d413915b4d))
+* **server:** implement graceful shutdown and signal handling ([e467166](https://github.com/Jisevind/dockgo/commit/e467166c6b9e648a01fc0adbf5c1997196ee9a9b))
+* **server:** make compose/env saves durable and fail closed ([d12b76a](https://github.com/Jisevind/dockgo/commit/d12b76aa9b9c5b4d1d7e28d6f9b205755b6a471f))
+* **server:** map missing and non-regular file targets to 404 and 403 ([7e4e0ec](https://github.com/Jisevind/dockgo/commit/7e4e0ecfabb61a3a17097bebf7a02b32ccd58a92))
+* **server:** remove underscore from file edit history actions ([0fa908e](https://github.com/Jisevind/dockgo/commit/0fa908e046741bccf0d1ab86369685ede003ea0d))
+* **stacks:** prevent data races and use secure temp files in store ([0072d26](https://github.com/Jisevind/dockgo/commit/0072d26c733e77c0fca799626afd39b6116099fc))
+* **stacks:** prevent false positive container verification on timeouts ([7e0c0fc](https://github.com/Jisevind/dockgo/commit/7e0c0fc5f9960a99fb0f2a9a419028e6cc0cbd08))
+* **stacks:** prevent path mapping prefix escape vulnerabilities ([f877677](https://github.com/Jisevind/dockgo/commit/f8776776879b2664b4bc3c889cd096f4bc85bd24))
+* **stacks:** prevent silent log truncation in executor ([f9f5bd6](https://github.com/Jisevind/dockgo/commit/f9f5bd6e12b6efabca8431cc08dbe9041e147396))
+* **stacks:** translate allow-list entries before comparing paths ([00d2d89](https://github.com/Jisevind/dockgo/commit/00d2d899b1360d9000b7e0b1087441d93033f112))
+* **ui:** clamp update progress to single line and span full row in list view ([fe65718](https://github.com/Jisevind/dockgo/commit/fe65718389c2d2a5acd0b60ab2478095cf5de616))
+* **ui:** keep dropdown menus visible above scrolling ancestors ([7e1dafe](https://github.com/Jisevind/dockgo/commit/7e1dafe2154ebebd5eeddce5a0b16f0babd41964))
+* **ui:** paint modal backdrop blur behind the modal ([2719b63](https://github.com/Jisevind/dockgo/commit/2719b63e8799c1907a1f49887d0dd77b50fb55d5))
+* **web:** stop the menu jumping position when it opens ([567a240](https://github.com/Jisevind/dockgo/commit/567a240ee571ada15f1bf2f9364b6c1ffbb2a422))
+
+
+### Features
+
+* **agent:** add ALLOWED_COMPOSE_PATHS to the agent config ([8846837](https://github.com/Jisevind/dockgo/commit/88468373fd0710cc82968297d1fa2173e769cd90))
+* **agent:** add protocol types for stack file operations ([c42d602](https://github.com/Jisevind/dockgo/commit/c42d602710d655a8f4b1b7faaec3eb7ad15d4e24))
+* **agent:** dispatch stack file operations ([abb1b68](https://github.com/Jisevind/dockgo/commit/abb1b688a8a7a8ee2fa954139fc9508e4dfc8448))
+* **agent:** implement remote cancellation protocol ([0e40cc3](https://github.com/Jisevind/dockgo/commit/0e40cc310b5b68e116c4a796c082d74680e35449))
+* **agent:** implement stack file operations ([0e0d9db](https://github.com/Jisevind/dockgo/commit/0e0d9db831731c0528db0cbcbceb0c83420e0829))
+* **server:** list and read a stack's compose and env files ([44dc198](https://github.com/Jisevind/dockgo/commit/44dc198f732d0c3747f290bd98f0360d27779e4e))
+* **server:** proxy stack file operations to agents ([4117a4d](https://github.com/Jisevind/dockgo/commit/4117a4d212493dbe0fbb8094e9ce04b422c146c9))
+* **server:** save stack compose and env files with rollback ([e1c6987](https://github.com/Jisevind/dockgo/commit/e1c69873ca2f2d3a2f70b20442d3fa40ce86cfca))
+* **stacks:** add compose and env syntax validation ([a069e78](https://github.com/Jisevind/dockgo/commit/a069e781b0e92a3986eb7a527556ed83b439cb96))
+* **stacks:** add start and stop lifecycle actions ([81ad365](https://github.com/Jisevind/dockgo/commit/81ad365c54e563f4098631e2b7bb2e3c9d9d5808))
+* **ui:** add stack action menu to stack cards ([1117363](https://github.com/Jisevind/dockgo/commit/1117363b1115677ed9afa3ce95a9574c61ff1309))
+* **web:** add the compose and env file editor ([2ecda77](https://github.com/Jisevind/dockgo/commit/2ecda77f06f787892f2c5011ad69ade9c9822e66))
+
+
+### Performance Improvements
+
+* **engine:** parallelize second-pass registry scans ([e7b5f06](https://github.com/Jisevind/dockgo/commit/e7b5f067f173c301bfa4689473ce530020e1aa9e))
+* **logger:** pre-allocate slice for extractAttrs ([898762b](https://github.com/Jisevind/dockgo/commit/898762b2da1f0b2fde7b3fe7d1a5414c1947a175))
+
 # [1.5.0](https://github.com/Jisevind/dockgo/compare/v1.4.0...v1.5.0) (2026-09-18)
 
 
