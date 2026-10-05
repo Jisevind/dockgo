@@ -211,6 +211,12 @@ main {
     border-radius: 0.4rem;
     background: rgba(0, 0, 0, 0.2);
     color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.stack-details-modal-content .stack-progress {
     white-space: pre-wrap;
     word-break: break-all;
 }
@@ -389,6 +395,11 @@ main {
 }
 
 /* List View Specific Overrides */
+.list-item .update-message {
+    grid-column: 1 / -1;
+    margin-top: 0;
+}
+
 .list-item .container-name {
     white-space: normal;
     overflow: visible;
@@ -853,9 +864,9 @@ h1 {
     padding: 0.5rem;
     border-radius: 0.25rem;
     background: rgba(0, 0, 0, 0.2);
-    white-space: pre-wrap;
-    max-height: 100px;
-    overflow-y: auto;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* Stack group cards report progress through .update-message, which lacks the

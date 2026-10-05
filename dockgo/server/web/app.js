@@ -4089,9 +4089,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 document.createElement("div");
             if (!msgEl.parentElement) {
                 msgEl.className = "update-message";
-                containerEl
-                    .querySelector(".card-body, .list-col-actions")
-                    .appendChild(msgEl);
+                const target = containerEl.querySelector(".card-body") || containerEl;
+                target.appendChild(msgEl);
             }
             msgEl.textContent = "Invalid container name.";
             msgEl.classList.remove("hidden");
@@ -4119,9 +4118,8 @@ document.addEventListener("DOMContentLoaded", () => {
             document.createElement("div");
         if (!msgEl.parentElement) {
             msgEl.className = "update-message";
-            containerEl
-                .querySelector(".card-body, .list-col-actions")
-                .appendChild(msgEl);
+            const target = containerEl.querySelector(".card-body") || containerEl;
+            target.appendChild(msgEl);
         }
 
         msgEl.textContent = `Executing ${action}...`;
