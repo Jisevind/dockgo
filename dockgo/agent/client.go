@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/rand/v2"
 	"net/http"
@@ -133,6 +134,10 @@ func New(cfg Config) (*Agent, error) {
 	}, nil
 }
 
+// errTokenRejected reports that the server refused the channel token, so the
+// next attempt must authenticate with the registration key instead.
+var errTokenRejected = errors.New("channel token rejected")
+
 // reconnectDelay spreads a reconnect attempt across the backoff window.
 //
 // Without jitter, every agent that dropped at the same moment — a server
@@ -147,7 +152,16 @@ func reconnectDelay(backoff time.Duration) time.Duration {
 	return floor + rand.N(backoff-floor)
 }
 
-// Run connects to the server and reconnects with backoff until Stop is called.
+// retryDelay returns how long to wait before the next reconnect attempt. A
+// rejected channel token needs no wait: the agent already knows to use its key,
+// so retrying immediately avoids burning a backoff interval on every expiry.
+func retryDelay(backoff time.Duration, err error) time.Duration {
+	if errors.Is(err, errTokenRejected) {
+		return 0
+	}
+	return reconnectDelay(backoff)
+}
+
 // backoffAfterSession returns the backoff to use after a session that lasted
 // sessionDuration ended. A session that stayed up long enough proves the server
 // is healthy, so the backoff resets to the floor; a connection that dropped
@@ -159,6 +173,7 @@ func (a *Agent) backoffAfterSession(backoff, sessionDuration time.Duration) time
 	return backoff
 }
 
+// Run connects to the server and reconnects with backoff until Stop is called.
 func (a *Agent) Run(ctx context.Context) error {
 	defer close(a.done)
 
@@ -184,7 +199,7 @@ func (a *Agent) Run(ctx context.Context) error {
 			return nil
 		}
 
-		delay := reconnectDelay(backoff)
+		delay := retryDelay(backoff, err)
 		agentLog.Warn("Connection failed, reconnecting",
 			logger.Any("error", err),
 			logger.String("delay", delay.String()),
@@ -332,24 +347,12 @@ func (a *Agent) handshake(ctx context.Context, conn *websocket.Conn) error {
 		return fmt.Errorf("failed to read welcome: %w", err)
 	}
 
-	// If the JWT was rejected (e.g. key rotated, agent disabled then deleted),
-	// retry once with the key so a rotated key re-registers cleanly.
+	// A rejected token cannot be retried on this connection: the server has
+	// already answered and is closing it. Forget the token so the next attempt
+	// authenticates with the key.
 	if reply.Type == TypeError && req.JWT != "" {
-		req.JWT = ""
-		req.Key = a.cfg.AgentKey
 		a.jwt = ""
-
-		env, err := NewEnvelope(TypeRegister, "", req)
-		if err != nil {
-			return err
-		}
-		if err := writeEnvelope(ctx, conn, env); err != nil {
-			return fmt.Errorf("failed to send register: %w", err)
-		}
-		reply, err = readEnvelope(ctx, conn)
-		if err != nil {
-			return fmt.Errorf("failed to read welcome: %w", err)
-		}
+		return errTokenRejected
 	}
 
 	switch reply.Type {

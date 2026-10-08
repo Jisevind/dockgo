@@ -1,6 +1,8 @@
 package agent
 
 import (
+	"errors"
+	"fmt"
 	"testing"
 	"time"
 )
@@ -29,6 +31,34 @@ func TestReconnectDelayLeavesShortBackoffAlone(t *testing.T) {
 
 	if got := reconnectDelay(backoff); got != backoff {
 		t.Fatalf("reconnectDelay(%s) = %s, want %s", backoff, got, backoff)
+	}
+}
+
+func TestRetryDelaySkipsWaitForRejectedToken(t *testing.T) {
+	// A rejected token needs no wait: the agent already knows to use its key, so
+	// burning a backoff interval on every expiry is pointless.
+	if got := retryDelay(60*time.Second, errTokenRejected); got != 0 {
+		t.Fatalf("retryDelay(rejected token) = %s, want 0", got)
+	}
+
+	// The rejection travels back through the connection loop, so a wrapped
+	// error must still be recognised.
+	wrapped := fmt.Errorf("handshake failed: %w", errTokenRejected)
+	if got := retryDelay(60*time.Second, wrapped); got != 0 {
+		t.Fatalf("retryDelay(wrapped rejected token) = %s, want 0", got)
+	}
+}
+
+func TestRetryDelayBacksOffForRealFailures(t *testing.T) {
+	const backoff = 30 * time.Second
+
+	// Every other failure must still be spread across the backoff window, so a
+	// server that is down is not hammered.
+	for i := 0; i < 50; i++ {
+		got := retryDelay(backoff, errors.New("dial refused"))
+		if got < time.Second || got > backoff {
+			t.Fatalf("retryDelay(other error) = %s, want within [1s, %s]", got, backoff)
+		}
 	}
 }
 
