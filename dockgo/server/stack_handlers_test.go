@@ -480,10 +480,10 @@ func TestBuildStackDiscoverCandidatesUsesConfigFilesLabel(t *testing.T) {
 	candidates := buildStackDiscoverCandidates([]types.Container{
 		{
 			Labels: map[string]string{
-				"com.docker.compose.project":               "media",
-				"com.docker.compose.project.working_dir":   `/root/docker/gotify`,
-				"com.docker.compose.project.config_files":  hostOnlyFile,
-				"com.docker.compose.service":               "bazarr",
+				"com.docker.compose.project":              "media",
+				"com.docker.compose.project.working_dir":  `/root/docker/gotify`,
+				"com.docker.compose.project.config_files": hostOnlyFile,
+				"com.docker.compose.service":              "bazarr",
 			},
 		},
 	}, nil, func(dir string) string { return "" })
@@ -514,10 +514,10 @@ func TestBuildStackDiscoverCandidatesTranslatesMappedHostPaths(t *testing.T) {
 	candidates := buildStackDiscoverCandidates([]types.Container{
 		{
 			Labels: map[string]string{
-				"com.docker.compose.project":               "umami",
-				"com.docker.compose.project.working_dir":   `/root/docker/umami`,
-				"com.docker.compose.project.config_files":  `/root/docker/umami/compose.yaml`,
-				"com.docker.compose.service":               "umami",
+				"com.docker.compose.project":              "umami",
+				"com.docker.compose.project.working_dir":  `/root/docker/umami`,
+				"com.docker.compose.project.config_files": `/root/docker/umami/compose.yaml`,
+				"com.docker.compose.service":              "umami",
 			},
 		},
 	}, nil, func(dir string) string { return "" })

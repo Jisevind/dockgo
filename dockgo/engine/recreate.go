@@ -45,7 +45,6 @@ func (d *DiscoveryEngine) RecreateContainer(ctx context.Context, containerID str
 	)
 	emitLog(startMsg)
 
-
 	json.Config.Image = imageName
 
 	if strings.HasPrefix(json.ID, json.Config.Hostname) || (len(json.ID) >= 12 && json.Config.Hostname == json.ID[:12]) {

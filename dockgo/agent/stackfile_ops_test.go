@@ -348,7 +348,6 @@ func TestAgentStackFileWriteRestoresPreviousContentWhenValidationFails(t *testin
 		t.Fatalf("error text %q does not start with %q, so a prefix match would miss the clean rollback", err.Error(), errStackFileValidationFailed.Error())
 	}
 
-
 	requireAgentFileUnchanged(t, composePath, before)
 }
 
@@ -453,8 +452,6 @@ func TestAgentStackFileWriteBacksUpAfterTakingTheProjectLock(t *testing.T) {
 		t.Fatalf("restored content = %q, want the concurrently written %q (the backup must be read after the lock)", got, concurrent)
 	}
 }
-
-
 
 func TestAgentStackFileOperationsRejectGitKindStack(t *testing.T) {
 	a, stack, composePath, _ := newAgentFileFixture(t, nil)

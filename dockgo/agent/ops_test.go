@@ -49,9 +49,9 @@ func TestAgentContainerMatchesStackByWorkingDir(t *testing.T) {
 	c := container.Summary{
 		ID: "abc123",
 		Labels: map[string]string{
-			"com.docker.compose.project":         "registry",
+			"com.docker.compose.project":             "registry",
 			"com.docker.compose.project.working_dir": "/compose/registry",
-			"com.docker.compose.service":         "registry",
+			"com.docker.compose.service":             "registry",
 		},
 	}
 
@@ -75,8 +75,8 @@ func TestAgentContainerMatchesStackByServiceName(t *testing.T) {
 	c := container.Summary{
 		ID: "def456",
 		Labels: map[string]string{
-			"com.docker.compose.project":     "registry",
-			"com.docker.compose.service":     "registry-ui",
+			"com.docker.compose.project": "registry",
+			"com.docker.compose.service": "registry-ui",
 		},
 	}
 
@@ -119,7 +119,7 @@ func TestAgentContainerMatchesStackRejectsOtherProject(t *testing.T) {
 	c := container.Summary{
 		ID: "other",
 		Labels: map[string]string{
-			"com.docker.compose.project":         "different-project",
+			"com.docker.compose.project":             "different-project",
 			"com.docker.compose.project.working_dir": "/compose/other",
 		},
 	}
@@ -147,9 +147,9 @@ func TestAgentContainerMatchesStackWindowsPathMapping(t *testing.T) {
 	c := container.Summary{
 		ID: "baz",
 		Labels: map[string]string{
-			"com.docker.compose.project":         "bazarr",
+			"com.docker.compose.project":             "bazarr",
 			"com.docker.compose.project.working_dir": "/compose/bazarr",
-			"com.docker.compose.service":         "bazarr",
+			"com.docker.compose.service":             "bazarr",
 		},
 	}
 

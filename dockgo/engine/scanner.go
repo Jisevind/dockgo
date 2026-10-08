@@ -47,7 +47,7 @@ func emitSkipped(name, id string, labels map[string]string, updates *[]api.Conta
 	mu.Lock()
 	*updates = append(*updates, upd)
 	mu.Unlock()
-	
+
 	newCount := atomic.AddInt32(processedCount, 1)
 	if onProgress != nil {
 		onProgress(upd, int(newCount), totalToCheck)
@@ -342,59 +342,59 @@ func Scan(ctx context.Context, discovery *DiscoveryEngine, registry *RegistryCli
 
 				// This container appeared during the scan. Do a quick inspect + registry
 				// check concurrently.
-			recheckCtx, recheckCancel := context.WithTimeout(ctx, containerScanTimeout)
-			resolvedName, _, repoDigests, cOs, cArch, inspectErr := discovery.GetContainerImageDetails(recheckCtx, c.ID)
-			upd := api.ContainerUpdate{
-				ID:     c.ID,
-				Name:   cName,
-				Status: "checked",
-				Labels: c.Labels,
-			}
-			if inspectErr != nil {
-				if isContainerGone(inspectErr) {
-					upd.Status = "skipped"
+				recheckCtx, recheckCancel := context.WithTimeout(ctx, containerScanTimeout)
+				resolvedName, _, repoDigests, cOs, cArch, inspectErr := discovery.GetContainerImageDetails(recheckCtx, c.ID)
+				upd := api.ContainerUpdate{
+					ID:     c.ID,
+					Name:   cName,
+					Status: "checked",
+					Labels: c.Labels,
 				}
-			} else {
-				if resolvedName != "" {
-					upd.Image = resolvedName
-				} else {
-					upd.Image = c.Image
-				}
-				if len(repoDigests) > 0 {
-					upd.LocalDigest = repoDigests[0]
-				}
-				// Same local-image guard as in the main pass: no RepoDigests means
-				// locally built, nothing to check remotely.
-				if len(repoDigests) > 0 && cOs != "" && cArch != "" {
-					imageToCheck := upd.Image
-					remoteDigest, remoteErr := registry.GetRemoteDigest(recheckCtx, imageToCheck, nil, force)
-					if remoteErr == nil {
-						upd.RemoteDigest = remoteDigest
-						found := false
-						for _, rd := range repoDigests {
-							parts := strings.Split(rd, "@")
-							if len(parts) == 2 && parts[1] == remoteDigest {
-								found = true
-								break
-							}
-						}
-						upd.UpdateAvailable = !found
+				if inspectErr != nil {
+					if isContainerGone(inspectErr) {
+						upd.Status = "skipped"
 					}
-				} else if len(repoDigests) == 0 {
-					upd.Status = "local"
+				} else {
+					if resolvedName != "" {
+						upd.Image = resolvedName
+					} else {
+						upd.Image = c.Image
+					}
+					if len(repoDigests) > 0 {
+						upd.LocalDigest = repoDigests[0]
+					}
+					// Same local-image guard as in the main pass: no RepoDigests means
+					// locally built, nothing to check remotely.
+					if len(repoDigests) > 0 && cOs != "" && cArch != "" {
+						imageToCheck := upd.Image
+						remoteDigest, remoteErr := registry.GetRemoteDigest(recheckCtx, imageToCheck, nil, force)
+						if remoteErr == nil {
+							upd.RemoteDigest = remoteDigest
+							found := false
+							for _, rd := range repoDigests {
+								parts := strings.Split(rd, "@")
+								if len(parts) == 2 && parts[1] == remoteDigest {
+									found = true
+									break
+								}
+							}
+							upd.UpdateAvailable = !found
+						}
+					} else if len(repoDigests) == 0 {
+						upd.Status = "local"
+					}
 				}
-			}
-			recheckCancel()
+				recheckCancel()
 
-			mu.Lock()
-			updates = append(updates, upd)
-			mu.Unlock()
-			newCount := atomic.AddInt32(&processedCount, 1)
+				mu.Lock()
+				updates = append(updates, upd)
+				mu.Unlock()
+				newCount := atomic.AddInt32(&processedCount, 1)
 
-			if onProgress != nil {
-				// We pass a lock to prevent concurrent maps issues, but wait, onProgress might be thread-safe.
-				onProgress(upd, int(newCount), totalToCheck)
-			}
+				if onProgress != nil {
+					// We pass a lock to prevent concurrent maps issues, but wait, onProgress might be thread-safe.
+					onProgress(upd, int(newCount), totalToCheck)
+				}
 			}()
 		}
 		recheckWg.Wait()

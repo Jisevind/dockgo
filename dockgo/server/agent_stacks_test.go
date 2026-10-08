@@ -374,13 +374,13 @@ func TestAgentStackCreateAutoBindsOwnership(t *testing.T) {
 	// stack_validate request first, then a stack_containers request to bind
 	// ownership of any matching runtime containers.
 	payload := map[string]any{
-		"name":           "dockgo",
-		"project_name":   "dockgo",
-		"kind":           "compose_files",
-		"working_dir":    "D:\\code\\workspace\\dockgo",
-		"compose_files":  []string{"D:\\code\\workspace\\dockgo\\docker-compose.yml"},
-		"path_mode":      "mapped",
-		"path_mappings":  []map[string]string{{"host_path": "D:\\code\\workspace\\dockgo", "container_path": "/ws-compose/dockgo"}},
+		"name":          "dockgo",
+		"project_name":  "dockgo",
+		"kind":          "compose_files",
+		"working_dir":   "D:\\code\\workspace\\dockgo",
+		"compose_files": []string{"D:\\code\\workspace\\dockgo\\docker-compose.yml"},
+		"path_mode":     "mapped",
+		"path_mappings": []map[string]string{{"host_path": "D:\\code\\workspace\\dockgo", "container_path": "/ws-compose/dockgo"}},
 	}
 	body, _ := json.Marshal(payload)
 
@@ -478,12 +478,12 @@ func TestAgentContainersOverlayStackOwnership(t *testing.T) {
 
 	// A registered stack on the agent with two managed containers.
 	agentStack, err := srv.StackStore.Save(stacks.Stack{
-		Name:             "registry",
-		ProjectName:      "registry",
-		WorkingDir:       "/compose/registry",
-		ComposeFiles:     []string{"/compose/registry/compose.yml"},
-		PathMode:         stacks.PathModeHostNative,
-		AgentID:          agentRec.ID,
+		Name:              "registry",
+		ProjectName:       "registry",
+		WorkingDir:        "/compose/registry",
+		ComposeFiles:      []string{"/compose/registry/compose.yml"},
+		PathMode:          stacks.PathModeHostNative,
+		AgentID:           agentRec.ID,
 		ManagedContainers: []string{"cid-registry-1", "cid-registry-2"},
 	})
 	if err != nil {
@@ -493,12 +493,12 @@ func TestAgentContainersOverlayStackOwnership(t *testing.T) {
 	// A stack registered for a *different* agent that also claims
 	// cid-registry-1: it must not be matched for this agent.
 	if _, err := srv.StackStore.Save(stacks.Stack{
-		Name:             "other-agent-registry",
-		ProjectName:      "registry",
-		WorkingDir:       "/compose/registry",
-		ComposeFiles:     []string{"/compose/registry/compose.yml"},
-		PathMode:         stacks.PathModeHostNative,
-		AgentID:          "some-other-agent",
+		Name:              "other-agent-registry",
+		ProjectName:       "registry",
+		WorkingDir:        "/compose/registry",
+		ComposeFiles:      []string{"/compose/registry/compose.yml"},
+		PathMode:          stacks.PathModeHostNative,
+		AgentID:           "some-other-agent",
 		ManagedContainers: []string{"cid-registry-1"},
 	}); err != nil {
 		t.Fatalf("Save() error = %v", err)

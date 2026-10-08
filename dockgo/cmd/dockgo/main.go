@@ -11,9 +11,9 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"syscall"
 	"strconv"
 	"sync"
+	"syscall"
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"

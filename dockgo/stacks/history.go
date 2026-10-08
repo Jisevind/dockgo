@@ -280,7 +280,7 @@ func (s *HistoryStore) persistLocked() error {
 		return fmt.Errorf("failed to create temporary file: %w", err)
 	}
 	tmpPath := f.Name()
-	
+
 	if err := f.Chmod(0600); err != nil {
 		f.Close()
 		os.Remove(tmpPath)
