@@ -104,9 +104,9 @@ Configure DockGo using environment variables:
 | `LOG_FORMAT` | Log format (`json` or `text`) | `json` (Docker) / `text` (CLI) |
 | `DOCKGO_DEBUG` | Enable internal debug endpoints (e.g., `/api/debug/cache`) | `false` |
 | `AUTH_USERNAME` | Username for web login | *(empty)* |
-| `AUTH_PASSWORD_HASH`| Pre-hashed bcrypt string (Recommended for production) | *(empty)* |
+| `AUTH_PASSWORD_HASH` | Pre-hashed bcrypt string (Recommended for production) | *(empty)* |
 | `AUTH_PASSWORD` | Plaintext password (Convenience/Testing) | *(empty)* |
-| `AUTH_SECRET` | Secret for signing session cookies | *(random)* |
+| `AUTH_SECRET` | Secret for signing session cookies and agent JWTs (required) | *(required)* |
 | `AUTH_BCRYPT_COST` | Configurable bcrypt hashing cost (min 4, max 31) | `10` |
 | `API_TOKEN` | Legacy token for API updates | *(empty)* |
 | `DOCKGO_STOP_TIMEOUT` | Grace period in seconds when stopping a container before it is recreated. | `10` |

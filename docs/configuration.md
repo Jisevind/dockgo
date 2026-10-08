@@ -17,6 +17,12 @@ Recommended:
 - `AUTH_PASSWORD_HASH`
 - `AUTH_SECRET`
 
+`AUTH_SECRET` is required even when you authenticate with `API_TOKEN` instead
+of a username and password: it signs session cookies and, by default, the JWTs
+issued to agent channels. DockGo refuses to start when it is unset. Keep it
+stable across restarts — changing it logs out every session and invalidates
+every cached agent token, forcing all agents to re-register with their keys.
+
 Convenience for testing:
 
 - `AUTH_PASSWORD`

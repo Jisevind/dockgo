@@ -10,6 +10,17 @@ Check:
 - port mapping is correct
 - browser is pointing to the right host and port
 
+## DockGo Will Not Start
+
+Check:
+
+- `AUTH_SECRET` is set
+
+DockGo exits with `AUTH_SECRET is required` when it is missing. The value signs
+session cookies and agent channel JWTs, so it must stay stable across restarts —
+changing it logs out every session and forces every agent to re-register with
+its key.
+
 ## Login Problems
 
 Check:

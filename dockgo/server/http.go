@@ -107,6 +107,20 @@ type AuthState struct {
 	RevokedSessions  map[string]string `json:"revoked_sessions"`
 }
 
+// authSecretFromEnv returns the session and agent-JWT signing secret.
+//
+// The secret must stay stable across restarts: it signs dashboard session
+// cookies and, by default, agent channel JWTs. A secret that changed on every
+// boot would silently invalidate every session and every cached agent token,
+// forcing all agents back onto their registration keys at once.
+func authSecretFromEnv() (string, error) {
+	secret := strings.TrimSpace(os.Getenv("AUTH_SECRET"))
+	if secret == "" {
+		return "", fmt.Errorf("AUTH_SECRET is required (generate one with: openssl rand -hex 32)")
+	}
+	return secret, nil
+}
+
 // NewServer creates a server instance from environment configuration.
 func NewServer(port string) (*Server, error) {
 	disc, err := engine.NewDiscoveryEngine()
@@ -121,7 +135,6 @@ func NewServer(port string) (*Server, error) {
 	authUser := os.Getenv("AUTH_USERNAME")
 	authPass := os.Getenv("AUTH_PASSWORD")
 	authPassHash := os.Getenv("AUTH_PASSWORD_HASH")
-	authSecret := os.Getenv("AUTH_SECRET")
 	costStr := os.Getenv("AUTH_BCRYPT_COST")
 	sessionPath := os.Getenv("SESSION_STORE_PATH")
 	stackStorePath := os.Getenv("STACK_STORE_PATH")
@@ -143,12 +156,9 @@ func NewServer(port string) (*Server, error) {
 		agentStorePath = "/app/data/agents.json"
 	}
 
-	if authSecret == "" {
-		b := make([]byte, 32)
-		if _, err := cryptorand.Read(b); err != nil {
-			return nil, fmt.Errorf("failed to generate auth secret: %w", err)
-		}
-		authSecret = base64.RawURLEncoding.EncodeToString(b)
+	authSecret, err := authSecretFromEnv()
+	if err != nil {
+		return nil, err
 	}
 
 	bcryptCost := bcrypt.DefaultCost
