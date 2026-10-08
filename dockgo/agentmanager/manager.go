@@ -218,8 +218,9 @@ func (m *Manager) Unregister(agentID string, conn Conn) {
 // without it, it only discovers the loss as a read error, often in the middle
 // of an operation. It returns the number of channels it closed.
 //
-// Sends are best effort — a wedged channel must not hold up shutdown — so the
-// caller should pass a bounded context.
+// Sends are best effort, and the channels are closed concurrently: closing waits
+// for the peer to echo the close frame, so an unresponsive agent would otherwise
+// cost its full timeout on every one of them, one after another.
 func (m *Manager) DisconnectAll(ctx context.Context) int {
 	m.mu.RLock()
 	conns := make([]*AgentConn, 0, len(m.conns))
@@ -228,13 +229,20 @@ func (m *Manager) DisconnectAll(ctx context.Context) int {
 	}
 	m.mu.RUnlock()
 
+	var wg sync.WaitGroup
 	for _, ac := range conns {
-		_ = ac.SendRaw(ctx, agent.Envelope{Type: agent.TypeDisconnect})
-		// Close before Unregister: Unregister fails in-flight ops, which marks the
-		// channel closed and would make a later Close() a no-op for the socket.
-		ac.Close()
-		m.Unregister(ac.agentID, ac.UnregisterConn())
+		wg.Add(1)
+		go func(ac *AgentConn) {
+			defer wg.Done()
+			_ = ac.SendRaw(ctx, agent.Envelope{Type: agent.TypeDisconnect})
+			// Close before Unregister: Unregister fails in-flight ops, which marks
+			// the channel closed and would make a later Close() a no-op for the
+			// socket.
+			ac.Close()
+			m.Unregister(ac.agentID, ac.UnregisterConn())
+		}(ac)
 	}
+	wg.Wait()
 
 	return len(conns)
 }
