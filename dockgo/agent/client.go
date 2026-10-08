@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/rand/v2"
 	"net/http"
 	"os"
 	"runtime"
@@ -125,6 +126,20 @@ func New(cfg Config) (*Agent, error) {
 	}, nil
 }
 
+// reconnectDelay spreads a reconnect attempt across the backoff window.
+//
+// Without jitter, every agent that dropped at the same moment — a server
+// restart drops them all at once — retries on the same schedule, so the fleet
+// stampedes back in lockstep. Randomising the delay breaks that synchronisation
+// while keeping the same average wait.
+func reconnectDelay(backoff time.Duration) time.Duration {
+	const floor = time.Second
+	if backoff <= floor {
+		return backoff
+	}
+	return floor + rand.N(backoff-floor)
+}
+
 // Run connects to the server and reconnects with backoff until Stop is called.
 func (a *Agent) Run(ctx context.Context) error {
 	defer close(a.done)
@@ -146,15 +161,17 @@ func (a *Agent) Run(ctx context.Context) error {
 
 		err := a.connect(ctx)
 		if err != nil {
+			delay := reconnectDelay(backoff)
 			agentLog.Warn("Connection failed, reconnecting",
 				logger.Any("error", err),
+				logger.String("delay", delay.String()),
 			)
 			select {
 			case <-ctx.Done():
 				return nil
 			case <-a.stop:
 				return nil
-			case <-time.After(backoff):
+			case <-time.After(delay):
 			}
 
 			backoff = time.Duration(float64(backoff) * a.cfg.ReconnectMult)
