@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -33,6 +34,12 @@ func TestHandleEnvelopeDisconnectErrors(t *testing.T) {
 	err := a.handleEnvelope(context.Background(), nil, Envelope{Type: TypeDisconnect})
 	if err == nil {
 		t.Fatalf("disconnect should terminate the connect loop")
+	}
+
+	// The reconnect loop tells a deliberate disconnect apart from a connection
+	// failure, so it can log it as expected rather than as a fault.
+	if !errors.Is(err, errServerDisconnected) {
+		t.Fatalf("disconnect error = %v, want errServerDisconnected", err)
 	}
 }
 

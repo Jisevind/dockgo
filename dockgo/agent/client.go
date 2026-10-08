@@ -134,6 +134,11 @@ func New(cfg Config) (*Agent, error) {
 	}, nil
 }
 
+// errServerDisconnected reports that the server closed the channel on purpose
+// (it is shutting down, or this agent was removed), as opposed to a connection
+// that failed.
+var errServerDisconnected = errors.New("server requested disconnect")
+
 // errTokenRejected reports that the server refused the channel token, so the
 // next attempt must authenticate with the registration key instead.
 var errTokenRejected = errors.New("channel token rejected")
@@ -200,10 +205,18 @@ func (a *Agent) Run(ctx context.Context) error {
 		}
 
 		delay := retryDelay(backoff, err)
-		agentLog.Warn("Connection failed, reconnecting",
-			logger.Any("error", err),
-			logger.String("delay", delay.String()),
-		)
+		if errors.Is(err, errServerDisconnected) {
+			// Expected during a server restart or after this agent was removed, so
+			// it is not a connection failure worth warning about.
+			agentLog.Info("Server closed the channel, reconnecting",
+				logger.String("delay", delay.String()),
+			)
+		} else {
+			agentLog.Warn("Connection failed, reconnecting",
+				logger.Any("error", err),
+				logger.String("delay", delay.String()),
+			)
+		}
 		select {
 		case <-ctx.Done():
 			return nil
@@ -419,8 +432,7 @@ func (a *Agent) handleEnvelope(ctx context.Context, conn *websocket.Conn, env En
 	case TypePong:
 		return nil
 	case TypeDisconnect:
-		agentLog.Info("Server requested disconnect")
-		return fmt.Errorf("server requested disconnect")
+		return errServerDisconnected
 	case TypeCancel:
 		a.inflightMu.Lock()
 		if cancel, ok := a.inflight[env.RequestID]; ok {
