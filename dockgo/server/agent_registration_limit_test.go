@@ -12,17 +12,24 @@ import (
 	"github.com/coder/websocket"
 )
 
-// dialAgentWS opens an agent channel against the test mux.
-func dialAgentWS(t *testing.T, srv *Server) *websocket.Conn {
+// startAgentTestServer serves the agent handlers on a real listener and returns
+// the agent WebSocket URL. Cleanup is registered with the test.
+func startAgentTestServer(t *testing.T, srv *Server) string {
 	t.Helper()
 
 	server := httptest.NewServer(srv.agentTestMux())
 	t.Cleanup(server.Close)
 
+	return "ws" + server.URL[len("http"):] + "/api/ws/agent"
+}
+
+// dialAgentWS opens an agent channel at wsURL.
+func dialAgentWS(t *testing.T, wsURL string) *websocket.Conn {
+	t.Helper()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	t.Cleanup(cancel)
 
-	wsURL := "ws" + server.URL[len("http"):] + "/api/ws/agent"
 	conn, resp, err := websocket.Dial(ctx, wsURL, nil)
 	if err != nil {
 		t.Fatalf("websocket.Dial() error = %v (status %d)", err, resp.StatusCode)
@@ -83,7 +90,7 @@ func TestStaleAgentTokenIsNotCountedAsFailedHandshake(t *testing.T) {
 		t.Fatalf("Create() error = %v", err)
 	}
 
-	conn := dialAgentWS(t, srv)
+	conn := dialAgentWS(t, startAgentTestServer(t, srv))
 
 	// A reconnecting agent presents only its channel token, and this one cannot
 	// be verified: expired, or signed with a secret that has since changed.
@@ -114,7 +121,7 @@ func TestInvalidAgentKeyIsCountedAsFailedHandshake(t *testing.T) {
 		t.Fatalf("Create() error = %v", err)
 	}
 
-	conn := dialAgentWS(t, srv)
+	conn := dialAgentWS(t, startAgentTestServer(t, srv))
 
 	reply := registerAgent(t, conn, agent.RegisterRequest{
 		Key:      "dg_wrong_key",
