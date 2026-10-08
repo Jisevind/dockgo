@@ -50,31 +50,31 @@ var content embed.FS
 var Version = "dev"
 
 type Server struct {
-	Port               string
-	CorsOrigin         string
-	APIToken           string `json:"-"`
-	AuthUsername       string
-	AuthPasswordHash   []byte `json:"-"`
-	AuthSecret         string `json:"-"`
-	AllowedPaths       []string
-	Discovery          *engine.DiscoveryEngine
-	Registry           *engine.RegistryClient
-	Notifier           *notify.AppriseNotifier
-	updatesCache       map[string]bool
-	agentUpdatesCache  map[string]map[string]bool // agentID -> containerID -> update available
-	cacheUnix          int64
-	mu                 sync.RWMutex
-	lastCheckTime      time.Time
-	lastCheckStat      string
-	startTime          time.Time
-	registryStatus     string
-	registryPingTime   time.Time
-	loginAttempts    map[string]*RateLimiter
-	loginMu          sync.Mutex
+	Port              string
+	CorsOrigin        string
+	APIToken          string `json:"-"`
+	AuthUsername      string
+	AuthPasswordHash  []byte `json:"-"`
+	AuthSecret        string `json:"-"`
+	AllowedPaths      []string
+	Discovery         *engine.DiscoveryEngine
+	Registry          *engine.RegistryClient
+	Notifier          *notify.AppriseNotifier
+	updatesCache      map[string]bool
+	agentUpdatesCache map[string]map[string]bool // agentID -> containerID -> update available
+	cacheUnix         int64
+	mu                sync.RWMutex
+	lastCheckTime     time.Time
+	lastCheckStat     string
+	startTime         time.Time
+	registryStatus    string
+	registryPingTime  time.Time
+	loginAttempts     map[string]*RateLimiter
+	loginMu           sync.Mutex
 	// agentRegAttempts tracks failed agent handshakes per IP. The loginMu
 	// protects this map too, so no extra mutex is needed.
-	agentRegAttempts map[string]*RateLimiter
-	lastDockerStatus string
+	agentRegAttempts   map[string]*RateLimiter
+	lastDockerStatus   string
 	lastRegStatus      string
 	revokedSessions    map[string]time.Time
 	globalReauthTime   time.Time
@@ -285,29 +285,29 @@ func NewServer(port string) (*Server, error) {
 	}
 
 	srv := &Server{
-		Port:               port,
-		CorsOrigin:         corsOrigin,
-		APIToken:           token,
-		AuthUsername:       authUser,
-		AuthPasswordHash:   passHash,
-		AuthSecret:         authSecret,
-		AllowedPaths:       allowedPaths,
-		sessionStorePath:   sessionPath,
-		Discovery:          disc,
-		Registry:           registry,
-		Notifier:           notify.NewAppriseNotifier(context.Background()),
-		updatesCache:       make(map[string]bool),
-		agentUpdatesCache:  make(map[string]map[string]bool),
-		lastUpdateAttempts: make(map[string]UpdateAttemptInfo),
-		startTime:          time.Now(),
-		loginAttempts:    make(map[string]*RateLimiter),
-		agentRegAttempts: make(map[string]*RateLimiter),
-		revokedSessions:  make(map[string]time.Time),
-		DebugEnabled:       debugEnabled,
-		StackStore:         stackStore,
-		StackHistory:       stackHistory,
-		AgentStore:         agentStore,
-		AgentManager:       agentManager,
+		Port:                port,
+		CorsOrigin:          corsOrigin,
+		APIToken:            token,
+		AuthUsername:        authUser,
+		AuthPasswordHash:    passHash,
+		AuthSecret:          authSecret,
+		AllowedPaths:        allowedPaths,
+		sessionStorePath:    sessionPath,
+		Discovery:           disc,
+		Registry:            registry,
+		Notifier:            notify.NewAppriseNotifier(context.Background()),
+		updatesCache:        make(map[string]bool),
+		agentUpdatesCache:   make(map[string]map[string]bool),
+		lastUpdateAttempts:  make(map[string]UpdateAttemptInfo),
+		startTime:           time.Now(),
+		loginAttempts:       make(map[string]*RateLimiter),
+		agentRegAttempts:    make(map[string]*RateLimiter),
+		revokedSessions:     make(map[string]time.Time),
+		DebugEnabled:        debugEnabled,
+		StackStore:          stackStore,
+		StackHistory:        stackHistory,
+		AgentStore:          agentStore,
+		AgentManager:        agentManager,
 		agentHandshakeSlots: make(chan struct{}, handshakeConcurrency),
 		agentHandshakeWait:  agentHandshakeQueueWait,
 	}

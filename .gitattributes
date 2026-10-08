@@ -1,0 +1,9 @@
+# Store and check out all text files with LF line endings ("Linux formatting")
+# on every platform. Without this, Windows editors wrote CRLF and the repository
+# accumulated a mix of both, so every unrelated edit showed up as a large
+# whitespace change.
+* text=auto eol=lf
+
+# Binary assets: never normalise their bytes.
+*.png binary
+*.ico binary

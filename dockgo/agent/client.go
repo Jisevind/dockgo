@@ -61,9 +61,9 @@ type Agent struct {
 	agentName string
 	jwt       string
 
-	conn   *websocket.Conn
-	connMu sync.Mutex
-	inflight map[string]context.CancelFunc
+	conn       *websocket.Conn
+	connMu     sync.Mutex
+	inflight   map[string]context.CancelFunc
 	inflightMu sync.Mutex
 
 	sendMu sync.Mutex
@@ -445,14 +445,14 @@ func (a *Agent) handleEnvelope(ctx context.Context, conn *websocket.Conn, env En
 // runOp executes a single request operation and streams progress/result.
 func (a *Agent) runOp(ctx context.Context, conn *websocket.Conn, env Envelope) {
 	ctx, cancel := context.WithTimeout(ctx, opTimeout(env.Type))
-	
+
 	a.inflightMu.Lock()
 	if a.inflight == nil {
 		a.inflight = make(map[string]context.CancelFunc)
 	}
 	a.inflight[env.RequestID] = cancel
 	a.inflightMu.Unlock()
-	
+
 	defer func() {
 		a.inflightMu.Lock()
 		delete(a.inflight, env.RequestID)
