@@ -139,6 +139,7 @@ Configure DockGo using environment variables:
 | `AGENT_RECONNECT_MIN` | Agent reconnect backoff floor | `5s` |
 | `AGENT_RECONNECT_MAX` | Agent reconnect backoff ceiling | `60s` |
 | `AGENT_RECONNECT_MULT` | Agent reconnect backoff multiplier | `2.0` |
+| `AGENT_RECONNECT_STABLE_AFTER` | How long a connection must survive before the backoff resets | `30s` |
 | `AGENT_HEARTBEAT_INTERVAL` | Agent keepalive ping interval | `30s` |
 
 ---

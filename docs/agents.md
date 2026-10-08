@@ -141,6 +141,7 @@ Agent environment variables:
 | `AGENT_RECONNECT_MIN` | `5s` | Backoff floor |
 | `AGENT_RECONNECT_MAX` | `60s` | Backoff ceiling |
 | `AGENT_RECONNECT_MULT` | `2.0` | Backoff multiplier |
+| `AGENT_RECONNECT_STABLE_AFTER` | `30s` | How long a connection must survive before the backoff resets |
 | `AGENT_HEARTBEAT_INTERVAL` | `30s` | Keepalive ping interval |
 | `STACK_STORE_PATH` | `/app/data/agent_stacks.json` | Agent-local compose store (mostly internal) |
 | `ALLOWED_COMPOSE_PATHS` | *(empty)* | Comma-separated base paths this agent may edit stack files under. Empty means no restriction. Guards **file editing only** — see the note below |

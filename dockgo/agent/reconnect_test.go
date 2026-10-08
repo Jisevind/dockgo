@@ -31,3 +31,26 @@ func TestReconnectDelayLeavesShortBackoffAlone(t *testing.T) {
 		t.Fatalf("reconnectDelay(%s) = %s, want %s", backoff, got, backoff)
 	}
 }
+
+func TestBackoffAfterSessionResetsOnlyAfterStableSession(t *testing.T) {
+	a := &Agent{cfg: Config{
+		ReconnectMin:         5 * time.Second,
+		ReconnectStableAfter: 30 * time.Second,
+	}}
+
+	// A session that stayed up long enough proves the server is healthy.
+	if got := a.backoffAfterSession(60*time.Second, 45*time.Second); got != 5*time.Second {
+		t.Fatalf("backoffAfterSession(60s, 45s) = %s, want reset to 5s", got)
+	}
+
+	// A connection that dropped immediately must keep the accumulated backoff,
+	// otherwise a flapping server becomes a hot reconnect loop.
+	if got := a.backoffAfterSession(60*time.Second, time.Second); got != 60*time.Second {
+		t.Fatalf("backoffAfterSession(60s, 1s) = %s, want 60s retained", got)
+	}
+
+	// Reaching the threshold exactly counts as stable.
+	if got := a.backoffAfterSession(60*time.Second, 30*time.Second); got != 5*time.Second {
+		t.Fatalf("backoffAfterSession(60s, 30s) = %s, want reset to 5s", got)
+	}
+}

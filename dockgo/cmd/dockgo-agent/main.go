@@ -52,6 +52,7 @@ func main() {
 	reconnectMin := parseDuration("AGENT_RECONNECT_MIN", 5*time.Second)
 	reconnectMax := parseDuration("AGENT_RECONNECT_MAX", 60*time.Second)
 	reconnectMult := parseFloat("AGENT_RECONNECT_MULT", 2.0)
+	reconnectStableAfter := parseDuration("AGENT_RECONNECT_STABLE_AFTER", 30*time.Second)
 	heartbeat := parseDuration("AGENT_HEARTBEAT_INTERVAL", 30*time.Second)
 	stackStorePath := os.Getenv("STACK_STORE_PATH")
 	if stackStorePath == "" {
@@ -60,15 +61,16 @@ func main() {
 	allowedPaths := splitCommaList(os.Getenv("ALLOWED_COMPOSE_PATHS"))
 
 	agentImpl, err := agent.New(agent.Config{
-		ServerURL:         url,
-		AgentKey:          key,
-		AgentName:         name,
-		ReconnectMin:      reconnectMin,
-		ReconnectMax:      reconnectMax,
-		ReconnectMult:     reconnectMult,
-		HeartbeatInterval: heartbeat,
-		StackStorePath:    stackStorePath,
-		AllowedPaths:      allowedPaths,
+		ServerURL:            url,
+		AgentKey:             key,
+		AgentName:            name,
+		ReconnectMin:         reconnectMin,
+		ReconnectMax:         reconnectMax,
+		ReconnectMult:        reconnectMult,
+		ReconnectStableAfter: reconnectStableAfter,
+		HeartbeatInterval:    heartbeat,
+		StackStorePath:       stackStorePath,
+		AllowedPaths:         allowedPaths,
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to initialize agent: %v\n", err)

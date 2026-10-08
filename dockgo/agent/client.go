@@ -32,6 +32,11 @@ type Config struct {
 	ReconnectMax  time.Duration // max backoff
 	ReconnectMult float64       // backoff multiplier
 
+	// ReconnectStableAfter is how long a connection must survive before the
+	// backoff resets. A connection that drops sooner keeps the accumulated
+	// backoff, so a flapping server does not become a hot reconnect loop.
+	ReconnectStableAfter time.Duration
+
 	HeartbeatInterval time.Duration
 
 	// StorePaths for the agent-local compose store (used only to keep the
@@ -92,6 +97,9 @@ func New(cfg Config) (*Agent, error) {
 	if cfg.ReconnectMult <= 0 {
 		cfg.ReconnectMult = 2.0
 	}
+	if cfg.ReconnectStableAfter <= 0 {
+		cfg.ReconnectStableAfter = 30 * time.Second
+	}
 	if cfg.HeartbeatInterval <= 0 {
 		cfg.HeartbeatInterval = 30 * time.Second
 	}
@@ -141,6 +149,17 @@ func reconnectDelay(backoff time.Duration) time.Duration {
 }
 
 // Run connects to the server and reconnects with backoff until Stop is called.
+// backoffAfterSession returns the backoff to use after a session that lasted
+// sessionDuration ended. A session that stayed up long enough proves the server
+// is healthy, so the backoff resets to the floor; a connection that dropped
+// immediately keeps the accumulated backoff.
+func (a *Agent) backoffAfterSession(backoff, sessionDuration time.Duration) time.Duration {
+	if sessionDuration >= a.cfg.ReconnectStableAfter {
+		return a.cfg.ReconnectMin
+	}
+	return backoff
+}
+
 func (a *Agent) Run(ctx context.Context) error {
 	defer close(a.done)
 
@@ -159,30 +178,30 @@ func (a *Agent) Run(ctx context.Context) error {
 			logger.String("url", a.cfg.ServerURL),
 		)
 
+		startedAt := time.Now()
 		err := a.connect(ctx)
-		if err != nil {
-			delay := reconnectDelay(backoff)
-			agentLog.Warn("Connection failed, reconnecting",
-				logger.Any("error", err),
-				logger.String("delay", delay.String()),
-			)
-			select {
-			case <-ctx.Done():
-				return nil
-			case <-a.stop:
-				return nil
-			case <-time.After(delay):
-			}
-
-			backoff = time.Duration(float64(backoff) * a.cfg.ReconnectMult)
-			if backoff > a.cfg.ReconnectMax {
-				backoff = a.cfg.ReconnectMax
-			}
-			continue
+		backoff = a.backoffAfterSession(backoff, time.Since(startedAt))
+		if err == nil {
+			return nil
 		}
 
-		// Connection succeeded; reset backoff for the next failure.
-		backoff = a.cfg.ReconnectMin
+		delay := reconnectDelay(backoff)
+		agentLog.Warn("Connection failed, reconnecting",
+			logger.Any("error", err),
+			logger.String("delay", delay.String()),
+		)
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-a.stop:
+			return nil
+		case <-time.After(delay):
+		}
+
+		backoff = time.Duration(float64(backoff) * a.cfg.ReconnectMult)
+		if backoff > a.cfg.ReconnectMax {
+			backoff = a.cfg.ReconnectMax
+		}
 	}
 }
 
