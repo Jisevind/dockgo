@@ -30,6 +30,10 @@ const agentHandshakeTimeout = 15 * time.Second
 // before the server asks it to come back later.
 const agentHandshakeQueueWait = 10 * time.Second
 
+// agentDisconnectTimeout bounds the best-effort "server is going away" notice
+// sent to every agent during shutdown.
+const agentDisconnectTimeout = 5 * time.Second
+
 // errStaleAgentToken marks a registration that presented only a channel JWT the
 // server could not verify — typically an expired token, or one signed with a
 // secret that has since changed. The agent retries with its key straight away,

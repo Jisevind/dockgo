@@ -394,6 +394,18 @@ func (s *Server) Start(ctx context.Context) error {
 
 		s.saveAuthState()
 
+		// Tell agents the server is going away before their sockets drop, so
+		// they reconnect deliberately instead of discovering the loss as a read
+		// error in the middle of an operation. Bounded so a wedged channel
+		// cannot hold up shutdown.
+		disconnectCtx, cancelDisconnect := context.WithTimeout(context.Background(), agentDisconnectTimeout)
+		if n := s.AgentManager.DisconnectAll(disconnectCtx); n > 0 {
+			serverLog.Info("Disconnected agents for shutdown",
+				logger.Int("agents", n),
+			)
+		}
+		cancelDisconnect()
+
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 		if err := srv.Shutdown(shutdownCtx); err != nil {

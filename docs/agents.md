@@ -201,7 +201,7 @@ All messages use a JSON envelope with these fields:
 | `stack_history` | Get stack action history |
 | `stack_containers` | Get runtime containers for a stack |
 | `stack_discover` | Discover compose projects on the agent host |
-| `disconnect` | Graceful channel shutdown |
+| `disconnect` | Graceful channel shutdown — sent when an agent is deleted or the server is shutting down |
 
 ### Agent → Server messages
 

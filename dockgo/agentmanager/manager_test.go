@@ -70,6 +70,12 @@ func (f *fakeConn) writtenEnvelopes() []agent.Envelope {
 	return append([]agent.Envelope(nil), f.written...)
 }
 
+func (f *fakeConn) isClosed() bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.closed
+}
+
 // deliver injects a message as if it arrived from the agent and routes it
 // through the channel's read-loop dispatch.
 func (f *fakeConn) deliver(env agent.Envelope, ac *AgentConn) {
@@ -463,3 +469,70 @@ func TestAgentConnSendAndSendRaw(t *testing.T) {
 }
 
 var _ = uuid.NewString
+
+func TestDisconnectAllTellsEveryAgentAndClearsRegistry(t *testing.T) {
+	m, _ := newTestManager(t)
+
+	const agents = 3
+	conns := make([]*fakeConn, 0, agents)
+	for i := 0; i < agents; i++ {
+		conn := newFakeConn()
+		if _, err := m.Register(fmt.Sprintf("agent-%d", i), "host", conn); err != nil {
+			t.Fatalf("Register() error = %v", err)
+		}
+		conns = append(conns, conn)
+	}
+
+	if got := m.DisconnectAll(context.Background()); got != agents {
+		t.Fatalf("DisconnectAll() = %d, want %d", got, agents)
+	}
+
+	for i, conn := range conns {
+		written := conn.writtenEnvelopes()
+		if len(written) != 1 || written[0].Type != agent.TypeDisconnect {
+			t.Fatalf("agent-%d written = %+v, want a single %q envelope", i, written, agent.TypeDisconnect)
+		}
+		if !conn.isClosed() {
+			t.Fatalf("agent-%d channel still open after DisconnectAll", i)
+		}
+	}
+
+	if ids := m.OnlineIDs(); len(ids) != 0 {
+		t.Fatalf("OnlineIDs() = %v, want none after DisconnectAll", ids)
+	}
+}
+
+func TestDisconnectAllFailsInFlightOps(t *testing.T) {
+	m, _ := newTestManager(t)
+
+	ac, err := m.Register("agent-1", "host", newFakeConn())
+	if err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+
+	response, err := ac.startOp("req-1", 2, nil)
+	if err != nil {
+		t.Fatalf("startOp() error = %v", err)
+	}
+
+	m.DisconnectAll(context.Background())
+
+	// A shutdown must complete the op rather than leave the HTTP handler that
+	// dispatched it waiting for an agent that is never coming back.
+	select {
+	case env := <-response:
+		if env.Type != agent.TypeResult {
+			t.Fatalf("in-flight op completed with %q, want %q", env.Type, agent.TypeResult)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("in-flight op left hanging after DisconnectAll")
+	}
+}
+
+func TestDisconnectAllWithNoAgents(t *testing.T) {
+	m, _ := newTestManager(t)
+
+	if got := m.DisconnectAll(context.Background()); got != 0 {
+		t.Fatalf("DisconnectAll() = %d, want 0", got)
+	}
+}

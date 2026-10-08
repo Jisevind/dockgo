@@ -213,6 +213,32 @@ func (m *Manager) Unregister(agentID string, conn Conn) {
 	}
 }
 
+// DisconnectAll tells every connected agent that the server is going away and
+// then closes each channel. An agent told explicitly reconnects deliberately;
+// without it, it only discovers the loss as a read error, often in the middle
+// of an operation. It returns the number of channels it closed.
+//
+// Sends are best effort — a wedged channel must not hold up shutdown — so the
+// caller should pass a bounded context.
+func (m *Manager) DisconnectAll(ctx context.Context) int {
+	m.mu.RLock()
+	conns := make([]*AgentConn, 0, len(m.conns))
+	for _, ac := range m.conns {
+		conns = append(conns, ac)
+	}
+	m.mu.RUnlock()
+
+	for _, ac := range conns {
+		_ = ac.SendRaw(ctx, agent.Envelope{Type: agent.TypeDisconnect})
+		// Close before Unregister: Unregister fails in-flight ops, which marks the
+		// channel closed and would make a later Close() a no-op for the socket.
+		ac.Close()
+		m.Unregister(ac.agentID, ac.UnregisterConn())
+	}
+
+	return len(conns)
+}
+
 // IsOnline reports whether an agent has a live channel.
 func (m *Manager) IsOnline(agentID string) bool {
 	m.mu.RLock()
