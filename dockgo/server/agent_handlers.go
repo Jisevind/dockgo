@@ -72,6 +72,23 @@ func (s *Server) acquireAgentHandshakeSlot(ctx context.Context, w http.ResponseW
 	}
 }
 
+// notifyAgentsOfShutdown tells every connected agent that the server is going
+// away, so they reconnect deliberately instead of discovering the loss as a
+// read error in the middle of an operation. The broadcast is bounded so a
+// wedged channel cannot hold up shutdown. It returns the number of agents told.
+func (s *Server) notifyAgentsOfShutdown() int {
+	disconnectCtx, cancel := context.WithTimeout(context.Background(), agentDisconnectTimeout)
+	defer cancel()
+
+	n := s.AgentManager.DisconnectAll(disconnectCtx)
+	if n > 0 {
+		serverLog.Info("Disconnected agents for shutdown",
+			logger.Int("agents", n),
+		)
+	}
+	return n
+}
+
 // releaseAgentHandshakeSlot frees a slot taken by acquireAgentHandshakeSlot.
 func (s *Server) releaseAgentHandshakeSlot() {
 	if s.agentHandshakeSlots == nil {
