@@ -26,7 +26,6 @@ type Config struct {
 	ServerURL string // ws:// or wss:// endpoint (e.g. ws://host:3131/api/ws/agent)
 	AgentKey  string // registration key (AGENT_KEY)
 	AgentName string // optional display name; defaults to hostname
-	AgentID   string // learned agent ID, persisted across reconnects
 
 	ReconnectMin  time.Duration // initial backoff
 	ReconnectMax  time.Duration // max backoff
