@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -28,6 +29,14 @@ const agentHandshakeTimeout = 15 * time.Second
 // agentHandshakeQueueWait is how long an agent waits for a free handshake slot
 // before the server asks it to come back later.
 const agentHandshakeQueueWait = 10 * time.Second
+
+// errStaleAgentToken marks a registration that presented only a channel JWT the
+// server could not verify — typically an expired token, or one signed with a
+// secret that has since changed. The agent retries with its key straight away,
+// so the attempt is not a credential failure and must not count against the
+// per-IP registration rate limit. The JWT path never verifies a key, so
+// exempting it costs nothing in brute-force protection.
+var errStaleAgentToken = errors.New("unverifiable agent token")
 
 // acquireAgentHandshakeSlot reserves a slot for one registration handshake,
 // waiting briefly when the server is busy. It writes a 503 response and returns
@@ -107,10 +116,18 @@ func (s *Server) handleAgentWebSocket(w http.ResponseWriter, r *http.Request) {
 	ac, agentID, err := s.agentHandshake(handshakeCtx, conn)
 	cancelHandshake()
 	if err != nil {
-		serverLog.WarnContext(r.Context(), "Agent handshake failed",
-			logger.Any("error", err),
-		)
-		s.recordAgentRegistrationFailure(r.RemoteAddr)
+		if errors.Is(err, errStaleAgentToken) {
+			// Expected after a token expires or the signing secret changes: the
+			// agent retries with its key, so this is not a credential failure.
+			serverLog.DebugContext(r.Context(), "Agent presented an unverifiable channel token",
+				logger.Any("error", err),
+			)
+		} else {
+			serverLog.WarnContext(r.Context(), "Agent handshake failed",
+				logger.Any("error", err),
+			)
+			s.recordAgentRegistrationFailure(r.RemoteAddr)
+		}
 		_ = writeAgentJSON(conn, agent.Envelope{Type: agent.TypeError, Data: marshalAgentData(agent.ResultData{Error: err.Error()})})
 		return
 	}
@@ -191,6 +208,11 @@ func (s *Server) agentHandshake(ctx context.Context, conn *websocket.Conn) (*age
 	}
 
 	if agentID == "" {
+		// A JWT-only registration is a reconnecting agent whose channel token we
+		// could not verify; it will fall back to its key on the next attempt.
+		if req.JWT != "" && req.Key == "" {
+			return nil, "", errStaleAgentToken
+		}
 		return nil, "", fmt.Errorf("invalid agent credentials")
 	}
 
