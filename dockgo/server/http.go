@@ -88,6 +88,10 @@ type Server struct {
 	StackHistory       *stacks.HistoryStore
 	AgentStore         *agentstore.Store
 	AgentManager       *agentmanager.Manager
+	// agentHandshakeSlots bounds concurrent agent registration handshakes;
+	// agentHandshakeWait is how long one waits for a free slot.
+	agentHandshakeSlots chan struct{}
+	agentHandshakeWait  time.Duration
 }
 
 type RateLimiter struct {
@@ -259,6 +263,17 @@ func NewServer(port string) (*Server, error) {
 		}
 	}
 
+	handshakeConcurrency := 8
+	if capStr := os.Getenv("AGENT_HANDSHAKE_CONCURRENCY"); capStr != "" {
+		if cap, err := strconv.Atoi(capStr); err == nil && cap > 0 {
+			handshakeConcurrency = cap
+		} else {
+			serverLog.Warn("Invalid AGENT_HANDSHAKE_CONCURRENCY, falling back to 8",
+				logger.String("provided_cap", capStr),
+			)
+		}
+	}
+
 	agentManager, err := agentmanager.New(agentmanager.Config{
 		Store:         agentStore,
 		JWTSecret:     agentJWTSecret,
@@ -293,6 +308,8 @@ func NewServer(port string) (*Server, error) {
 		StackHistory:       stackHistory,
 		AgentStore:         agentStore,
 		AgentManager:       agentManager,
+		agentHandshakeSlots: make(chan struct{}, handshakeConcurrency),
+		agentHandshakeWait:  agentHandshakeQueueWait,
 	}
 
 	srv.loadAuthState()

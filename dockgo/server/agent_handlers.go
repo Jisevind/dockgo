@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"dockgo/agent"
 	"dockgo/agentmanager"
@@ -18,6 +19,53 @@ import (
 // wsAgentReadLimit bounds the size of a single agent message (e.g. a stack
 // definition pushed in-band).
 const wsAgentReadLimit = 16 << 20 // 16 MiB
+
+// agentHandshakeTimeout bounds a single registration handshake. Without it, a
+// client that connects and never sends a register message would hold a
+// handshake slot for the lifetime of the connection.
+const agentHandshakeTimeout = 15 * time.Second
+
+// agentHandshakeQueueWait is how long an agent waits for a free handshake slot
+// before the server asks it to come back later.
+const agentHandshakeQueueWait = 10 * time.Second
+
+// acquireAgentHandshakeSlot reserves a slot for one registration handshake,
+// waiting briefly when the server is busy. It writes a 503 response and returns
+// false when no slot becomes available in time.
+//
+// A nil slot channel means unbounded, which only happens for a Server built by
+// hand (tests); NewServer always configures a cap.
+func (s *Server) acquireAgentHandshakeSlot(ctx context.Context, w http.ResponseWriter) bool {
+	if s.agentHandshakeSlots == nil {
+		return true
+	}
+
+	select {
+	case s.agentHandshakeSlots <- struct{}{}:
+		return true
+	default:
+	}
+
+	serverLog.Warn("Agent handshake limit reached, waiting for a free slot")
+	select {
+	case s.agentHandshakeSlots <- struct{}{}:
+		return true
+	case <-time.After(s.agentHandshakeWait):
+		w.Header().Set("Retry-After", "5")
+		http.Error(w, "Too many agent handshakes in progress", http.StatusServiceUnavailable)
+		return false
+	case <-ctx.Done():
+		return false
+	}
+}
+
+// releaseAgentHandshakeSlot frees a slot taken by acquireAgentHandshakeSlot.
+func (s *Server) releaseAgentHandshakeSlot() {
+	if s.agentHandshakeSlots == nil {
+		return
+	}
+	<-s.agentHandshakeSlots
+}
 
 // handleAgentWebSocket upgrades a WebSocket connection for an agent and runs
 // the channel read loop. Authentication is either a pre-shared registration
@@ -35,6 +83,14 @@ func (s *Server) handleAgentWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Bound concurrent handshakes: key verification is CPU-bound and handshakes
+	// arrive in bursts after a server restart, so an unbounded handshake path
+	// can starve the rest of the HTTP server.
+	if !s.acquireAgentHandshakeSlot(r.Context(), w) {
+		return
+	}
+	defer s.releaseAgentHandshakeSlot()
+
 	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 		OriginPatterns: []string{"*"},
 	})
@@ -47,7 +103,9 @@ func (s *Server) handleAgentWebSocket(w http.ResponseWriter, r *http.Request) {
 	defer conn.Close(websocket.StatusInternalError, "unexpected close")
 	conn.SetReadLimit(wsAgentReadLimit)
 
-	ac, agentID, err := s.agentHandshake(r.Context(), conn)
+	handshakeCtx, cancelHandshake := context.WithTimeout(r.Context(), agentHandshakeTimeout)
+	ac, agentID, err := s.agentHandshake(handshakeCtx, conn)
+	cancelHandshake()
 	if err != nil {
 		serverLog.WarnContext(r.Context(), "Agent handshake failed",
 			logger.Any("error", err),

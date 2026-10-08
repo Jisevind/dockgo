@@ -39,10 +39,12 @@ func newAgentTestServer(t *testing.T) *Server {
 	}
 
 	return &Server{
-		AgentStore:        agentStore,
-		AgentManager:      mgr,
-		loginAttempts:     make(map[string]*RateLimiter),
-		agentRegAttempts:  make(map[string]*RateLimiter),
+		AgentStore:          agentStore,
+		AgentManager:        mgr,
+		loginAttempts:       make(map[string]*RateLimiter),
+		agentRegAttempts:    make(map[string]*RateLimiter),
+		agentHandshakeSlots: make(chan struct{}, 4),
+		agentHandshakeWait:  5 * time.Second,
 	}
 }
 

@@ -101,6 +101,7 @@ Environment variables on the server:
 | --- | --- | --- |
 | `AGENT_STORE_PATH` | `/app/data/agents.json` | JSON file that persists agent records |
 | `AGENT_MAX_CONCURRENT` | `8` | Per-agent concurrent op cap |
+| `AGENT_HANDSHAKE_CONCURRENCY` | `8` | Concurrent registration handshakes |
 | `AGENT_JWT_TTL` | `1h` | Lifetime of the channel JWT |
 | `AGENT_JWT_SECRET` | `AUTH_SECRET` | JWT signing secret for agent channels |
 

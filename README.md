@@ -130,6 +130,7 @@ Configure DockGo using environment variables:
 | `SCAN_INTERVAL` | Background update polling schedule (`s`, `m`, `h`) | `24h` |
 | `AGENT_STORE_PATH` | JSON file persisting registered agent records | `/app/data/agents.json` |
 | `AGENT_MAX_CONCURRENT` | Per-agent concurrent operation cap | `8` |
+| `AGENT_HANDSHAKE_CONCURRENCY` | Concurrent agent registration handshakes | `8` |
 | `AGENT_JWT_TTL` | Lifetime of the agent channel JWT | `1h` |
 | `AGENT_JWT_SECRET` | JWT signing secret for agent channels | `AUTH_SECRET` |
 | `DOCKGO_SERVER_URL` | Agent WebSocket endpoint (e.g. `wss://dockgo.example.com/api/ws/agent`) | *(required)* |
