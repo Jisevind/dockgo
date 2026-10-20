@@ -18,6 +18,7 @@ func testWebFS() fs.FS {
 		"volume.html":     {Data: []byte("<!doctype html><title>volume overview</title>")},
 		"containers.html": {Data: []byte("<!doctype html><title>containers page</title>")},
 		"stacks.html":     {Data: []byte("<!doctype html><title>stacks page</title>")},
+		"stacks-new.html": {Data: []byte("<!doctype html><title>add stack page</title>")},
 		"style.css":       {Data: []byte("body{}")},
 	}
 }
@@ -32,6 +33,7 @@ func TestWebHandlerServesStandalonePagesAtOwnURLs(t *testing.T) {
 		"/volumes/data": "volume overview",
 		"/containers":   "containers page",
 		"/stacks":       "stacks page",
+		"/stacks/new":   "add stack page",
 	} {
 		req := httptest.NewRequest(http.MethodGet, path, nil)
 		rr := httptest.NewRecorder()
