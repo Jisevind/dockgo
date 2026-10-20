@@ -61,7 +61,7 @@ body {
 }
 
 .container {
-    max-width: 1200px;
+    max-width: 1720px;
     margin: 0 auto;
     padding: 2rem;
 }
@@ -2089,10 +2089,6 @@ h1 {
 }
 
 /* ── Containers table ──────────────────────────────────────────── */
-.containers-page .container {
-    max-width: 1720px;
-}
-
 .containers-table {
     min-width: 1500px;
 }
@@ -2244,10 +2240,6 @@ h1 {
 }
 
 /* ── Stacks table ──────────────────────────────────────────────── */
-.stacks-page .container {
-    max-width: 1500px;
-}
-
 .stacks-table {
     min-width: 1100px;
 }
