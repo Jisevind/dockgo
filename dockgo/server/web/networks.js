@@ -82,10 +82,12 @@ document.addEventListener("DOMContentLoaded", () => {
             scopeCell.textContent = network.scope || "-";
 
             const subnetCell = document.createElement("td");
+            subnetCell.className = "cell-data";
             subnetCell.textContent =
                 (network.subnets || []).filter(Boolean).join(", ") || "-";
 
             const gatewayCell = document.createElement("td");
+            gatewayCell.className = "cell-data";
             gatewayCell.textContent =
                 (network.gateways || []).filter(Boolean).join(", ") || "-";
 
