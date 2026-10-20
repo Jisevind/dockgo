@@ -1,3 +1,28 @@
+# [2.0.0](https://github.com/Jisevind/dockgo/compare/v1.6.0...v2.0.0) (2026-10-20)
+
+
+### Bug Fixes
+
+* **agent:** jitter reconnect backoff to break reconnect storms ([a7f6d0c](https://github.com/Jisevind/dockgo/commit/a7f6d0c9245a6b4cd0f4bd5a0161cc95a508c11a))
+* **agent:** log a deliberate disconnect as expected, not as a failure ([e2b65d4](https://github.com/Jisevind/dockgo/commit/e2b65d439d83d6565733de870309be67abb2e79f))
+* **agentmanager:** close agent channels concurrently during shutdown ([7415041](https://github.com/Jisevind/dockgo/commit/74150411148cf08d776c4107e64e75dd1cb9dd12))
+* **agent:** reset reconnect backoff only after a stable session ([c522061](https://github.com/Jisevind/dockgo/commit/c5220615adfa45b9b35a9c2b60f66fb442a507c8))
+* **agent:** retry immediately when the server rejects the channel token ([82774be](https://github.com/Jisevind/dockgo/commit/82774bed159d910409a5bb7d7adb16ad3427aba7))
+* **server:** require AUTH_SECRET instead of generating one per boot ([5283e57](https://github.com/Jisevind/dockgo/commit/5283e57520601e37c47d35ad480298421b4f6e2e))
+* **server:** stop counting an unverifiable agent token as a failed handshake ([2750b52](https://github.com/Jisevind/dockgo/commit/2750b52c4e4a38d248a74104a233c211f02db209))
+
+
+### Features
+
+* **server:** bound concurrent agent registration handshakes ([b9bac67](https://github.com/Jisevind/dockgo/commit/b9bac67c9033795c58d2df06194e84812f27e488))
+* **server:** tell agents when the server is shutting down ([ee88f36](https://github.com/Jisevind/dockgo/commit/ee88f36795fbe35ea2e72061c09edd7d78ca84b1))
+
+
+### BREAKING CHANGES
+
+* **server:** AUTH_SECRET is now required. DockGo exits with
+"AUTH_SECRET is required" when it is unset.
+
 # [1.6.0](https://github.com/Jisevind/dockgo/compare/v1.5.0...v1.6.0) (2026-10-05)
 
 
