@@ -76,9 +76,11 @@ DockGo takes security seriously.
 
 ## Features
 
-*   **Web Dashboard**: Real-time status, "Update" buttons, and progress tracking.
+*   **Multi-page Web UI**: A dashboard for updates plus dedicated Containers, Stacks, Images, Volumes, and Networks pages.
+*   **Live Container Metrics**: CPU, memory, network, disk I/O, health, uptime, restarts, IP, and ports, with start/stop controls.
+*   **Resource Tables**: Sortable tables with per-page column visibility toggles.
+*   **Update Controls**: Real-time status, "Update" buttons, and progress tracking.
 *   **Server Stats**: Live CPU, RAM, and disk usage of the selected host in the dashboard header.
-*   **Container Actions**: Start, stop, and restart directly from the UI.
 *   **Real-time Logs**: View container logs with ANSI color support inline seamlessly.
 *   **Smart Discovery**:
     *   Checks standard Docker Hub images.
@@ -146,7 +148,7 @@ Configure DockGo using environment variables:
 
 ## Multi-Host Management (Agents)
 
-![DockGo dashboard showing container updates](screenshots/screenshot-agents-tab.png)
+![DockGo Agents view](screenshots/screenshot-agents-tab.png)
 
 DockGo can manage containers and Compose stacks on **multiple remote hosts**
 from one dashboard. A lightweight agent runs on each managed host, dials **out**
@@ -157,8 +159,10 @@ dashboard operations to it. No inbound ports are required on agent hosts.
   one-time key (`AGENT_KEY`) for the remote host.
 - Use the **host selector** in the dashboard header to switch between the local
   host and each agent.
-- Containers, stats, scans, updates, logs, and stacks all operate on the
-  selected host.
+- Containers, images, volumes, networks, stats, scans, updates, logs, and
+  stacks all operate on the selected host.
+- The Container, Stack, Image, Volume, and Network pages follow the host
+  selector, so each page shows the selected host's own resources.
 - Run the agent with the `ghcr.io/jisevind/dockgo:agent-latest` image (bundles
   the Docker CLI and Compose plugin).
 - Git-kind stacks are not supported on remote agents.
@@ -182,7 +186,7 @@ Start with the new user documentation:
 - [Quickstart](./docs/quickstart.md)
 - [Installation](./docs/installation.md)
 - [Configuration](./docs/configuration.md)
-- [Dashboard and Updates](./docs/dashboard-and-updates.md)
+- [Dashboard and Resource Pages](./docs/dashboard-and-updates.md)
 - [Stacks](./docs/stacks.md)
 - [Multi-Host Management (Agents)](./docs/agents.md)
 - [Notifications](./docs/notifications.md)

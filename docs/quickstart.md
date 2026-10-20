@@ -93,7 +93,8 @@ http://localhost:3131
 
 1. Log in.
 2. Confirm DockGo can see your containers on the dashboard.
-3. Open the `Stacks` view if you manage Compose apps and register the stacks you care about.
+3. Open the **Stacks** page in the sidebar if you manage Compose apps, then use
+   **Add Stack** to register the stacks you care about.
 4. Test one update on a non-critical container first.
 5. Configure notifications if you want update alerts.
 

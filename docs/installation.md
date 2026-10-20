@@ -118,5 +118,5 @@ go build -o dockgo.exe ./cmd/dockgo
 ## After Installation
 
 - Read [Configuration](./configuration.md)
-- Learn the main UI in [Dashboard and Updates](./dashboard-and-updates.md)
+- Learn the dashboard and resource pages in [Dashboard and Resource Pages](./dashboard-and-updates.md)
 - If you use Compose apps, read [Stacks](./stacks.md)

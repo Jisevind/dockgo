@@ -1,8 +1,13 @@
 # Stacks
 
-![DockGo dashboard showing container updates](../screenshots/screenshot-stacks-tab.png)
+![DockGo stacks overview](../screenshots/screenshot-stacks-page.png)
 
 In DockGo, a stack is a registered Docker Compose project.
+
+The dashboard's **Stacks** tab is the management surface: discover projects,
+register stacks, edit files, deploy, validate, reconcile, and inspect history.
+The standalone `/stacks` page is a read-only overview with live usage, and
+`/stacks/new` handles discovery and registration outside the dashboard.
 
 If you run Compose apps regularly, stacks should be part of your normal workflow.
 
@@ -20,13 +25,34 @@ This is safer than trying to operate only from runtime Docker labels.
 
 ## Typical Stack Workflow
 
-1. Discover a Compose project in the `Stacks` view
+1. Discover a Compose project in the dashboard's `Stacks` tab or on
+   the **Add Stack** page
 2. Register it
 3. Validate it
 4. Deploy it when needed
 5. Use the main dashboard for one-click updates afterward
+6. Monitor registered stacks from the `Stacks` page in the sidebar
 
-Once a Compose app is stack-managed, dashboard updates use the registered stack behind the scenes.
+Once a Compose app is stack-managed, dashboard updates use the registered
+stack behind the scenes.
+
+## Stacks Overview Page
+
+The `/stacks` page lists registered stacks for the selected host and aggregates
+their containers into one row per stack:
+
+- status and running/stopped container counts
+- CPU, memory, network, and disk usage
+- distinct network and volume counts
+- source (compose files or Git) and working directory
+
+Expand a row to see its member containers with state, image, CPU, and memory.
+The play/stop control beside a member's state starts or stops that container.
+
+The overview uses a simplified status: `running` when at least one member is
+running, `stopped` when members exist but none run, and `unknown` when no
+containers are associated. Detailed operational states such as `Unbound`,
+`Drifted`, `Starting`, and `Degraded` are shown in the dashboard's `Stacks` tab.
 
 ## Linux: Host Native
 
@@ -204,6 +230,7 @@ If deploy succeeds but ownership cannot be bound, DockGo now treats that as an e
 | Method | Endpoint | Description |
 | --- | --- | --- |
 | `GET` | `/api/stacks` | List all registered stacks |
+| `GET` | `/api/stacks/overview` | Live usage summary |
 | `POST` | `/api/stacks` | Register a new stack |
 | `GET` | `/api/stacks/:id` | Get stack details, validation, status, and history |
 | `PUT` | `/api/stacks/:id` | Update a stack definition |
@@ -221,7 +248,11 @@ If deploy succeeds but ownership cannot be bound, DockGo now treats that as an e
 | `PUT` | `/api/stacks/:id/file?kind=&index=` | Save a file (validated, rolled back on failure) |
 | `POST` | `/api/stacks/:id/reconcile` | Adopt currently running containers |
 | `GET` | `/api/stacks/:id/history` | Get stack action history (supports `?limit=`, `?action=`, `?status=`, `?source=` filters) |
-| `GET` | `/api/stacks/discover` | Discover unregistered Compose projects |
+| `POST` | `/api/stacks/discover` | Discover Compose projects on the selected host |
+
+The overview endpoint is agent-aware: add the usual `agent` query parameter to
+aggregate that agent's stacks and container stats. It requires an agent build
+that supports `containers_overview`.
 
 ## Troubleshooting Stack Problems
 
