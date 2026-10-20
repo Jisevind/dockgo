@@ -51,6 +51,16 @@ func (s *Server) handleAgentRoute(w http.ResponseWriter, r *http.Request) {
 		s.handleAgentServerStats(w, r)
 	case rest == "containers":
 		s.handleAgentContainers(w, r)
+	case rest == "containers/overview":
+		s.handleAgentContainersOverview(w, r)
+	case rest == "networks":
+		s.handleAgentNetworks(w, r)
+	case rest == "images":
+		s.handleAgentImages(w, r)
+	case rest == "volumes":
+		s.handleAgentVolumes(w, r)
+	case strings.HasPrefix(rest, "volumes/"):
+		s.handleAgentVolumeDetail(w, r)
 	case strings.HasPrefix(rest, "stacks"):
 		s.handleAgentStacksRoute(w, r)
 	default:
@@ -201,6 +211,72 @@ func (s *Server) handleAgentContainers(w http.ResponseWriter, r *http.Request) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write(out)
+	case <-ctx.Done():
+		writeError(w, http.StatusGatewayTimeout, "agent request timed out")
+	}
+}
+
+// handleAgentNetworks proxies the network list to an agent.
+func (s *Server) handleAgentNetworks(w http.ResponseWriter, r *http.Request) {
+	s.handleAgentList(w, r, agent.TypeNetworksList, nil)
+}
+
+// handleAgentImages proxies the image list to an agent.
+func (s *Server) handleAgentImages(w http.ResponseWriter, r *http.Request) {
+	s.handleAgentList(w, r, agent.TypeImagesList, nil)
+}
+
+// handleAgentContainersOverview proxies the live container overview to an agent.
+func (s *Server) handleAgentContainersOverview(w http.ResponseWriter, r *http.Request) {
+	s.handleAgentList(w, r, agent.TypeContainersOverview, nil)
+}
+
+// handleAgentVolumes proxies the volume list to an agent.
+func (s *Server) handleAgentVolumes(w http.ResponseWriter, r *http.Request) {
+	s.handleAgentList(w, r, agent.TypeVolumesList, nil)
+}
+
+// handleAgentVolumeDetail proxies one volume overview to an agent.
+func (s *Server) handleAgentVolumeDetail(w http.ResponseWriter, r *http.Request) {
+	name := strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/volumes/"), "/")
+	if name == "" || strings.Contains(name, "/") {
+		writeError(w, http.StatusBadRequest, "volume name required")
+		return
+	}
+	s.handleAgentList(w, r, agent.TypeVolumeInspect, agent.VolumeInspectRequest{Name: name})
+}
+
+// handleAgentList proxies a read-only list operation to an agent and returns
+// its result unchanged.
+func (s *Server) handleAgentList(w http.ResponseWriter, r *http.Request, msgType string, payload any) {
+	agentID, ok := agentQueryAgentID(r)
+	if !ok {
+		writeError(w, http.StatusBadRequest, "agent id required")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), agentOpTimeout)
+	defer cancel()
+
+	response, _, err := s.dispatchToAgent(ctx, agentID, msgType, payload, nil)
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, err.Error())
+		return
+	}
+
+	select {
+	case env := <-response:
+		var rd agent.ResultData
+		if err := env.Decode(&rd); err != nil {
+			writeError(w, http.StatusInternalServerError, "invalid agent response")
+			return
+		}
+		if rd.Error != "" {
+			writeError(w, http.StatusInternalServerError, rd.Error)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(rd.Value)
 	case <-ctx.Done():
 		writeError(w, http.StatusGatewayTimeout, "agent request timed out")
 	}

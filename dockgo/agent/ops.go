@@ -89,6 +89,77 @@ func (a *Agent) opContainersList(ctx context.Context, conn *websocket.Conn, env 
 	a.sendResult(ctx, conn, env.RequestID, result)
 }
 
+// opNetworksList lists all Docker networks in the same shape as the server's
+// local endpoint.
+func (a *Agent) opNetworksList(ctx context.Context, conn *websocket.Conn, env Envelope) {
+	networks, err := a.discovery.ListNetworks(ctx)
+	if err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+	if networks == nil {
+		networks = []api.DockerNetwork{}
+	}
+	a.sendResult(ctx, conn, env.RequestID, networks)
+}
+
+// opImagesList lists all Docker images in the same shape as the server's local
+// endpoint.
+func (a *Agent) opImagesList(ctx context.Context, conn *websocket.Conn, env Envelope) {
+	images, err := a.discovery.ListImages(ctx)
+	if err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+	if images == nil {
+		images = []api.DockerImage{}
+	}
+	a.sendResult(ctx, conn, env.RequestID, images)
+}
+
+// opVolumesList lists all Docker volumes in the same shape as the server's
+// local endpoint.
+func (a *Agent) opVolumesList(ctx context.Context, conn *websocket.Conn, env Envelope) {
+	volumes, err := a.discovery.ListVolumes(ctx)
+	if err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+	if volumes == nil {
+		volumes = []api.DockerVolume{}
+	}
+	a.sendResult(ctx, conn, env.RequestID, volumes)
+}
+
+// opVolumeInspect returns the overview for one volume.
+func (a *Agent) opVolumeInspect(ctx context.Context, conn *websocket.Conn, env Envelope) {
+	var req VolumeInspectRequest
+	if err := env.Decode(&req); err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+
+	detail, err := a.discovery.GetVolume(ctx, req.Name)
+	if err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+	a.sendResult(ctx, conn, env.RequestID, detail)
+}
+
+// opContainersOverview lists containers with live resource metrics.
+func (a *Agent) opContainersOverview(ctx context.Context, conn *websocket.Conn, env Envelope) {
+	overviews, err := a.discovery.ListContainerOverviews(ctx)
+	if err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+	if overviews == nil {
+		overviews = []api.ContainerOverview{}
+	}
+	a.sendResult(ctx, conn, env.RequestID, overviews)
+}
+
 // opScan runs an update scan and streams progress events.
 func (a *Agent) opScan(ctx context.Context, conn *websocket.Conn, env Envelope) {
 	var req ScanRequest

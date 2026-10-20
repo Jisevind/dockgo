@@ -477,6 +477,16 @@ func (a *Agent) runOp(ctx context.Context, conn *websocket.Conn, env Envelope) {
 	switch env.Type {
 	case TypeContainersList:
 		a.opContainersList(ctx, conn, env)
+	case TypeContainersOverview:
+		a.opContainersOverview(ctx, conn, env)
+	case TypeNetworksList:
+		a.opNetworksList(ctx, conn, env)
+	case TypeImagesList:
+		a.opImagesList(ctx, conn, env)
+	case TypeVolumesList:
+		a.opVolumesList(ctx, conn, env)
+	case TypeVolumeInspect:
+		a.opVolumeInspect(ctx, conn, env)
 	case TypeScan:
 		a.opScan(ctx, conn, env)
 	case TypeUpdate:
@@ -528,7 +538,7 @@ func opTimeout(msgType string) time.Duration {
 		return 15 * time.Minute
 	case TypeContainerLogs:
 		return 10 * time.Minute
-	case TypeContainersList, TypeServerStats:
+	case TypeContainersList, TypeContainersOverview, TypeNetworksList, TypeImagesList, TypeVolumesList, TypeVolumeInspect, TypeServerStats:
 		return 2 * time.Minute
 	case TypeStackFileList, TypeStackFileRead, TypeStackFileValidate, TypeStackFileWrite:
 		return 2 * time.Minute

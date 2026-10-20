@@ -79,6 +79,10 @@ document.addEventListener("DOMContentLoaded", () => {
     );
     const agentsOnlineStatEl = document.getElementById("agents-stat-online");
 
+    const sidebarPageLinks = document.querySelectorAll(
+        ".sidebar-link[data-page]",
+    );
+
     // Builds a query-suffix for agent-aware API calls ('' for local host).
     const agentQuery = () =>
         currentAgentID ? `?agent=${encodeURIComponent(currentAgentID)}` : "";
@@ -446,11 +450,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const updatePrimaryViewUI = () => {
         const showingStacks = currentPrimaryView === "stacks";
         const showingAgents = currentPrimaryView === "agents";
+        const showingContainers = !showingStacks && !showingAgents;
         if (dashboardViewEl) {
-            dashboardViewEl.classList.toggle(
-                "hidden",
-                showingStacks || showingAgents,
-            );
+            dashboardViewEl.classList.toggle("hidden", !showingContainers);
         }
         if (stacksViewEl) {
             stacksViewEl.classList.toggle("hidden", !showingStacks);
@@ -459,10 +461,7 @@ document.addEventListener("DOMContentLoaded", () => {
             agentsViewEl.classList.toggle("hidden", !showingAgents);
         }
         if (viewDashboardBtn) {
-            viewDashboardBtn.classList.toggle(
-                "active",
-                !showingStacks && !showingAgents,
-            );
+            viewDashboardBtn.classList.toggle("active", showingContainers);
         }
         if (viewStacksBtn) {
             viewStacksBtn.classList.toggle("active", showingStacks);
@@ -471,23 +470,20 @@ document.addEventListener("DOMContentLoaded", () => {
             viewAgentsBtn.classList.toggle("active", showingAgents);
         }
         if (viewGridBtn) {
-            viewGridBtn.classList.toggle(
-                "hidden",
-                showingStacks || showingAgents,
-            );
+            viewGridBtn.classList.toggle("hidden", !showingContainers);
         }
         if (viewListBtn) {
-            viewListBtn.classList.toggle(
-                "hidden",
-                showingStacks || showingAgents,
-            );
+            viewListBtn.classList.toggle("hidden", !showingContainers);
         }
         if (viewGroupBtn) {
-            viewGroupBtn.classList.toggle(
-                "hidden",
-                showingStacks || showingAgents,
-            );
+            viewGroupBtn.classList.toggle("hidden", !showingContainers);
         }
+        sidebarPageLinks.forEach((link) => {
+            link.classList.toggle(
+                "active",
+                link.dataset.page === currentPrimaryView,
+            );
+        });
     };
 
     const updateViewUI = () => {
@@ -523,6 +519,15 @@ document.addEventListener("DOMContentLoaded", () => {
             renderContainers(cachedContainers);
         });
     }
+
+    sidebarPageLinks.forEach((link) => {
+        link.addEventListener("click", (event) => {
+            event.preventDefault();
+            if (link.dataset.page === "dashboard" && viewDashboardBtn) {
+                viewDashboardBtn.click();
+            }
+        });
+    });
 
     if (searchInputEl) {
         searchInputEl.addEventListener("input", (e) => {

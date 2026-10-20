@@ -13,25 +13,30 @@ import (
 // a single persistent WebSocket channel per agent.
 const (
 	// Server -> Agent: request messages (a request_id is mandatory).
-	TypeRegister        = "register"
-	TypeContainersList  = "containers_list"
-	TypeScan            = "scan"
-	TypeUpdate          = "update"
-	TypeContainerAction = "container_action"
-	TypeContainerLogs   = "container_logs"
-	TypeServerStats     = "server_stats"
-	TypeStackList       = "stack_list"
-	TypeStackGet        = "stack_get"
-	TypeStackCreate     = "stack_create"
-	TypeStackUpdate     = "stack_update"
-	TypeStackDelete     = "stack_delete"
-	TypeStackAction     = "stack_action"
-	TypeStackValidate   = "stack_validate"
-	TypeStackHistory    = "stack_history"
-	TypeStackContainers = "stack_containers"
-	TypeStackDiscover   = "stack_discover"
-	TypeDisconnect      = "disconnect"
-	TypeCancel          = "cancel"
+	TypeRegister           = "register"
+	TypeContainersList     = "containers_list"
+	TypeContainersOverview = "containers_overview"
+	TypeNetworksList       = "networks_list"
+	TypeImagesList         = "images_list"
+	TypeVolumesList        = "volumes_list"
+	TypeVolumeInspect      = "volume_inspect"
+	TypeScan               = "scan"
+	TypeUpdate             = "update"
+	TypeContainerAction    = "container_action"
+	TypeContainerLogs      = "container_logs"
+	TypeServerStats        = "server_stats"
+	TypeStackList          = "stack_list"
+	TypeStackGet           = "stack_get"
+	TypeStackCreate        = "stack_create"
+	TypeStackUpdate        = "stack_update"
+	TypeStackDelete        = "stack_delete"
+	TypeStackAction        = "stack_action"
+	TypeStackValidate      = "stack_validate"
+	TypeStackHistory       = "stack_history"
+	TypeStackContainers    = "stack_containers"
+	TypeStackDiscover      = "stack_discover"
+	TypeDisconnect         = "disconnect"
+	TypeCancel             = "cancel"
 
 	TypeStackFileList     = "stack_file_list"
 	TypeStackFileRead     = "stack_file_read"
@@ -137,6 +142,11 @@ type Request struct {
 }
 
 // ContainersListRequest is empty (the agent lists all containers).
+
+// VolumeInspectRequest asks for one volume overview.
+type VolumeInspectRequest struct {
+	Name string `json:"name"`
+}
 
 // ScanRequest requests an update scan.
 type ScanRequest struct {

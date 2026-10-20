@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Volumes · DockGo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/style.css?v=1.0.0">
+    <script src="/page.js?v=1.0.0" defer></script>
+    <script src="/volumes.js?v=1.0.0" defer></script>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-180x180.png">
+    <!-- Android Chrome -->
+    <link rel="icon" type="image/png" sizes="192x192" href="/android-chrome-192x192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="/android-chrome-512x512.png">
+    <!-- Microsoft Tiles -->
+    <meta name="msapplication-TileColor" content="#ffffff">
+    <meta name="msapplication-TileImage" content="/mstile-150x150.png">
+    <meta name="msapplication-config" href="/browserconfig.xml">
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+</head>
+
+<body>
+    <aside class="sidebar">
+        <nav class="sidebar-nav" aria-label="Primary navigation">
+            <a class="sidebar-link" href="/">Dashboard</a>
+            <a class="sidebar-link" href="/containers">Containers</a>
+            <a class="sidebar-link" href="#">Stacks</a>
+            <a class="sidebar-link active" href="/volumes" aria-current="page">Volumes</a>
+            <a class="sidebar-link" href="/images">Images</a>
+            <a class="sidebar-link" href="/networks">Networks</a>
+        </nav>
+    </aside>
+
+    <div class="container">
+        <header>
+            <div style="display: flex; align-items: flex-end; gap: 0.75rem;">
+                <img src="/dockgo-logo-web.svg" width="125" alt="DockGo Logo">
+                <span id="app-version" class="version-tag"
+                    style="font-family: monospace; color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.2rem;"></span>
+            </div>
+            <div class="header-controls">
+                <div class="control-group host-selector-group">
+                    <select id="host-selector" title="Select host" class="host-selector">
+                        <option value="">Local host</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <button id="refresh-volumes-btn" class="btn-icon" title="Refresh Networks">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M23 4v6h-6"></path>
+                            <path d="M1 20v-6h6"></path>
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                        </svg>
+                    </button>
+                    <button id="logout-btn" class="btn-icon hidden" title="Logout">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                            <polyline points="16 17 21 12 16 7"></polyline>
+                            <line x1="21" y1="12" x2="9" y2="12"></line>
+                        </svg>
+                    </button>
+                    <button id="logout-all-btn" class="btn-icon hidden" title="Logout All Devices"
+                        style="color: var(--danger);">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+                            <line x1="12" y1="2" x2="12" y2="12"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <section class="page-section">
+            <div class="stacks-overview">
+                <div>
+                    <p class="stacks-kicker">Persistent Storage</p>
+                    <h2>Volumes</h2>
+                    <p class="stacks-description">Volumes available on the selected host, including their driver,
+                        scope, Compose stack, and the containers that use them.</p>
+                </div>
+            </div>
+            <div class="stack-panel page-panel">
+                <div class="stack-panel-header">
+                    <h2>Docker Volumes</h2>
+                    <div class="stack-panel-actions">
+                        <button id="refresh-volumes-list-btn" class="btn secondary">Refresh</button>
+                    </div>
+                </div>
+                <div id="volumes-status" class="page-status hidden"></div>
+                <div class="data-table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Driver</th>
+                                <th>Scope</th>
+                                <th>Stack</th>
+                                <th>Used by</th>
+                                <th>Created</th>
+                                <th>Containers</th>
+                            </tr>
+                        </thead>
+                        <tbody id="volumes-table-body"></tbody>
+                    </table>
+                    <div id="volumes-empty" class="loading">Loading volumes...</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Login Modal -->
+        <div id="login-modal" class="modal-overlay hidden">
+            <div class="modal">
+                <div class="modal-header">
+                    <h2>Login</h2>
+                </div>
+                <div class="modal-body">
+                    <form id="login-form">
+                        <div class="form-group">
+                            <label for="username">Username</label>
+                            <input type="text" id="username" name="username" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="password">Password</label>
+                            <input type="password" id="password" name="password" required>
+                        </div>
+                        <div id="login-error" class="error-message hidden"></div>
+                        <button type="submit" class="btn primary full-width">Login</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- No Auth Modal -->
+        <div id="no-auth-modal" class="modal-overlay hidden">
+            <div class="modal">
+                <div class="modal-header">
+                    <h2 style="color: var(--danger);">Authentication Required</h2>
+                </div>
+                <div class="modal-body" style="text-align: center;">
+                    <p style="margin-bottom: 1rem;">DockGo has been started without any authentication configured
+                        (Missing <code>AUTH_USERNAME</code> and <code>API_TOKEN</code>).</p>
+                    <p style="margin-bottom: 1rem;">To protect your server, the dashboard and API connection have been
+                        <strong>blocked</strong>.</p>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem;">Please restart the DockGo container with
+                        authentication environment variables set in order to access the dashboard.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
