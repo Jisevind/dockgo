@@ -111,6 +111,13 @@ document.addEventListener("DOMContentLoaded", () => {
         key: "name",
     });
 
+    if (page && page.createColumnToggle) {
+        page.createColumnToggle({
+            tableSelector: ".data-table",
+            storageKey: "dockgo_columns_networks",
+        });
+    }
+
     const setBusy = (busy) => {
         [refreshBtn, refreshListBtn].forEach((button) => {
             if (!button) return;

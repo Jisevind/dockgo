@@ -323,6 +323,13 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
+    if (page && page.createColumnToggle) {
+        page.createColumnToggle({
+            tableSelector: ".containers-table",
+            storageKey: "dockgo_columns_containers",
+        });
+    }
+
     if (refreshBtn) {
         refreshBtn.addEventListener("click", () =>
             fetchContainers({ busy: true }),

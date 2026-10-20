@@ -390,6 +390,144 @@
         return button;
     };
 
+    // Adds a "Toggle columns" dropdown to a table's panel header. Visibility is
+    // persisted per table and reapplied whenever rows are re-rendered.
+    const createColumnToggle = ({ tableSelector, storageKey } = {}) => {
+        const table = document.querySelector(tableSelector);
+        if (!table || !table.tHead) return null;
+        const panel = table.closest(".stack-panel");
+        const actions = panel
+            ? panel.querySelector(".stack-panel-actions")
+            : null;
+        if (!actions) return null;
+
+        const headerCells = Array.from(table.tHead.rows[0].cells);
+        const columns = headerCells
+            .map((cell, index) => ({
+                key: cell.dataset.column || `column-${index}`,
+                label: (cell.textContent || "")
+                    .replace(/[↕↑↓]/g, "")
+                    .trim(),
+            }))
+            .filter((column) => column.label);
+
+        let hidden = new Set();
+        try {
+            const stored = JSON.parse(
+                localStorage.getItem(storageKey) || "[]",
+            );
+            if (Array.isArray(stored)) {
+                hidden = new Set(stored);
+            }
+        } catch (error) {
+            console.error("Failed to read column preferences", error);
+        }
+
+        const menu = document.createElement("div");
+        menu.className = "menu column-menu";
+
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "btn secondary column-menu-btn";
+        button.textContent = "Columns";
+
+        const dropdown = document.createElement("div");
+        dropdown.className = "menu-dropdown column-menu-dropdown hidden";
+
+        const title = document.createElement("div");
+        title.className = "column-menu-title";
+        title.textContent = "Toggle columns";
+        dropdown.appendChild(title);
+
+        const apply = () => {
+            const keys = headerCells.map(
+                (cell, index) => cell.dataset.column || `column-${index}`,
+            );
+            table.querySelectorAll("tbody tr").forEach((row) => {
+                Array.from(row.cells).forEach((cell, index) => {
+                    if (keys[index]) cell.dataset.column = keys[index];
+                });
+            });
+
+            headerCells.forEach((cell, index) => {
+                const key = keys[index];
+                const isHidden = hidden.has(key);
+                cell.style.display = isHidden ? "none" : "";
+                table.querySelectorAll("tbody tr").forEach((row) => {
+                    const bodyCell = row.cells[index];
+                    if (bodyCell) {
+                        bodyCell.style.display = isHidden ? "none" : "";
+                    }
+                });
+            });
+        };
+
+        const persist = () => {
+            try {
+                localStorage.setItem(
+                    storageKey,
+                    JSON.stringify(Array.from(hidden)),
+                );
+            } catch (error) {
+                console.error("Failed to save column preferences", error);
+            }
+        };
+
+        columns.forEach((column) => {
+            const option = document.createElement("label");
+            option.className = "column-option";
+
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = !hidden.has(column.key);
+            checkbox.addEventListener("change", () => {
+                if (!checkbox.checked) {
+                    if (hidden.size >= columns.length - 1) {
+                        checkbox.checked = true;
+                        return;
+                    }
+                    hidden.add(column.key);
+                } else {
+                    hidden.delete(column.key);
+                }
+                persist();
+                apply();
+            });
+
+            const text = document.createElement("span");
+            text.textContent = column.label;
+
+            option.append(checkbox, text);
+            dropdown.appendChild(option);
+        });
+
+        button.addEventListener("click", (event) => {
+            event.stopPropagation();
+            dropdown.classList.toggle("hidden");
+        });
+        dropdown.addEventListener("click", (event) => event.stopPropagation());
+        document.addEventListener("click", () => {
+            dropdown.classList.add("hidden");
+        });
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "Escape") {
+                dropdown.classList.add("hidden");
+            }
+        });
+
+        menu.append(button, dropdown);
+        actions.insertBefore(menu, actions.firstChild);
+
+        const observer = new MutationObserver(() => apply());
+        observer.observe(table, {
+            childList: true,
+            subtree: true,
+        });
+        apply();
+
+        return { apply };
+    };
+
     window.DockGoPage = {
         init,
         getAuthHeaders,
@@ -401,5 +539,6 @@
         formatDate,
         createTableSorter,
         createContainerActionButton,
+        createColumnToggle,
     };
 })();

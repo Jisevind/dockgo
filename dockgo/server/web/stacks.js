@@ -288,6 +288,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const sorter = page.createTableSorter(() => renderRows(), { key: "name" });
 
+    if (page && page.createColumnToggle) {
+        page.createColumnToggle({
+            tableSelector: ".stacks-table",
+            storageKey: "dockgo_columns_stacks",
+        });
+    }
+
     const setBusy = (busy) => {
         [refreshBtn, refreshListBtn].forEach((button) => {
             if (!button) return;

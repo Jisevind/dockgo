@@ -94,6 +94,13 @@ document.addEventListener("DOMContentLoaded", () => {
         key: "repository",
     });
 
+    if (page && page.createColumnToggle) {
+        page.createColumnToggle({
+            tableSelector: ".data-table",
+            storageKey: "dockgo_columns_images",
+        });
+    }
+
     const setBusy = (busy) => {
         [refreshBtn, refreshListBtn].forEach((button) => {
             if (!button) return;
