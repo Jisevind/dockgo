@@ -2100,48 +2100,15 @@ h1 {
     font-size: 0.72rem;
 }
 
-.state-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-    padding: 0.15rem 0.45rem;
-    border-radius: 4px;
-    background: #475569;
-    color: #fff;
-    font-size: 0.72rem;
-    font-weight: 500;
-    white-space: nowrap;
-}
-
-.state-badge.state-running {
-    background: #16a34a;
-}
-
-.state-badge.state-exited {
-    background: #dc2626;
-}
-
-.state-badge.state-created {
-    background: #2563eb;
-}
-
-.state-badge.state-restarting {
-    background: #ca8a04;
-}
-
-.state-badge.state-dead {
-    background: #7f1d1d;
-}
-
 .state-cell {
-    display: inline-flex;
+    display: inline-grid;
+    grid-template-columns: 5.2rem 22px;
     align-items: center;
     gap: 0.4rem;
 }
 
-.state-cell .state-badge {
-    min-width: 5.4rem;
-    justify-content: center;
+.state-cell .status-badge {
+    justify-self: start;
 }
 
 .container-action-btn {
@@ -2308,14 +2275,6 @@ h1 {
 .stopped-count {
     margin-left: 0.4rem;
     color: var(--danger);
-}
-
-.state-badge.state-stopped {
-    background: #dc2626;
-}
-
-.state-badge.state-unknown {
-    background: #475569;
 }
 
 .stack-detail-row td {

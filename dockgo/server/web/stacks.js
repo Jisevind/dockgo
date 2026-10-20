@@ -12,10 +12,17 @@ document.addEventListener("DOMContentLoaded", () => {
     let rows = [];
     const expanded = new Set();
 
-    const statusIcons = {
-        running: "▶",
-        stopped: "■",
-        unknown: "•",
+    const stateStatusClass = (state) => {
+        switch (state) {
+            case "running":
+                return "status-running";
+            case "exited":
+            case "dead":
+            case "stopped":
+                return "status-exited";
+            default:
+                return "status-other";
+        }
     };
 
     const stackSortValue = (stack, key) => {
@@ -50,8 +57,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const stateBadge = (state) => {
         const normalized = state || "unknown";
         const badge = document.createElement("span");
-        badge.className = `state-badge state-${normalized}`;
-        badge.textContent = `${statusIcons[normalized] || "•"} ${normalized}`;
+        badge.className = `status-badge ${stateStatusClass(normalized)}`;
+        badge.textContent = normalized;
         return badge;
     };
 

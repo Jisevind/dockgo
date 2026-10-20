@@ -15,13 +15,17 @@ document.addEventListener("DOMContentLoaded", () => {
     let sortKey = "name";
     let sortDir = 1;
 
-    const stateIcons = {
-        running: "▶",
-        exited: "■",
-        created: "+",
-        paused: "Ⅱ",
-        restarting: "↻",
-        dead: "×",
+    const stateStatusClass = (state) => {
+        switch (state) {
+            case "running":
+                return "status-running";
+            case "exited":
+            case "dead":
+            case "stopped":
+                return "status-exited";
+            default:
+                return "status-other";
+        }
     };
 
     const formatUptime = (seconds, ago) => {
@@ -115,8 +119,8 @@ document.addEventListener("DOMContentLoaded", () => {
             const stateWrap = document.createElement("div");
             stateWrap.className = "state-cell";
             const stateBadge = document.createElement("span");
-            stateBadge.className = `state-badge state-${state}`;
-            stateBadge.textContent = `${stateIcons[state] || "•"} ${state}`;
+            stateBadge.className = `status-badge ${stateStatusClass(state)}`;
+            stateBadge.textContent = state;
             stateWrap.appendChild(stateBadge);
             stateWrap.appendChild(
                 page.createContainerActionButton({
