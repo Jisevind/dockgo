@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"dockgo/agent"
+	"dockgo/api"
 	"dockgo/engine"
 	"dockgo/stacks"
 
@@ -144,6 +146,58 @@ func isStackFileRoute(parts []string) bool {
 		return true
 	}
 	return len(parts) == 2 && parts[1] == "file"
+}
+
+func (s *Server) handleStacksOverview(w http.ResponseWriter, r *http.Request) {
+	agentID, isAgent := agentQueryAgentID(r)
+
+	var containers []api.ContainerOverview
+	if isAgent {
+		ctx, cancel := context.WithTimeout(r.Context(), agentOpTimeout)
+		defer cancel()
+
+		response, _, err := s.dispatchToAgent(ctx, agentID, agent.TypeContainersOverview, nil, nil)
+		if err != nil {
+			writeError(w, http.StatusServiceUnavailable, err.Error())
+			return
+		}
+
+		select {
+		case env := <-response:
+			var rd agent.ResultData
+			if err := env.Decode(&rd); err != nil {
+				writeError(w, http.StatusInternalServerError, "invalid agent response")
+				return
+			}
+			if rd.Error != "" {
+				writeError(w, http.StatusInternalServerError, rd.Error)
+				return
+			}
+			if err := json.Unmarshal(rd.Value, &containers); err != nil {
+				writeError(w, http.StatusInternalServerError, "invalid agent container data")
+				return
+			}
+		case <-ctx.Done():
+			writeError(w, http.StatusGatewayTimeout, "agent request timed out")
+			return
+		}
+	} else {
+		var err error
+		containers, err = s.Discovery.ListContainerOverviews(r.Context())
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	stackList := make([]stacks.Stack, 0)
+	for _, stack := range s.StackStore.List() {
+		if stack.AgentID == agentID {
+			stackList = append(stackList, stack)
+		}
+	}
+
+	writeJSON(w, http.StatusOK, buildStackOverviews(stackList, containers))
 }
 
 func (s *Server) handleStackByID(w http.ResponseWriter, r *http.Request) {

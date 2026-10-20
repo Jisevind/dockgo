@@ -28,6 +28,15 @@ func TestBuildContainerOverviewRunning(t *testing.T) {
 		Labels: map[string]string{
 			"com.docker.compose.project": "web-stack",
 		},
+		NetworkSettings: &container.NetworkSettingsSummary{
+			Networks: map[string]*network.EndpointSettings{
+				"bridge": {},
+			},
+		},
+		Mounts: []container.MountPoint{
+			{Type: "volume", Name: "data"},
+			{Type: "bind", Source: "/host/path"},
+		},
 	}
 
 	inspect := container.InspectResponse{
@@ -95,6 +104,8 @@ func TestBuildContainerOverviewRunning(t *testing.T) {
 		IP:             "172.17.0.2",
 		Ports:          []string{"8080:80", "8443:443", "9000"},
 		ComposeProject: "web-stack",
+		Networks:       []string{"bridge"},
+		Volumes:        []string{"data"},
 	}
 
 	if !reflect.DeepEqual(got, want) {

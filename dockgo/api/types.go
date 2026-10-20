@@ -72,6 +72,30 @@ type ContainerOverview struct {
 	IP             string   `json:"ip"`
 	Ports          []string `json:"ports"`
 	ComposeProject string   `json:"compose_project"`
+	Networks       []string `json:"networks"`
+	Volumes        []string `json:"volumes"`
+}
+
+// StackOverview is one row on the stacks page, aggregating its containers.
+type StackOverview struct {
+	ID          string              `json:"id"`
+	Name        string              `json:"name"`
+	Status      string              `json:"status"`
+	Source      string              `json:"source"`
+	Location    string              `json:"location"`
+	Containers  int                 `json:"containers"`
+	Running     int                 `json:"running"`
+	Stopped     int                 `json:"stopped"`
+	CPUPercent  float64             `json:"cpu_percent"`
+	MemoryUsed  uint64              `json:"memory_used"`
+	MemoryLimit uint64              `json:"memory_limit"`
+	NetRx       uint64              `json:"net_rx"`
+	NetTx       uint64              `json:"net_tx"`
+	DiskRead    uint64              `json:"disk_read"`
+	DiskWrite   uint64              `json:"disk_write"`
+	Networks    int                 `json:"networks"`
+	Volumes     int                 `json:"volumes"`
+	Members     []ContainerOverview `json:"members"`
 }
 
 type ContainerUpdate struct {

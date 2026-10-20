@@ -13,6 +13,7 @@ var webPages = map[string]string{
 	"/images":     "images.html",
 	"/volumes":    "volumes.html",
 	"/containers": "containers.html",
+	"/stacks":     "stacks.html",
 }
 
 // buildWebHandler serves the embedded dashboard assets and gives each

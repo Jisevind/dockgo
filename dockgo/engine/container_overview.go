@@ -88,6 +88,8 @@ func buildContainerOverview(summary container.Summary, inspect container.Inspect
 		State:          summary.State,
 		Ports:          []string{},
 		ComposeProject: summary.Labels[composeProjectLabel],
+		Networks:       []string{},
+		Volumes:        []string{},
 	}
 	if len(summary.Names) > 0 {
 		row.Name = strings.TrimPrefix(summary.Names[0], "/")
@@ -113,6 +115,25 @@ func buildContainerOverview(summary container.Summary, inspect container.Inspect
 	}
 
 	row.Ports = containerPorts(summary.Ports)
+
+	if summary.NetworkSettings != nil {
+		for name := range summary.NetworkSettings.Networks {
+			if name != "" {
+				row.Networks = append(row.Networks, name)
+			}
+		}
+		sort.Strings(row.Networks)
+	}
+
+	seenVolumes := make(map[string]bool)
+	for _, mount := range summary.Mounts {
+		if mount.Type != "volume" || mount.Name == "" || seenVolumes[mount.Name] {
+			continue
+		}
+		seenVolumes[mount.Name] = true
+		row.Volumes = append(row.Volumes, mount.Name)
+	}
+	sort.Strings(row.Volumes)
 
 	if stats != nil {
 		applyContainerStats(&row, stats)

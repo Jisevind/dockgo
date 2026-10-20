@@ -335,6 +335,7 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/container/", s.enableCors(s.requireAuth(s.handleContainerAction)))
 	mux.HandleFunc("/api/logs/", s.enableCors(s.requireAuth(s.handleContainerLogs)))
 	mux.HandleFunc("/api/stacks", s.enableCors(s.requireAuth(s.handleStacks)))
+	mux.HandleFunc("/api/stacks/overview", s.enableCors(s.requireAuth(s.handleStacksOverview)))
 	mux.HandleFunc("/api/stacks/", s.enableCors(s.requireAuth(s.handleStackByID)))
 
 	mux.HandleFunc("/api/agents", s.enableCors(s.requireAuth(s.handleAgents)))
