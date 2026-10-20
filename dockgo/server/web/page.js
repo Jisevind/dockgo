@@ -331,6 +331,65 @@
         };
     };
 
+    // Start/stop button used next to container state badges. The caller decides
+    // how to refresh and where to surface errors.
+    const createContainerActionButton = ({ name, state: containerState, onDone, onError } = {}) => {
+        const running = containerState === "running";
+        const action = running ? "stop" : "start";
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `container-action-btn ${action}`;
+        button.title = running ? "Stop container" : "Start container";
+        button.setAttribute(
+            "aria-label",
+            `${running ? "Stop" : "Start"} ${name}`,
+        );
+        button.innerHTML = running
+            ? '<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1"></rect></svg>'
+            : '<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>';
+
+        button.addEventListener("click", async (event) => {
+            event.stopPropagation();
+            button.disabled = true;
+            try {
+                const response = await fetch(
+                    withAgentQuery(
+                        `/api/container/${encodeURIComponent(name)}/action`,
+                    ),
+                    {
+                        method: "POST",
+                        headers: getAuthHeaders(true),
+                        body: JSON.stringify({ action }),
+                    },
+                );
+
+                if (response.status === 401 || response.status === 403) {
+                    if (state.authEnabled) showLoginModal();
+                    throw new Error("Authentication required");
+                }
+                if (!response.ok) {
+                    let message = "";
+                    try {
+                        const data = await response.json();
+                        message = data.error || "";
+                    } catch (parseError) {
+                        console.error("Invalid action response", parseError);
+                    }
+                    throw new Error(message || `HTTP ${response.status}`);
+                }
+
+                if (onDone) onDone();
+            } catch (error) {
+                console.error(`Failed to ${action} ${name}:`, error);
+                if (onError) onError(`Failed to ${action} ${name}: ${error.message}`);
+            } finally {
+                button.disabled = false;
+            }
+        });
+
+        return button;
+    };
+
     window.DockGoPage = {
         init,
         getAuthHeaders,
@@ -341,5 +400,6 @@
         formatBytesCompact,
         formatDate,
         createTableSorter,
+        createContainerActionButton,
     };
 })();

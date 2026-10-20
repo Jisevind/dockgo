@@ -80,7 +80,18 @@ document.addEventListener("DOMContentLoaded", () => {
             nameCell.appendChild(name);
 
             const stateCell = document.createElement("td");
-            stateCell.appendChild(stateBadge(member.state));
+            const stateWrap = document.createElement("div");
+            stateWrap.className = "state-cell";
+            stateWrap.appendChild(stateBadge(member.state));
+            stateWrap.appendChild(
+                page.createContainerActionButton({
+                    name: member.name,
+                    state: member.state,
+                    onDone: () => window.setTimeout(fetchStacks, 800),
+                    onError: (message) => showStatus(message),
+                }),
+            );
+            stateCell.appendChild(stateWrap);
 
             const imageCell = document.createElement("td");
             const image = document.createElement("span");
@@ -276,6 +287,12 @@ document.addEventListener("DOMContentLoaded", () => {
             button.disabled = busy;
             button.classList.toggle("spinning", busy);
         });
+    };
+
+    const showStatus = (message) => {
+        if (!statusEl) return;
+        statusEl.textContent = message;
+        statusEl.classList.remove("hidden");
     };
 
     const fetchStacks = async ({ showLoading = false, busy = false } = {}) => {

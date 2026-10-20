@@ -112,10 +112,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const stateCell = document.createElement("td");
             const state = container.state || "unknown";
+            const stateWrap = document.createElement("div");
+            stateWrap.className = "state-cell";
             const stateBadge = document.createElement("span");
             stateBadge.className = `state-badge state-${state}`;
             stateBadge.textContent = `${stateIcons[state] || "•"} ${state}`;
-            stateCell.appendChild(stateBadge);
+            stateWrap.appendChild(stateBadge);
+            stateWrap.appendChild(
+                page.createContainerActionButton({
+                    name: container.name,
+                    state,
+                    onDone: () => window.setTimeout(fetchContainers, 800),
+                    onError: (message) => showStatus(message),
+                }),
+            );
+            stateCell.appendChild(stateWrap);
 
             const healthCell = document.createElement("td");
             if (container.health) {
@@ -240,6 +251,12 @@ document.addEventListener("DOMContentLoaded", () => {
             button.disabled = busy;
             button.classList.toggle("spinning", busy);
         });
+    };
+
+    const showStatus = (message) => {
+        if (!statusEl) return;
+        statusEl.textContent = message;
+        statusEl.classList.remove("hidden");
     };
 
     const fetchContainers = async ({ showLoading = false, busy = false } = {}) => {

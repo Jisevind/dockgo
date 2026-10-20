@@ -2133,6 +2133,55 @@ h1 {
     background: #7f1d1d;
 }
 
+.state-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.state-cell .state-badge {
+    min-width: 5.4rem;
+    justify-content: center;
+}
+
+.container-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: rgba(148, 163, 184, 0.08);
+    color: var(--text-secondary);
+    vertical-align: middle;
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease,
+        background-color 0.15s ease;
+}
+
+.container-action-btn svg {
+    display: block;
+}
+
+.container-action-btn.start:hover {
+    background: rgba(34, 197, 94, 0.12);
+    border-color: rgba(34, 197, 94, 0.4);
+    color: var(--success);
+}
+
+.container-action-btn.stop:hover {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.4);
+    color: var(--danger);
+}
+
+.container-action-btn:disabled {
+    opacity: 0.5;
+    cursor: wait;
+}
+
 .health-dot {
     display: inline-block;
     width: 9px;
