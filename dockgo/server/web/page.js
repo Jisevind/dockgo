@@ -277,6 +277,60 @@
         return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
     };
 
+    // Shared client-side sorter for the resource tables. Pages supply a value
+    // extractor so each column can define how it compares.
+    const createTableSorter = (onSort, options = {}) => {
+        let sortKey = options.key || "name";
+        let sortDir = options.dir || 1;
+        const buttons = document.querySelectorAll(".sort-btn");
+
+        const updateArrows = () => {
+            buttons.forEach((button) => {
+                const arrow = button.querySelector(".sort-arrow");
+                if (!arrow) return;
+                if (button.dataset.sort === sortKey) {
+                    arrow.textContent = sortDir === 1 ? "↑" : "↓";
+                } else {
+                    arrow.textContent = "↕";
+                }
+            });
+        };
+
+        const sort = (rows, valueOf) =>
+            rows.slice().sort((a, b) => {
+                const left = valueOf(a, sortKey);
+                const right = valueOf(b, sortKey);
+                if (typeof left === "number" && typeof right === "number") {
+                    return (left - right) * sortDir;
+                }
+                return (
+                    String(left).localeCompare(String(right)) * sortDir
+                );
+            });
+
+        buttons.forEach((button) => {
+            button.addEventListener("click", () => {
+                const key = button.dataset.sort;
+                if (sortKey === key) {
+                    sortDir = -sortDir;
+                } else {
+                    sortKey = key;
+                    sortDir = 1;
+                }
+                updateArrows();
+                if (onSort) onSort();
+            });
+        });
+        updateArrows();
+
+        return {
+            sort,
+            updateArrows,
+            getKey: () => sortKey,
+            getDir: () => sortDir,
+        };
+    };
+
     window.DockGoPage = {
         init,
         getAuthHeaders,
@@ -286,5 +340,6 @@
         formatBytes,
         formatBytesCompact,
         formatDate,
+        createTableSorter,
     };
 })();

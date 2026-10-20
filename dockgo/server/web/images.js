@@ -11,6 +11,27 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const shortID = (id) => (id || "").replace(/^sha256:/, "").slice(0, 12);
 
+    const imageSortValue = (image, key) => {
+        switch (key) {
+            case "repository":
+                return (image.repository || "").toLowerCase();
+            case "tag":
+                return (image.tag || "").toLowerCase();
+            case "id":
+                return (image.id || "").toLowerCase();
+            case "created":
+                return image.created || 0;
+            case "size":
+                return image.size || 0;
+            case "containers":
+                return image.containers || 0;
+            default:
+                return "";
+        }
+    };
+
+    let rows = [];
+
     const renderImages = (images) => {
         if (!tableBodyEl || !emptyEl) return;
         tableBodyEl.textContent = "";
@@ -22,7 +43,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         emptyEl.classList.add("hidden");
 
-        images.forEach((image) => {
+        sorter.sort(images, imageSortValue).forEach((image) => {
             const row = document.createElement("tr");
 
             const repositoryCell = document.createElement("td");
@@ -69,6 +90,10 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     };
 
+    const sorter = page.createTableSorter(() => renderImages(rows), {
+        key: "repository",
+    });
+
     const setBusy = (busy) => {
         [refreshBtn, refreshListBtn].forEach((button) => {
             if (!button) return;
@@ -112,7 +137,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 throw new Error(message || `HTTP ${response.status}`);
             }
 
-            renderImages(await response.json());
+            rows = await response.json();
+            renderImages(rows);
         } catch (error) {
             console.error("Failed to fetch images:", error);
             if (emptyEl) emptyEl.classList.add("hidden");

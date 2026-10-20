@@ -25,6 +25,27 @@ document.addEventListener("DOMContentLoaded", () => {
             : "driver-badge";
     };
 
+    const networkSortValue = (network, key) => {
+        switch (key) {
+            case "name":
+                return (network.name || "").toLowerCase();
+            case "driver":
+                return (network.driver || "").toLowerCase();
+            case "scope":
+                return (network.scope || "").toLowerCase();
+            case "subnet":
+                return (network.subnets || []).join(",").toLowerCase();
+            case "gateway":
+                return (network.gateways || []).join(",").toLowerCase();
+            case "containers":
+                return network.containers || 0;
+            default:
+                return "";
+        }
+    };
+
+    let rows = [];
+
     const renderNetworks = (networks) => {
         if (!tableBodyEl || !emptyEl) return;
         tableBodyEl.textContent = "";
@@ -36,7 +57,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         emptyEl.classList.add("hidden");
 
-        networks.forEach((network) => {
+        sorter.sort(networks, networkSortValue).forEach((network) => {
             const row = document.createElement("tr");
 
             const nameCell = document.createElement("td");
@@ -84,6 +105,10 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     };
 
+    const sorter = page.createTableSorter(() => renderNetworks(rows), {
+        key: "name",
+    });
+
     const setBusy = (busy) => {
         [refreshBtn, refreshListBtn].forEach((button) => {
             if (!button) return;
@@ -128,7 +153,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 throw new Error(message || `HTTP ${response.status}`);
             }
 
-            renderNetworks(await response.json());
+            rows = await response.json();
+            renderNetworks(rows);
         } catch (error) {
             console.error("Failed to fetch networks:", error);
             if (emptyEl) emptyEl.classList.add("hidden");

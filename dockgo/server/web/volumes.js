@@ -11,6 +11,29 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const page = window.DockGoPage;
 
+    const volumeSortValue = (volume, key) => {
+        switch (key) {
+            case "name":
+                return (volume.name || "").toLowerCase();
+            case "driver":
+                return (volume.driver || "").toLowerCase();
+            case "scope":
+                return (volume.scope || "").toLowerCase();
+            case "stack":
+                return (volume.stacks || []).join(",").toLowerCase();
+            case "usedby":
+                return (volume.used_by || []).join(",").toLowerCase();
+            case "created":
+                return Date.parse(volume.created_at) || 0;
+            case "containers":
+                return volume.containers || 0;
+            default:
+                return "";
+        }
+    };
+
+    let rows = [];
+
     const renderVolumes = (volumes) => {
         if (!tableBodyEl || !emptyEl) return;
         tableBodyEl.textContent = "";
@@ -22,7 +45,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         emptyEl.classList.add("hidden");
 
-        volumes.forEach((volume) => {
+        sorter.sort(volumes, volumeSortValue).forEach((volume) => {
             const row = document.createElement("tr");
 
             const nameCell = document.createElement("td");
@@ -79,6 +102,10 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     };
 
+    const sorter = page.createTableSorter(() => renderVolumes(rows), {
+        key: "name",
+    });
+
     const setBusy = (busy) => {
         [refreshBtn, refreshListBtn].forEach((button) => {
             if (!button) return;
@@ -123,7 +150,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 throw new Error(message || `HTTP ${response.status}`);
             }
 
-            renderVolumes(await response.json());
+            rows = await response.json();
+            renderVolumes(rows);
         } catch (error) {
             console.error("Failed to fetch volumes:", error);
             if (emptyEl) emptyEl.classList.add("hidden");
