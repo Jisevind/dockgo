@@ -79,6 +79,7 @@ type DockerVolume struct {
 	Stacks     []string `json:"stacks"`
 	UsedBy     []string `json:"used_by"`
 	Anonymous  bool     `json:"anonymous"`
+	Size       int64    `json:"size"`
 }
 
 // VolumePruneResult summarizes a Docker volume prune operation.

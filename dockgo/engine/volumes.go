@@ -6,7 +6,9 @@ import (
 	"strings"
 
 	"dockgo/api"
+	"dockgo/logger"
 
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/volume"
@@ -39,7 +41,34 @@ func (d *DiscoveryEngine) ListVolumes(ctx context.Context) ([]api.DockerVolume, 
 		return nil, err
 	}
 
-	return summarizeVolumes(response.Volumes, collectVolumeUsage(containers)), nil
+	sizes := map[string]int64{}
+	diskUsage, err := d.Client.DiskUsage(ctx, types.DiskUsageOptions{
+		Types: []types.DiskUsageObject{types.VolumeObject},
+	})
+	if err != nil {
+		engineLog.WarnContext(ctx, "Failed to determine volume sizes", logger.Any("error", err))
+	} else {
+		sizes = volumeSizes(diskUsage.Volumes)
+	}
+
+	return summarizeVolumes(response.Volumes, collectVolumeUsage(containers), sizes), nil
+}
+
+// volumeSizes maps volume names to their on-disk size. Volumes without usage
+// data are reported as -1 so the UI can render them as unknown.
+func volumeSizes(volumes []*volume.Volume) map[string]int64 {
+	sizes := make(map[string]int64, len(volumes))
+	for _, v := range volumes {
+		if v == nil {
+			continue
+		}
+		size := int64(-1)
+		if v.UsageData != nil {
+			size = v.UsageData.Size
+		}
+		sizes[v.Name] = size
+	}
+	return sizes
 }
 
 // PruneVolumes removes unused anonymous volumes, or all unused volumes when
@@ -172,7 +201,7 @@ func containerUsesVolume(c container.Summary, name string) bool {
 
 // summarizeVolumes converts Docker volumes into the flat shape the dashboard
 // renders, skipping nil entries and sorting by name.
-func summarizeVolumes(volumes []*volume.Volume, usage map[string]volumeUsage) []api.DockerVolume {
+func summarizeVolumes(volumes []*volume.Volume, usage map[string]volumeUsage, sizes map[string]int64) []api.DockerVolume {
 	result := make([]api.DockerVolume, 0, len(volumes))
 	for _, v := range volumes {
 		if v == nil {
@@ -195,6 +224,10 @@ func summarizeVolumes(volumes []*volume.Volume, usage map[string]volumeUsage) []
 			usedBy = []string{}
 		}
 		_, anonymous := v.Labels[anonymousVolumeLabel]
+		size, ok := sizes[v.Name]
+		if !ok {
+			size = -1
+		}
 
 		result = append(result, api.DockerVolume{
 			Name:       v.Name,
@@ -206,6 +239,7 @@ func summarizeVolumes(volumes []*volume.Volume, usage map[string]volumeUsage) []
 			Stacks:     stacks,
 			UsedBy:     usedBy,
 			Anonymous:  anonymous,
+			Size:       size,
 		})
 	}
 

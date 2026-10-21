@@ -548,7 +548,10 @@ func opTimeout(msgType string) time.Duration {
 		return 15 * time.Minute
 	case TypeContainerLogs:
 		return 10 * time.Minute
-	case TypeContainersList, TypeContainersOverview, TypeNetworksList, TypeImagesList, TypeImageInspect, TypeVolumesList, TypeVolumeInspect, TypeNetworkInspect, TypeServerStats:
+	// Volume listings also calculate on-disk sizes, which can be slow.
+	case TypeVolumesList:
+		return 5 * time.Minute
+	case TypeContainersList, TypeContainersOverview, TypeNetworksList, TypeImagesList, TypeImageInspect, TypeVolumeInspect, TypeNetworkInspect, TypeServerStats:
 		return 2 * time.Minute
 	case TypeStackFileList, TypeStackFileRead, TypeStackFileValidate, TypeStackFileWrite, TypeStackEnvFileCreate:
 		return 2 * time.Minute

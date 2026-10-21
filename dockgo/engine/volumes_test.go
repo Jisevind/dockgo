@@ -49,7 +49,12 @@ func TestSummarizeVolumesIncludesStackAndUsedBy(t *testing.T) {
 		},
 	}
 
-	got := summarizeVolumes(volumes, usage)
+	sizes := map[string]int64{
+		"data":    2048,
+		"scratch": 512,
+	}
+
+	got := summarizeVolumes(volumes, usage, sizes)
 
 	want := []api.DockerVolume{
 		{
@@ -61,6 +66,7 @@ func TestSummarizeVolumesIncludesStackAndUsedBy(t *testing.T) {
 			Containers: 2,
 			Stacks:     []string{"app"},
 			UsedBy:     []string{"app", "db"},
+			Size:       2048,
 		},
 		{
 			Name:       "logs",
@@ -71,6 +77,7 @@ func TestSummarizeVolumesIncludesStackAndUsedBy(t *testing.T) {
 			Containers: 0,
 			Stacks:     []string{"unused-project"},
 			UsedBy:     []string{},
+			Size:       -1,
 		},
 		{
 			Name:       "scratch",
@@ -82,6 +89,7 @@ func TestSummarizeVolumesIncludesStackAndUsedBy(t *testing.T) {
 			Stacks:     []string{},
 			UsedBy:     []string{},
 			Anonymous:  true,
+			Size:       512,
 		},
 	}
 
@@ -189,5 +197,20 @@ func TestCollectVolumeUsage(t *testing.T) {
 
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("collectVolumeUsage() = %#v, want %#v", got, want)
+	}
+}
+
+func TestVolumeSizes(t *testing.T) {
+	volumes := []*volume.Volume{
+		{Name: "data", UsageData: &volume.UsageData{Size: 1024}},
+		{Name: "unknown"},
+		nil,
+	}
+
+	got := volumeSizes(volumes)
+	want := map[string]int64{"data": 1024, "unknown": -1}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("volumeSizes() = %#v, want %#v", got, want)
 	}
 }

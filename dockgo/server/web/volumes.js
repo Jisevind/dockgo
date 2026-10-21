@@ -27,6 +27,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 return (volume.used_by || []).join(",").toLowerCase();
             case "created":
                 return Date.parse(volume.created_at) || 0;
+            case "size":
+                return Number.isFinite(volume.size) ? volume.size : -1;
             case "containers":
                 return volume.containers || 0;
             default:
@@ -244,6 +246,10 @@ document.addEventListener("DOMContentLoaded", () => {
             const scopeCell = document.createElement("td");
             scopeCell.textContent = volume.scope || "-";
 
+            const sizeCell = document.createElement("td");
+            sizeCell.className = "cell-data";
+            sizeCell.textContent = page.formatBytes(volume.size);
+
             const stackCell = document.createElement("td");
             const stackNames = (volume.stacks || []).filter(Boolean);
             const stack = document.createElement("span");
@@ -272,6 +278,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 nameCell,
                 driverCell,
                 scopeCell,
+                sizeCell,
                 stackCell,
                 usedByCell,
                 createdCell,
@@ -280,7 +287,7 @@ document.addEventListener("DOMContentLoaded", () => {
             tableBodyEl.appendChild(row);
 
             if (isExpanded) {
-                appendDetailRow(volume, 7);
+                appendDetailRow(volume, 8);
             }
         });
     };
