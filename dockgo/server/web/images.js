@@ -46,6 +46,7 @@ document.addEventListener("DOMContentLoaded", () => {
         `${image.id}|${image.repository || ""}|${image.tag || ""}`;
 
     let rows = [];
+    let pager;
     const expanded = new Set();
     const detailCache = new Map();
     const detailLoading = new Set();
@@ -212,11 +213,16 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!Array.isArray(images) || images.length === 0) {
             emptyEl.textContent = "No images found.";
             emptyEl.classList.remove("hidden");
+            if (pager) pager.render(0);
             return;
         }
         emptyEl.classList.add("hidden");
 
-        sorter.sort(images, imageSortValue).forEach((image) => {
+        const sorted = sorter.sort(images, imageSortValue);
+        if (pager) pager.render(sorted.length);
+        const visible = pager ? pager.slice(sorted) : sorted;
+
+        visible.forEach((image) => {
             const key = rowKey(image);
             const isExpanded = expanded.has(key);
             const row = document.createElement("tr");
@@ -296,14 +302,25 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     };
 
-    const sorter = page.createTableSorter(() => renderImages(rows), {
-        key: "repository",
-    });
+    const sorter = page.createTableSorter(
+        () => {
+            if (pager) pager.reset();
+            renderImages(rows);
+        },
+        { key: "repository" },
+    );
 
     if (page && page.createColumnToggle) {
         page.createColumnToggle({
             tableSelector: ".data-table",
             storageKey: "dockgo_columns_images",
+        });
+    }
+
+    if (page && page.createPager) {
+        pager = page.createPager({
+            tableSelector: ".data-table",
+            onChange: () => renderImages(rows),
         });
     }
 
@@ -375,6 +392,7 @@ document.addEventListener("DOMContentLoaded", () => {
             onLogin: fetchImages,
             onHostChange: () => {
                 expanded.clear();
+                if (pager) pager.reset();
                 fetchImages();
             },
         });

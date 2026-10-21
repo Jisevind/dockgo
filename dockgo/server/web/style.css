@@ -761,6 +761,45 @@ h1 {
     accent-color: var(--accent);
 }
 
+/* ── Pagination ────────────────────────────────────────────────── */
+.pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1rem;
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+}
+
+.pagination-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.pagination-btn {
+    padding: 0.3rem 0.65rem;
+    font-size: 0.78rem;
+}
+
+.pagination-page {
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+}
+
+@media (max-width: 600px) {
+    .pagination {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .pagination-actions {
+        justify-content: space-between;
+    }
+}
+
 .container-name {
     margin: 0;
     font-family: var(--font-mono);

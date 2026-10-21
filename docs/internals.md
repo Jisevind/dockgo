@@ -196,7 +196,7 @@ The sidebar opens dedicated pages for the read-heavy views:
 | `/networks` | `networks.html` | Networks with IPAM details |
 
 These pages share `page.js`, which owns authentication, the host selector,
-table sorting, column visibility, formatting helpers, and container
+table sorting, column visibility, pagination, formatting helpers, and container
 start/stop actions. The dashboard keeps its own `app.js` until it is migrated.
 
 UI text uses Inter. Identifiers, timestamps, and metrics use the bundled

@@ -42,6 +42,8 @@ behavior:
 
 - click a column heading to sort ascending or descending
 - open **Columns** to show or hide columns; choices are saved per page
+- tables show 25 rows per page; pagination controls appear when there are more
+  than 25 rows
 - use **Refresh** to reload the current host's data
 - the Containers and Stacks pages also refresh live metrics every 10 seconds
 

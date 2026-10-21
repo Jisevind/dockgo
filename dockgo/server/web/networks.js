@@ -45,6 +45,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     let rows = [];
+    let pager;
     const expanded = new Set();
     const detailCache = new Map();
     const detailLoading = new Set();
@@ -210,11 +211,16 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!Array.isArray(networks) || networks.length === 0) {
             emptyEl.textContent = "No networks found.";
             emptyEl.classList.remove("hidden");
+            if (pager) pager.render(0);
             return;
         }
         emptyEl.classList.add("hidden");
 
-        sorter.sort(networks, networkSortValue).forEach((network) => {
+        const sorted = sorter.sort(networks, networkSortValue);
+        if (pager) pager.render(sorted.length);
+        const visible = pager ? pager.slice(sorted) : sorted;
+
+        visible.forEach((network) => {
             const row = document.createElement("tr");
             const isExpanded = expanded.has(network.name);
 
@@ -296,14 +302,25 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     };
 
-    const sorter = page.createTableSorter(() => renderNetworks(rows), {
-        key: "name",
-    });
+    const sorter = page.createTableSorter(
+        () => {
+            if (pager) pager.reset();
+            renderNetworks(rows);
+        },
+        { key: "name" },
+    );
 
     if (page && page.createColumnToggle) {
         page.createColumnToggle({
             tableSelector: ".data-table",
             storageKey: "dockgo_columns_networks",
+        });
+    }
+
+    if (page && page.createPager) {
+        pager = page.createPager({
+            tableSelector: ".data-table",
+            onChange: () => renderNetworks(rows),
         });
     }
 
@@ -376,6 +393,7 @@ document.addEventListener("DOMContentLoaded", () => {
             onLogin: fetchNetworks,
             onHostChange: () => {
                 expanded.clear();
+                if (pager) pager.reset();
                 fetchNetworks();
             },
         });

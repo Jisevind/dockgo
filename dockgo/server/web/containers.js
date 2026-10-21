@@ -14,6 +14,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let rows = [];
     let sortKey = "name";
     let sortDir = 1;
+    let pager;
 
     const stateStatusClass = (state) => {
         switch (state) {
@@ -86,6 +87,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (rows.length === 0) {
             emptyEl.textContent = "No containers found.";
             emptyEl.classList.remove("hidden");
+            if (pager) pager.render(0);
             return;
         }
         emptyEl.classList.add("hidden");
@@ -99,7 +101,10 @@ document.addEventListener("DOMContentLoaded", () => {
             return String(left).localeCompare(String(right)) * sortDir;
         });
 
-        sorted.forEach((container) => {
+        if (pager) pager.render(sorted.length);
+        const visible = pager ? pager.slice(sorted) : sorted;
+
+        visible.forEach((container) => {
             const row = document.createElement("tr");
 
             const nameCell = document.createElement("td");
@@ -319,6 +324,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 sortKey = key;
                 sortDir = 1;
             }
+            if (pager) pager.reset();
             renderRows();
         });
     });
@@ -327,6 +333,13 @@ document.addEventListener("DOMContentLoaded", () => {
         page.createColumnToggle({
             tableSelector: ".containers-table",
             storageKey: "dockgo_columns_containers",
+        });
+    }
+
+    if (page && page.createPager) {
+        pager = page.createPager({
+            tableSelector: ".containers-table",
+            onChange: renderRows,
         });
     }
 
@@ -351,7 +364,10 @@ document.addEventListener("DOMContentLoaded", () => {
         page.init({
             onReady: () => fetchContainers({ showLoading: true }),
             onLogin: () => fetchContainers({ showLoading: true }),
-            onHostChange: () => fetchContainers({ showLoading: true }),
+            onHostChange: () => {
+                if (pager) pager.reset();
+                fetchContainers({ showLoading: true });
+            },
         });
     }
 

@@ -530,6 +530,84 @@
         return { apply };
     };
 
+    // Adds client-side pagination below a table. Controls only appear when the
+    // row count exceeds the page size.
+    const createPager = ({ tableSelector, pageSize = 25, onChange } = {}) => {
+        const table = document.querySelector(tableSelector);
+        const wrapper = table ? table.closest(".data-table-wrapper") : null;
+        if (!wrapper) return null;
+
+        const pager = document.createElement("div");
+        pager.className = "pagination hidden";
+
+        const info = document.createElement("span");
+        info.className = "pagination-info";
+
+        const actions = document.createElement("div");
+        actions.className = "pagination-actions";
+
+        const prev = document.createElement("button");
+        prev.type = "button";
+        prev.className = "btn secondary pagination-btn";
+        prev.textContent = "Prev";
+
+        const pageLabel = document.createElement("span");
+        pageLabel.className = "pagination-page";
+
+        const next = document.createElement("button");
+        next.type = "button";
+        next.className = "btn secondary pagination-btn";
+        next.textContent = "Next";
+
+        actions.append(prev, pageLabel, next);
+        pager.append(info, actions);
+        wrapper.insertAdjacentElement("afterend", pager);
+
+        let current = 1;
+        let pageCount = 1;
+
+        const render = (total) => {
+            pageCount = Math.max(1, Math.ceil(total / pageSize));
+            if (current > pageCount) current = pageCount;
+            if (current < 1) current = 1;
+
+            const visible = total > pageSize;
+            pager.classList.toggle("hidden", !visible);
+            if (!visible) return;
+
+            const start = (current - 1) * pageSize + 1;
+            const end = Math.min(total, current * pageSize);
+            info.textContent = `${start}–${end} of ${total}`;
+            pageLabel.textContent = `Page ${current} of ${pageCount}`;
+            prev.disabled = current <= 1;
+            next.disabled = current >= pageCount;
+        };
+
+        const setPage = (value) => {
+            current = value;
+            if (onChange) onChange();
+        };
+
+        prev.addEventListener("click", () => {
+            if (current > 1) setPage(current - 1);
+        });
+        next.addEventListener("click", () => {
+            if (current < pageCount) setPage(current + 1);
+        });
+
+        render(0);
+
+        return {
+            slice: (rows) =>
+                rows.slice((current - 1) * pageSize, current * pageSize),
+            render,
+            reset: () => {
+                current = 1;
+            },
+            getPage: () => current,
+        };
+    };
+
     window.DockGoPage = {
         init,
         getAuthHeaders,
@@ -542,5 +620,6 @@
         createTableSorter,
         createContainerActionButton,
         createColumnToggle,
+        createPager,
     };
 })();

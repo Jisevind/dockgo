@@ -33,6 +33,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     let rows = [];
+    let pager;
     const expanded = new Set();
     const detailCache = new Map();
     const detailLoading = new Set();
@@ -184,11 +185,16 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!Array.isArray(volumes) || volumes.length === 0) {
             emptyEl.textContent = "No volumes found.";
             emptyEl.classList.remove("hidden");
+            if (pager) pager.render(0);
             return;
         }
         emptyEl.classList.add("hidden");
 
-        sorter.sort(volumes, volumeSortValue).forEach((volume) => {
+        const sorted = sorter.sort(volumes, volumeSortValue);
+        if (pager) pager.render(sorted.length);
+        const visible = pager ? pager.slice(sorted) : sorted;
+
+        visible.forEach((volume) => {
             const isExpanded = expanded.has(volume.name);
             const row = document.createElement("tr");
 
@@ -277,14 +283,25 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     };
 
-    const sorter = page.createTableSorter(() => renderVolumes(rows), {
-        key: "name",
-    });
+    const sorter = page.createTableSorter(
+        () => {
+            if (pager) pager.reset();
+            renderVolumes(rows);
+        },
+        { key: "name" },
+    );
 
     if (page && page.createColumnToggle) {
         page.createColumnToggle({
             tableSelector: ".data-table",
             storageKey: "dockgo_columns_volumes",
+        });
+    }
+
+    if (page && page.createPager) {
+        pager = page.createPager({
+            tableSelector: ".data-table",
+            onChange: () => renderVolumes(rows),
         });
     }
 
@@ -357,6 +374,7 @@ document.addEventListener("DOMContentLoaded", () => {
             onLogin: fetchVolumes,
             onHostChange: () => {
                 expanded.clear();
+                if (pager) pager.reset();
                 fetchVolumes();
             },
         });

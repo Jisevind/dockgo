@@ -10,6 +10,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const page = window.DockGoPage;
 
     let rows = [];
+    let pager;
     const expanded = new Set();
 
     const stateStatusClass = (state) => {
@@ -136,11 +137,16 @@ document.addEventListener("DOMContentLoaded", () => {
             emptyEl.textContent =
                 "No registered stacks. Register stacks from the dashboard Stacks tab.";
             emptyEl.classList.remove("hidden");
+            if (pager) pager.render(0);
             return;
         }
         emptyEl.classList.add("hidden");
 
-        sorter.sort(rows, stackSortValue).forEach((stack) => {
+        const sorted = sorter.sort(rows, stackSortValue);
+        if (pager) pager.render(sorted.length);
+        const visible = pager ? pager.slice(sorted) : sorted;
+
+        visible.forEach((stack) => {
             const isExpanded = expanded.has(stack.id);
             const row = document.createElement("tr");
 
@@ -287,12 +293,25 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     };
 
-    const sorter = page.createTableSorter(() => renderRows(), { key: "name" });
+    const sorter = page.createTableSorter(
+        () => {
+            if (pager) pager.reset();
+            renderRows();
+        },
+        { key: "name" },
+    );
 
     if (page && page.createColumnToggle) {
         page.createColumnToggle({
             tableSelector: ".stacks-table",
             storageKey: "dockgo_columns_stacks",
+        });
+    }
+
+    if (page && page.createPager) {
+        pager = page.createPager({
+            tableSelector: ".stacks-table",
+            onChange: renderRows,
         });
     }
 
@@ -376,7 +395,10 @@ document.addEventListener("DOMContentLoaded", () => {
         page.init({
             onReady: () => fetchStacks({ showLoading: true }),
             onLogin: () => fetchStacks({ showLoading: true }),
-            onHostChange: () => fetchStacks({ showLoading: true }),
+            onHostChange: () => {
+                if (pager) pager.reset();
+                fetchStacks({ showLoading: true });
+            },
         });
     }
 

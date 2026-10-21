@@ -78,7 +78,7 @@ DockGo takes security seriously.
 
 *   **Multi-page Web UI**: A dashboard for updates plus dedicated Containers, Stacks, Images, Volumes, and Networks pages.
 *   **Live Container Metrics**: CPU, memory, network, disk I/O, health, uptime, restarts, IP, and ports, with start/stop controls.
-*   **Resource Tables**: Sortable tables with per-page column visibility toggles.
+*   **Resource Tables**: Sortable, paginated tables with per-page column visibility toggles.
 *   **Update Controls**: Real-time status, "Update" buttons, and progress tracking.
 *   **Server Stats**: Live CPU, RAM, and disk usage of the selected host in the dashboard header.
 *   **Real-time Logs**: View container logs with ANSI color support inline seamlessly.
