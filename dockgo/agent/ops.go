@@ -147,6 +147,22 @@ func (a *Agent) opVolumeInspect(ctx context.Context, conn *websocket.Conn, env E
 	a.sendResult(ctx, conn, env.RequestID, detail)
 }
 
+// opNetworkInspect returns the overview for one network.
+func (a *Agent) opNetworkInspect(ctx context.Context, conn *websocket.Conn, env Envelope) {
+	var req NetworkInspectRequest
+	if err := env.Decode(&req); err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+
+	detail, err := a.discovery.GetNetwork(ctx, req.Name)
+	if err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+	a.sendResult(ctx, conn, env.RequestID, detail)
+}
+
 // opContainersOverview lists containers with live resource metrics.
 func (a *Agent) opContainersOverview(ctx context.Context, conn *websocket.Conn, env Envelope) {
 	overviews, err := a.discovery.ListContainerOverviews(ctx)

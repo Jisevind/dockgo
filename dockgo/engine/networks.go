@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"sort"
+	"strings"
 
 	"dockgo/api"
 
@@ -52,16 +53,7 @@ func countContainersByNetwork(containers []container.Summary) map[string]int {
 func summarizeNetworks(summaries []network.Summary, containerCounts map[string]int) []api.DockerNetwork {
 	result := make([]api.DockerNetwork, 0, len(summaries))
 	for _, n := range summaries {
-		subnets := make([]string, 0, len(n.IPAM.Config))
-		gateways := make([]string, 0, len(n.IPAM.Config))
-		for _, cfg := range n.IPAM.Config {
-			if cfg.Subnet != "" {
-				subnets = append(subnets, cfg.Subnet)
-			}
-			if cfg.Gateway != "" {
-				gateways = append(gateways, cfg.Gateway)
-			}
-		}
+		subnets, gateways := networkIPAM(n.IPAM.Config)
 
 		result = append(result, api.DockerNetwork{
 			ID:         n.ID,
@@ -89,4 +81,97 @@ func isBuiltInNetwork(name string) bool {
 	default:
 		return false
 	}
+}
+
+// GetNetwork returns the expandable overview for one network.
+func (d *DiscoveryEngine) GetNetwork(ctx context.Context, name string) (api.DockerNetworkDetail, error) {
+	inspect, err := d.Client.NetworkInspect(ctx, name, network.InspectOptions{})
+	if err != nil {
+		return api.DockerNetworkDetail{}, err
+	}
+
+	containers, err := d.Client.ContainerList(ctx, container.ListOptions{All: true})
+	if err != nil {
+		return api.DockerNetworkDetail{}, err
+	}
+
+	return summarizeNetworkDetail(inspect, containers), nil
+}
+
+// summarizeNetworkDetail lists the containers attached to a network, including
+// each container's Compose project.
+func summarizeNetworkDetail(inspect network.Inspect, containers []container.Summary) api.DockerNetworkDetail {
+	subnets, gateways := networkIPAM(inspect.IPAM.Config)
+	byID := make(map[string]container.Summary, len(containers))
+	for _, c := range containers {
+		byID[c.ID] = c
+	}
+
+	detail := api.DockerNetworkDetail{
+		ID:         inspect.ID,
+		Name:       inspect.Name,
+		Driver:     inspect.Driver,
+		Scope:      inspect.Scope,
+		Subnets:    subnets,
+		Gateways:   gateways,
+		BuiltIn:    isBuiltInNetwork(inspect.Name),
+		Containers: make([]api.DockerNetworkContainer, 0, len(inspect.Containers)),
+		Stacks:     []string{},
+	}
+
+	stacks := make(map[string]bool)
+	for id, endpoint := range inspect.Containers {
+		name := strings.TrimPrefix(endpoint.Name, "/")
+		summary := byID[id]
+		if name == "" && len(summary.Names) > 0 {
+			name = strings.TrimPrefix(summary.Names[0], "/")
+		}
+		stack := summary.Labels[composeProjectLabel]
+		if stack != "" {
+			stacks[stack] = true
+		}
+
+		detail.Containers = append(detail.Containers, api.DockerNetworkContainer{
+			ID:          id,
+			Name:        name,
+			IPv4Address: stripCIDR(endpoint.IPv4Address),
+			IPv6Address: stripCIDR(endpoint.IPv6Address),
+			Stack:       stack,
+		})
+	}
+	for stack := range stacks {
+		detail.Stacks = append(detail.Stacks, stack)
+	}
+	sort.Strings(detail.Stacks)
+	sort.Slice(detail.Containers, func(i, j int) bool {
+		left := strings.ToLower(detail.Containers[i].Name)
+		right := strings.ToLower(detail.Containers[j].Name)
+		if left != right {
+			return left < right
+		}
+		return detail.Containers[i].ID < detail.Containers[j].ID
+	})
+
+	return detail
+}
+
+func networkIPAM(configs []network.IPAMConfig) (subnets, gateways []string) {
+	subnets = make([]string, 0, len(configs))
+	gateways = make([]string, 0, len(configs))
+	for _, cfg := range configs {
+		if cfg.Subnet != "" {
+			subnets = append(subnets, cfg.Subnet)
+		}
+		if cfg.Gateway != "" {
+			gateways = append(gateways, cfg.Gateway)
+		}
+	}
+	return subnets, gateways
+}
+
+func stripCIDR(value string) string {
+	if value == "" {
+		return ""
+	}
+	return strings.SplitN(value, "/", 2)[0]
 }

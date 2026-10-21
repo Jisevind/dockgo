@@ -327,6 +327,7 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/containers", s.enableCors(s.requireAuth(s.handleContainers)))
 	mux.HandleFunc("/api/containers/overview", s.enableCors(s.requireAuth(s.handleContainersOverview)))
 	mux.HandleFunc("/api/networks", s.enableCors(s.requireAuth(s.handleNetworks)))
+	mux.HandleFunc("/api/networks/", s.enableCors(s.requireAuth(s.handleNetworkByID)))
 	mux.HandleFunc("/api/images", s.enableCors(s.requireAuth(s.handleImages)))
 	mux.HandleFunc("/api/volumes", s.enableCors(s.requireAuth(s.handleVolumes)))
 	mux.HandleFunc("/api/volumes/", s.enableCors(s.requireAuth(s.handleVolumeByID)))
@@ -1208,6 +1209,34 @@ func (s *Server) handleNetworks(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(networks)
+}
+
+func (s *Server) handleNetworkByID(w http.ResponseWriter, r *http.Request) {
+	if _, ok := agentQueryAgentID(r); ok {
+		s.handleAgentNetworkDetail(w, r)
+		return
+	}
+
+	name := strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/networks/"), "/")
+	if name == "" || strings.Contains(name, "/") {
+		writeError(w, http.StatusBadRequest, "network name required")
+		return
+	}
+
+	w.Header().Set("Cache-Control", "no-cache")
+
+	detail, err := s.Discovery.GetNetwork(context.Background(), name)
+	if err != nil {
+		if errdefs.IsNotFound(err) {
+			writeError(w, http.StatusNotFound, "network not found")
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(detail)
 }
 
 func (s *Server) handleImages(w http.ResponseWriter, r *http.Request) {

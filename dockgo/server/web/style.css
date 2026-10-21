@@ -1872,6 +1872,43 @@ h1 {
     font-weight: 500;
 }
 
+.network-name-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.network-detail-row td {
+    padding: 0.6rem 1rem 0.9rem 2.2rem;
+    background: rgba(15, 23, 42, 0.45);
+    white-space: normal;
+}
+
+.network-detail-section + .network-detail-section {
+    margin-top: 1.1rem;
+}
+
+.network-detail-section h4 {
+    margin: 0 0 0.5rem;
+    font-size: 0.9rem;
+}
+
+.network-detail-empty {
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+}
+
+.network-detail-error {
+    color: var(--danger);
+    font-size: 0.82rem;
+}
+
+.network-stack-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
 .builtin-badge {
     padding: 0.12rem 0.45rem;
     border-radius: 999px;

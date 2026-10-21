@@ -47,7 +47,7 @@ behavior:
 
 ## Containers Page
 
-![DockGo containers page with live metrics](../screenshots/screenshot-containers-page.png)
+![DockGo containers page](../screenshots/screenshot-containers-page.png)
 
 The Containers page shows:
 
@@ -110,6 +110,9 @@ ID, creation time, size, and the number of containers using the image.
 The Networks page shows each network's driver, scope, subnet, gateway, and
 attached container count. Subnet and gateway values are empty for networks
 without IPAM configuration, such as `host`.
+
+Expand a row to see the containers attached to that network with their IPv4 and
+IPv6 addresses and Compose stack, plus a summary of the stacks using it.
 
 ## Updating Containers
 

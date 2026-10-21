@@ -77,6 +77,15 @@ func TestAgentContainersOverviewDispatch(t *testing.T) {
 	)
 }
 
+func TestAgentNetworkDetailDispatch(t *testing.T) {
+	testAgentListDispatch(t,
+		"/api/networks/web_default",
+		agent.TypeNetworkInspect,
+		`{"id":"n1","name":"web_default","driver":"bridge","scope":"local","subnets":["172.20.0.0/16"],"gateways":["172.20.0.1"],"built_in":false,"containers":[{"id":"c1","name":"web-app","ipv4_address":"172.20.0.2","ipv6_address":"","stack":"web"}],"stacks":["web"]}`,
+		(*Server).handleNetworkByID,
+	)
+}
+
 func TestAgentNetworksDispatch(t *testing.T) {
 	testAgentListDispatch(t,
 		"/api/networks",

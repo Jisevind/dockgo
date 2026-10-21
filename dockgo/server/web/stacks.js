@@ -270,6 +270,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (isExpanded) {
                 const detailRow = document.createElement("tr");
                 detailRow.className = "stack-detail-row";
+                detailRow.dataset.detailRow = "true";
                 const detailCell = document.createElement("td");
                 detailCell.colSpan = 11;
                 const members = stack.members || [];

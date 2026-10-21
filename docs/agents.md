@@ -192,6 +192,7 @@ All messages use a JSON envelope with these fields:
 | `containers_list` | List all containers on the agent host |
 | `containers_overview` | List containers with live resource usage |
 | `networks_list` | List Docker networks with IPAM and container counts |
+| `network_inspect` | Get one network with its containers and stacks |
 | `images_list` | List Docker images by repository and tag |
 | `volumes_list` | List Docker volumes with stack and container usage |
 | `volume_inspect` | Get one volume's details, labels, and containers |
@@ -214,10 +215,10 @@ All messages use a JSON envelope with these fields:
 
 > [!NOTE]
 > The Containers, Stacks, Images, Volumes, and Networks pages rely on
-> `containers_overview`, `images_list`, `volumes_list`, `volume_inspect`, and
-> `networks_list`. Agents built before these operations return
-> `unsupported operation`; update the agent image when using those pages
-> against a remote host.
+> `containers_overview`, `images_list`, `volumes_list`, `volume_inspect`,
+> `networks_list`, and `network_inspect`. Agents built before these operations
+> return `unsupported operation`; update the agent image when using those
+> pages against a remote host.
 
 ### Agent → Server messages
 

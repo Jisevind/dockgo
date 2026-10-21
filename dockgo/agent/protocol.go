@@ -20,6 +20,7 @@ const (
 	TypeImagesList         = "images_list"
 	TypeVolumesList        = "volumes_list"
 	TypeVolumeInspect      = "volume_inspect"
+	TypeNetworkInspect     = "network_inspect"
 	TypeScan               = "scan"
 	TypeUpdate             = "update"
 	TypeContainerAction    = "container_action"
@@ -145,6 +146,11 @@ type Request struct {
 
 // VolumeInspectRequest asks for one volume overview.
 type VolumeInspectRequest struct {
+	Name string `json:"name"`
+}
+
+// NetworkInspectRequest asks for one network overview.
+type NetworkInspectRequest struct {
 	Name string `json:"name"`
 }
 

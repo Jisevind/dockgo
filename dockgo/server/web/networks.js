@@ -45,6 +45,163 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     let rows = [];
+    const expanded = new Set();
+    const detailCache = new Map();
+    const detailLoading = new Set();
+
+    const renderNetworkDetail = (detail) => {
+        const wrapper = document.createElement("div");
+        wrapper.className = "network-detail";
+
+        const containersSection = document.createElement("section");
+        containersSection.className = "network-detail-section";
+        const containersTitle = document.createElement("h4");
+        containersTitle.textContent = "Containers Using This Network";
+        containersSection.appendChild(containersTitle);
+
+        const containers = detail.containers || [];
+        if (containers.length === 0) {
+            const empty = document.createElement("div");
+            empty.className = "network-detail-empty";
+            empty.textContent = "No containers are connected to this network.";
+            containersSection.appendChild(empty);
+        } else {
+            const table = document.createElement("table");
+            table.className = "stack-containers-table";
+
+            const head = document.createElement("thead");
+            const headRow = document.createElement("tr");
+            ["Container", "IPv4", "IPv6", "Stack"].forEach((label) => {
+                const th = document.createElement("th");
+                th.textContent = label;
+                headRow.appendChild(th);
+            });
+            head.appendChild(headRow);
+            table.appendChild(head);
+
+            const body = document.createElement("tbody");
+            containers.forEach((container) => {
+                const tr = document.createElement("tr");
+
+                const nameCell = document.createElement("td");
+                const name = document.createElement("span");
+                name.className = "container-table-name";
+                name.textContent = container.name || container.id || "-";
+                nameCell.appendChild(name);
+
+                const ipv4Cell = document.createElement("td");
+                ipv4Cell.className = "cell-data";
+                ipv4Cell.textContent = container.ipv4_address || "-";
+
+                const ipv6Cell = document.createElement("td");
+                ipv6Cell.className = "cell-data";
+                ipv6Cell.textContent = container.ipv6_address || "-";
+
+                const stackCell = document.createElement("td");
+                if (container.stack) {
+                    const stack = document.createElement("span");
+                    stack.className = "stack-tag";
+                    stack.textContent = container.stack;
+                    stackCell.appendChild(stack);
+                } else {
+                    stackCell.textContent = "-";
+                }
+
+                tr.append(nameCell, ipv4Cell, ipv6Cell, stackCell);
+                body.appendChild(tr);
+            });
+            table.appendChild(body);
+            containersSection.appendChild(table);
+        }
+        wrapper.appendChild(containersSection);
+
+        const stacksSection = document.createElement("section");
+        stacksSection.className = "network-detail-section";
+        const stacksTitle = document.createElement("h4");
+        stacksTitle.textContent = "Stacks Using This Network";
+        stacksSection.appendChild(stacksTitle);
+
+        const stacks = detail.stacks || [];
+        if (stacks.length === 0) {
+            const empty = document.createElement("div");
+            empty.className = "network-detail-empty";
+            empty.textContent = "No Compose stacks use this network.";
+            stacksSection.appendChild(empty);
+        } else {
+            const list = document.createElement("div");
+            list.className = "network-stack-list";
+            stacks.forEach((stackName) => {
+                const stack = document.createElement("span");
+                stack.className = "stack-tag";
+                stack.textContent = stackName;
+                list.appendChild(stack);
+            });
+            stacksSection.appendChild(list);
+        }
+        wrapper.appendChild(stacksSection);
+
+        return wrapper;
+    };
+
+    const fetchNetworkDetail = async (name) => {
+        if (detailLoading.has(name)) return;
+        detailLoading.add(name);
+
+        try {
+            const response = await fetch(
+                page.withAgentQuery(`/api/networks/${encodeURIComponent(name)}`),
+                { headers: page.getAuthHeaders() },
+            );
+
+            if (response.status === 401 || response.status === 403) {
+                if (page.getState().authEnabled) page.showLoginModal();
+                throw new Error("Authentication required");
+            }
+            if (!response.ok) {
+                const message = (await response.text()).trim();
+                throw new Error(message || `HTTP ${response.status}`);
+            }
+
+            detailCache.set(name, { detail: await response.json() });
+        } catch (error) {
+            console.error(`Failed to fetch network ${name}:`, error);
+            detailCache.set(name, { error: error.message });
+        } finally {
+            detailLoading.delete(name);
+        }
+
+        if (expanded.has(name)) {
+            renderNetworks(rows);
+        }
+    };
+
+    const appendDetailRow = (network) => {
+        const detailRow = document.createElement("tr");
+        detailRow.className = "network-detail-row";
+        detailRow.dataset.detailRow = "true";
+
+        const detailCell = document.createElement("td");
+        detailCell.colSpan = 6;
+
+        const cached = detailCache.get(network.name);
+        if (!cached) {
+            const loading = document.createElement("div");
+            loading.className = "network-detail-empty";
+            loading.textContent = "Loading network details...";
+            detailCell.appendChild(loading);
+            fetchNetworkDetail(network.name);
+        } else if (cached.error) {
+            const error = document.createElement("div");
+            error.className = "network-detail-error";
+            error.textContent = `Failed to load network details: ${cached.error}`;
+            detailCell.appendChild(error);
+        } else {
+            detailCell.appendChild(renderNetworkDetail(cached.detail));
+        }
+
+        detailRow.appendChild(detailCell);
+        tableBodyEl.appendChild(detailRow);
+    };
 
     const renderNetworks = (networks) => {
         if (!tableBodyEl || !emptyEl) return;
@@ -59,18 +216,46 @@ document.addEventListener("DOMContentLoaded", () => {
 
         sorter.sort(networks, networkSortValue).forEach((network) => {
             const row = document.createElement("tr");
+            const isExpanded = expanded.has(network.name);
 
             const nameCell = document.createElement("td");
+            const nameCellWrap = document.createElement("div");
+            nameCellWrap.className = "network-name-cell";
+
+            const toggle = document.createElement("button");
+            toggle.type = "button";
+            toggle.className = `expand-btn${isExpanded ? " expanded" : ""}`;
+            toggle.setAttribute(
+                "aria-expanded",
+                isExpanded ? "true" : "false",
+            );
+            toggle.setAttribute(
+                "aria-label",
+                `${isExpanded ? "Collapse" : "Expand"} ${network.name}`,
+            );
+            toggle.textContent = "›";
+            toggle.addEventListener("click", (event) => {
+                event.stopPropagation();
+                if (expanded.has(network.name)) {
+                    expanded.delete(network.name);
+                } else {
+                    expanded.add(network.name);
+                }
+                renderNetworks(rows);
+            });
+
             const nameWrap = document.createElement("span");
             nameWrap.className = "network-name";
             nameWrap.textContent = network.name || "(unnamed)";
-            nameCell.appendChild(nameWrap);
             if (network.built_in) {
                 const builtIn = document.createElement("span");
                 builtIn.className = "builtin-badge";
                 builtIn.textContent = "built-in";
                 nameWrap.appendChild(builtIn);
             }
+
+            nameCellWrap.append(toggle, nameWrap);
+            nameCell.appendChild(nameCellWrap);
 
             const driverCell = document.createElement("td");
             const driverBadge = document.createElement("span");
@@ -104,6 +289,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 containersCell,
             );
             tableBodyEl.appendChild(row);
+
+            if (isExpanded) {
+                appendDetailRow(network);
+            }
         });
     };
 
@@ -163,6 +352,8 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
             rows = await response.json();
+            detailCache.clear();
+            detailLoading.clear();
             renderNetworks(rows);
         } catch (error) {
             console.error("Failed to fetch networks:", error);
@@ -183,7 +374,10 @@ document.addEventListener("DOMContentLoaded", () => {
         page.init({
             onReady: fetchNetworks,
             onLogin: fetchNetworks,
-            onHostChange: fetchNetworks,
+            onHostChange: () => {
+                expanded.clear();
+                fetchNetworks();
+            },
         });
     }
 });

@@ -145,3 +145,66 @@ func TestSummarizeNetworksKeepsMultipleSubnets(t *testing.T) {
 		t.Errorf("Gateways = %v, want %v", got[0].Gateways, want)
 	}
 }
+
+func TestSummarizeNetworkDetail(t *testing.T) {
+	inspect := network.Inspect{
+		ID:     "id-web",
+		Name:   "web_default",
+		Driver: "bridge",
+		Scope:  "local",
+		IPAM: network.IPAM{
+			Config: []network.IPAMConfig{
+				{Subnet: "172.20.0.0/16", Gateway: "172.20.0.1"},
+			},
+		},
+		Containers: map[string]network.EndpointResource{
+			"c1": {
+				Name:        "web-app",
+				IPv4Address: "172.20.0.2/16",
+			},
+			"c2": {
+				Name:        "db",
+				IPv4Address: "172.20.0.3/16",
+				IPv6Address: "fd00::3/64",
+			},
+			"c3": {
+				Name:        "external",
+				IPv4Address: "172.20.0.4/16",
+			},
+		},
+	}
+
+	containers := []container.Summary{
+		{
+			ID:     "c1",
+			Names:  []string{"/web-app"},
+			Labels: map[string]string{"com.docker.compose.project": "web"},
+		},
+		{
+			ID:    "c2",
+			Names: []string{"/db"},
+		},
+	}
+
+	got := summarizeNetworkDetail(inspect, containers)
+
+	want := api.DockerNetworkDetail{
+		ID:       "id-web",
+		Name:     "web_default",
+		Driver:   "bridge",
+		Scope:    "local",
+		Subnets:  []string{"172.20.0.0/16"},
+		Gateways: []string{"172.20.0.1"},
+		BuiltIn:  false,
+		Containers: []api.DockerNetworkContainer{
+			{ID: "c2", Name: "db", IPv4Address: "172.20.0.3", IPv6Address: "fd00::3"},
+			{ID: "c3", Name: "external", IPv4Address: "172.20.0.4"},
+			{ID: "c1", Name: "web-app", IPv4Address: "172.20.0.2", Stack: "web"},
+		},
+		Stacks: []string{"web"},
+	}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("summarizeNetworkDetail() = %#v, want %#v", got, want)
+	}
+}

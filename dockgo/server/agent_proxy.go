@@ -55,6 +55,8 @@ func (s *Server) handleAgentRoute(w http.ResponseWriter, r *http.Request) {
 		s.handleAgentContainersOverview(w, r)
 	case rest == "networks":
 		s.handleAgentNetworks(w, r)
+	case strings.HasPrefix(rest, "networks/"):
+		s.handleAgentNetworkDetail(w, r)
 	case rest == "images":
 		s.handleAgentImages(w, r)
 	case rest == "volumes":
@@ -219,6 +221,16 @@ func (s *Server) handleAgentContainers(w http.ResponseWriter, r *http.Request) {
 // handleAgentNetworks proxies the network list to an agent.
 func (s *Server) handleAgentNetworks(w http.ResponseWriter, r *http.Request) {
 	s.handleAgentList(w, r, agent.TypeNetworksList, nil)
+}
+
+// handleAgentNetworkDetail proxies one network overview to an agent.
+func (s *Server) handleAgentNetworkDetail(w http.ResponseWriter, r *http.Request) {
+	name := strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/networks/"), "/")
+	if name == "" || strings.Contains(name, "/") {
+		writeError(w, http.StatusBadRequest, "network name required")
+		return
+	}
+	s.handleAgentList(w, r, agent.TypeNetworkInspect, agent.NetworkInspectRequest{Name: name})
 }
 
 // handleAgentImages proxies the image list to an agent.

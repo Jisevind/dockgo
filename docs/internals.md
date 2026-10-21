@@ -210,6 +210,7 @@ The overview data comes from read-only endpoints:
 | `GET /api/containers/overview` | Container state with live resource stats |
 | `GET /api/stacks/overview` | Stacks aggregated from their containers |
 | `GET /api/networks` | Docker networks with IPAM and container counts |
+| `GET /api/networks/{name}` | One network with containers and stacks |
 | `GET /api/images` | Local images with usage counts |
 | `GET /api/volumes` | Volumes with stack and container usage |
 | `GET /api/volumes/{name}` | One volume with labels and container IDs |

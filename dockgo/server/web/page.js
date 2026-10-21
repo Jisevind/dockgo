@@ -444,6 +444,7 @@
                 (cell, index) => cell.dataset.column || `column-${index}`,
             );
             table.querySelectorAll("tbody tr").forEach((row) => {
+                if (row.dataset.detailRow === "true") return;
                 Array.from(row.cells).forEach((cell, index) => {
                     if (keys[index]) cell.dataset.column = keys[index];
                 });
@@ -454,6 +455,7 @@
                 const isHidden = hidden.has(key);
                 cell.style.display = isHidden ? "none" : "";
                 table.querySelectorAll("tbody tr").forEach((row) => {
+                    if (row.dataset.detailRow === "true") return;
                     const bodyCell = row.cells[index];
                     if (bodyCell) {
                         bodyCell.style.display = isHidden ? "none" : "";

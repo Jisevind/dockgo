@@ -12,6 +12,28 @@ type DockerNetwork struct {
 	BuiltIn    bool     `json:"built_in"`
 }
 
+// DockerNetworkContainer identifies a container attached to a network.
+type DockerNetworkContainer struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	IPv4Address string `json:"ipv4_address"`
+	IPv6Address string `json:"ipv6_address"`
+	Stack       string `json:"stack"`
+}
+
+// DockerNetworkDetail is the expandable overview for one network.
+type DockerNetworkDetail struct {
+	ID         string                   `json:"id"`
+	Name       string                   `json:"name"`
+	Driver     string                   `json:"driver"`
+	Scope      string                   `json:"scope"`
+	Subnets    []string                 `json:"subnets"`
+	Gateways   []string                 `json:"gateways"`
+	BuiltIn    bool                     `json:"built_in"`
+	Containers []DockerNetworkContainer `json:"containers"`
+	Stacks     []string                 `json:"stacks"`
+}
+
 // DockerImage is one repository/tag row on the images page.
 type DockerImage struct {
 	ID         string `json:"id"`
