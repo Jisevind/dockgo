@@ -44,6 +44,24 @@ type DockerImage struct {
 	Containers int    `json:"containers"`
 }
 
+// DockerImageContainer identifies a container using an image.
+type DockerImageContainer struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	State string `json:"state"`
+	Stack string `json:"stack"`
+}
+
+// DockerImageDetail is the expandable overview for one image.
+type DockerImageDetail struct {
+	ID         string                 `json:"id"`
+	RepoTags   []string               `json:"repo_tags"`
+	Created    int64                  `json:"created"`
+	Size       int64                  `json:"size"`
+	Containers []DockerImageContainer `json:"containers"`
+	Stacks     []string               `json:"stacks"`
+}
+
 // DockerVolume is the dashboard-facing summary of a Docker volume.
 type DockerVolume struct {
 	Name       string   `json:"name"`

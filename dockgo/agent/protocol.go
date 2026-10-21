@@ -18,6 +18,7 @@ const (
 	TypeContainersOverview = "containers_overview"
 	TypeNetworksList       = "networks_list"
 	TypeImagesList         = "images_list"
+	TypeImageInspect       = "image_inspect"
 	TypeVolumesList        = "volumes_list"
 	TypeVolumeInspect      = "volume_inspect"
 	TypeNetworkInspect     = "network_inspect"
@@ -147,6 +148,11 @@ type Request struct {
 // VolumeInspectRequest asks for one volume overview.
 type VolumeInspectRequest struct {
 	Name string `json:"name"`
+}
+
+// ImageInspectRequest asks for one image overview.
+type ImageInspectRequest struct {
+	ID string `json:"id"`
 }
 
 // NetworkInspectRequest asks for one network overview.

@@ -212,6 +212,7 @@ The overview data comes from read-only endpoints:
 | `GET /api/networks` | Docker networks with IPAM and container counts |
 | `GET /api/networks/{name}` | One network with containers and stacks |
 | `GET /api/images` | Local images with usage counts |
+| `GET /api/images/{id}` | One image with containers and stacks |
 | `GET /api/volumes` | Volumes with stack and container usage |
 | `GET /api/volumes/{name}` | One volume with labels and container IDs |
 

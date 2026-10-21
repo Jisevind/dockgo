@@ -329,6 +329,7 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/networks", s.enableCors(s.requireAuth(s.handleNetworks)))
 	mux.HandleFunc("/api/networks/", s.enableCors(s.requireAuth(s.handleNetworkByID)))
 	mux.HandleFunc("/api/images", s.enableCors(s.requireAuth(s.handleImages)))
+	mux.HandleFunc("/api/images/", s.enableCors(s.requireAuth(s.handleImageByID)))
 	mux.HandleFunc("/api/volumes", s.enableCors(s.requireAuth(s.handleVolumes)))
 	mux.HandleFunc("/api/volumes/", s.enableCors(s.requireAuth(s.handleVolumeByID)))
 	mux.HandleFunc("/api/stream/check", s.enableCors(s.requireAuth(s.handleStreamCheck)))
@@ -1258,6 +1259,34 @@ func (s *Server) handleImages(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(images)
+}
+
+func (s *Server) handleImageByID(w http.ResponseWriter, r *http.Request) {
+	if _, ok := agentQueryAgentID(r); ok {
+		s.handleAgentImageDetail(w, r)
+		return
+	}
+
+	id := strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/images/"), "/")
+	if id == "" || strings.Contains(id, "/") {
+		writeError(w, http.StatusBadRequest, "image id required")
+		return
+	}
+
+	w.Header().Set("Cache-Control", "no-cache")
+
+	detail, err := s.Discovery.GetImage(context.Background(), id)
+	if err != nil {
+		if errdefs.IsNotFound(err) {
+			writeError(w, http.StatusNotFound, "image not found")
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(detail)
 }
 
 func (s *Server) handleVolumes(w http.ResponseWriter, r *http.Request) {

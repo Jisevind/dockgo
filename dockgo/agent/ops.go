@@ -147,6 +147,22 @@ func (a *Agent) opVolumeInspect(ctx context.Context, conn *websocket.Conn, env E
 	a.sendResult(ctx, conn, env.RequestID, detail)
 }
 
+// opImageInspect returns the overview for one image.
+func (a *Agent) opImageInspect(ctx context.Context, conn *websocket.Conn, env Envelope) {
+	var req ImageInspectRequest
+	if err := env.Decode(&req); err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+
+	detail, err := a.discovery.GetImage(ctx, req.ID)
+	if err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+	a.sendResult(ctx, conn, env.RequestID, detail)
+}
+
 // opNetworkInspect returns the overview for one network.
 func (a *Agent) opNetworkInspect(ctx context.Context, conn *websocket.Conn, env Envelope) {
 	var req NetworkInspectRequest

@@ -4,6 +4,7 @@ import (
 	"context"
 	"sort"
 	"strings"
+	"time"
 
 	"dockgo/api"
 
@@ -86,4 +87,72 @@ func splitImageRef(ref string) (repository, tag string) {
 		return ref[:lastColon], ref[lastColon+1:]
 	}
 	return ref, "latest"
+}
+
+// GetImage returns the expandable overview for one image.
+func (d *DiscoveryEngine) GetImage(ctx context.Context, id string) (api.DockerImageDetail, error) {
+	inspect, err := d.Client.ImageInspect(ctx, id)
+	if err != nil {
+		return api.DockerImageDetail{}, err
+	}
+
+	containers, err := d.Client.ContainerList(ctx, container.ListOptions{All: true})
+	if err != nil {
+		return api.DockerImageDetail{}, err
+	}
+
+	return summarizeImageDetail(inspect, containers), nil
+}
+
+// summarizeImageDetail lists the containers using an image and the Compose
+// projects they belong to.
+func summarizeImageDetail(inspect image.InspectResponse, containers []container.Summary) api.DockerImageDetail {
+	detail := api.DockerImageDetail{
+		ID:         inspect.ID,
+		RepoTags:   append([]string{}, inspect.RepoTags...),
+		Size:       inspect.Size,
+		Containers: []api.DockerImageContainer{},
+		Stacks:     []string{},
+	}
+	if detail.RepoTags == nil {
+		detail.RepoTags = []string{}
+	}
+	if created, err := time.Parse(time.RFC3339Nano, inspect.Created); err == nil {
+		detail.Created = created.Unix()
+	}
+
+	stacks := make(map[string]bool)
+	for _, c := range containers {
+		if c.ImageID != inspect.ID {
+			continue
+		}
+		name := ""
+		if len(c.Names) > 0 {
+			name = strings.TrimPrefix(c.Names[0], "/")
+		}
+		stack := c.Labels[composeProjectLabel]
+		if stack != "" {
+			stacks[stack] = true
+		}
+		detail.Containers = append(detail.Containers, api.DockerImageContainer{
+			ID:    c.ID,
+			Name:  name,
+			State: c.State,
+			Stack: stack,
+		})
+	}
+	for stack := range stacks {
+		detail.Stacks = append(detail.Stacks, stack)
+	}
+	sort.Strings(detail.Stacks)
+	sort.Slice(detail.Containers, func(i, j int) bool {
+		left := strings.ToLower(detail.Containers[i].Name)
+		right := strings.ToLower(detail.Containers[j].Name)
+		if left != right {
+			return left < right
+		}
+		return detail.Containers[i].ID < detail.Containers[j].ID
+	})
+
+	return detail
 }

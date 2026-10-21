@@ -77,6 +77,15 @@ func TestAgentContainersOverviewDispatch(t *testing.T) {
 	)
 }
 
+func TestAgentImageDetailDispatch(t *testing.T) {
+	testAgentListDispatch(t,
+		"/api/images/sha256:aaa",
+		agent.TypeImageInspect,
+		`{"id":"sha256:aaa","repo_tags":["nginx:latest"],"created":1,"size":1000,"containers":[{"id":"c1","name":"web","state":"running","stack":"web"}],"stacks":["web"]}`,
+		(*Server).handleImageByID,
+	)
+}
+
 func TestAgentNetworkDetailDispatch(t *testing.T) {
 	testAgentListDispatch(t,
 		"/api/networks/web_default",

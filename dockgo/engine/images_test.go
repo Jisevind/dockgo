@@ -3,6 +3,7 @@ package engine
 import (
 	"reflect"
 	"testing"
+	"time"
 
 	"dockgo/api"
 
@@ -82,5 +83,54 @@ func TestCountContainersByImage(t *testing.T) {
 	want := map[string]int{"sha256:aaa": 2, "sha256:bbb": 1}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("countContainersByImage() = %v, want %v", got, want)
+	}
+}
+
+func TestSummarizeImageDetail(t *testing.T) {
+	inspect := image.InspectResponse{
+		ID:       "sha256:aaa",
+		RepoTags: []string{"nginx:latest"},
+		Created:  "2026-10-20T12:00:00Z",
+		Size:     1000,
+	}
+	containers := []container.Summary{
+		{
+			ID:      "c1",
+			Names:   []string{"/web"},
+			ImageID: "sha256:aaa",
+			State:   "running",
+			Labels:  map[string]string{"com.docker.compose.project": "web"},
+		},
+		{
+			ID:      "c2",
+			Names:   []string{"/worker"},
+			ImageID: "sha256:aaa",
+			State:   "exited",
+			Labels:  map[string]string{"com.docker.compose.project": "web"},
+		},
+		{
+			ID:      "c3",
+			Names:   []string{"/other"},
+			ImageID: "sha256:bbb",
+			State:   "running",
+		},
+	}
+
+	got := summarizeImageDetail(inspect, containers)
+
+	want := api.DockerImageDetail{
+		ID:       "sha256:aaa",
+		RepoTags: []string{"nginx:latest"},
+		Created:  time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC).Unix(),
+		Size:     1000,
+		Containers: []api.DockerImageContainer{
+			{ID: "c1", Name: "web", State: "running", Stack: "web"},
+			{ID: "c2", Name: "worker", State: "exited", Stack: "web"},
+		},
+		Stacks: []string{"web"},
+	}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("summarizeImageDetail() = %#v, want %#v", got, want)
 	}
 }

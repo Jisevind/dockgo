@@ -93,8 +93,10 @@ Editing files, deploying, validating, and history stay in the dashboard's
 ## Volumes Page
 
 The Volumes page shows each volume's driver, scope, Compose stack, containers
-using it, creation time, and container count. Select a volume name to open its
-overview page, which adds:
+using it, creation time, and container count.
+
+Expand a row to see the containers using that volume and its Compose stacks.
+Select a volume name to open its full overview page, which adds:
 
 - full mountpoint
 - containers using the volume with their IDs
@@ -103,7 +105,9 @@ overview page, which adds:
 ## Images Page
 
 The Images page lists local images one row per repository and tag, with image
-ID, creation time, size, and the number of containers using the image.
+ID, creation time, size, and the number of containers using the image. Expand a
+row to see the containers using that image, their state, and the Compose stacks
+they belong to.
 
 ## Networks Page
 

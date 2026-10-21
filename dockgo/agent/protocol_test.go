@@ -137,6 +137,7 @@ func TestOpTimeout(t *testing.T) {
 		{TypeContainersOverview, 2 * time.Minute},
 		{TypeNetworksList, 2 * time.Minute},
 		{TypeImagesList, 2 * time.Minute},
+		{TypeImageInspect, 2 * time.Minute},
 		{TypeVolumesList, 2 * time.Minute},
 		{TypeVolumeInspect, 2 * time.Minute},
 		{TypeNetworkInspect, 2 * time.Minute},
