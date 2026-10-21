@@ -967,3 +967,19 @@ func stackProjectName(stack stacks.Stack) string {
 	}
 	return stack.ID
 }
+
+// opStackEnvFileCreate creates an empty env file inside the stack working dir.
+func (a *Agent) opStackEnvFileCreate(ctx context.Context, conn *websocket.Conn, env Envelope) {
+	var req StackEnvFileRequest
+	if err := env.Decode(&req); err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+
+	path, err := stacks.CreateEnvFile(req.Stack, req.Name, a.cfg.AllowedPaths)
+	if err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+	a.sendResult(ctx, conn, env.RequestID, map[string]string{"path": path})
+}

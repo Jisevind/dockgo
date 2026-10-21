@@ -529,6 +529,8 @@ func (a *Agent) runOp(ctx context.Context, conn *websocket.Conn, env Envelope) {
 		a.opStackFileValidate(ctx, conn, env)
 	case TypeStackFileWrite:
 		a.opStackFileWrite(ctx, conn, env)
+	case TypeStackEnvFileCreate:
+		a.opStackEnvFileCreate(ctx, conn, env)
 	default:
 		a.sendError(ctx, conn, env.RequestID, fmt.Errorf("unsupported operation: %s", env.Type))
 	}
@@ -544,7 +546,7 @@ func opTimeout(msgType string) time.Duration {
 		return 10 * time.Minute
 	case TypeContainersList, TypeContainersOverview, TypeNetworksList, TypeImagesList, TypeImageInspect, TypeVolumesList, TypeVolumeInspect, TypeNetworkInspect, TypeServerStats:
 		return 2 * time.Minute
-	case TypeStackFileList, TypeStackFileRead, TypeStackFileValidate, TypeStackFileWrite:
+	case TypeStackFileList, TypeStackFileRead, TypeStackFileValidate, TypeStackFileWrite, TypeStackEnvFileCreate:
 		return 2 * time.Minute
 	default:
 		// Stack ops (validate/containers/discover) touch the daemon and the

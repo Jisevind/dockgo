@@ -40,10 +40,11 @@ const (
 	TypeDisconnect         = "disconnect"
 	TypeCancel             = "cancel"
 
-	TypeStackFileList     = "stack_file_list"
-	TypeStackFileRead     = "stack_file_read"
-	TypeStackFileValidate = "stack_file_validate"
-	TypeStackFileWrite    = "stack_file_write"
+	TypeStackFileList      = "stack_file_list"
+	TypeStackFileRead      = "stack_file_read"
+	TypeStackFileValidate  = "stack_file_validate"
+	TypeStackFileWrite     = "stack_file_write"
+	TypeStackEnvFileCreate = "stack_env_file_create"
 
 	// Agent -> Server: response/stream messages.
 	TypeWelcome   = "welcome"
@@ -219,6 +220,12 @@ type StackContainersRequest struct {
 
 // StackDiscoverRequest discovers compose projects on the agent host.
 type StackDiscoverRequest struct{}
+
+// StackEnvFileRequest creates a new env file in a stack working directory.
+type StackEnvFileRequest struct {
+	Stack stacks.Stack `json:"stack"`
+	Name  string       `json:"name"`
+}
 
 // StackFileRequest addresses one file of an agent-hosted stack. The client
 // never sends a path: Kind and Index select an entry from the stack's own

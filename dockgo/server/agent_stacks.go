@@ -123,6 +123,16 @@ func (s *Server) handleAgentStacksRoute(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 		s.handleAgentStackFiles(w, r, agentID, stack)
+	case "env-file":
+		if len(parts) != 2 {
+			writeError(w, http.StatusNotFound, "route not found")
+			return
+		}
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		s.handleAgentStackEnvFileCreate(w, r, agentID, stack)
 	case "file":
 		// "file/validate" is the three-segment draft check. It is recognised
 		// before the two-segment read/save case for the same reason
@@ -300,6 +310,49 @@ func (s *Server) handleAgentStackDelete(w http.ResponseWriter, r *http.Request, 
 	}
 	s.recordStackHistory(stack, "delete", "success", "stack unregistered")
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleAgentStackEnvFileCreate(w http.ResponseWriter, r *http.Request, agentID string, stack stacks.Stack) {
+	var payload struct {
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), agentOpTimeout)
+	defer cancel()
+
+	req := agent.StackEnvFileRequest{Stack: stack, Name: payload.Name}
+	response, _, err := s.dispatchToAgent(ctx, agentID, agent.TypeStackEnvFileCreate, req, nil)
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, err.Error())
+		return
+	}
+
+	select {
+	case env := <-response:
+		var rd agent.ResultData
+		if err := env.Decode(&rd); err != nil {
+			writeError(w, http.StatusInternalServerError, "invalid agent response")
+			return
+		}
+		if rd.Error != "" {
+			writeError(w, http.StatusBadRequest, rd.Error)
+			return
+		}
+		var result struct {
+			Path string `json:"path"`
+		}
+		if err := json.Unmarshal(rd.Value, &result); err != nil || result.Path == "" {
+			writeError(w, http.StatusInternalServerError, "invalid agent response")
+			return
+		}
+		s.finishStackEnvFileCreate(w, stack, result.Path)
+	case <-ctx.Done():
+		writeError(w, http.StatusGatewayTimeout, "agent request timed out")
+	}
 }
 
 func (s *Server) handleAgentStackValidate(w http.ResponseWriter, r *http.Request, agentID string, stack stacks.Stack) {

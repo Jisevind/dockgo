@@ -304,6 +304,15 @@ func (s *Server) handleStackByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(parts) == 2 && parts[1] == "env-file" {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		s.handleStackEnvFileCreate(w, stack, r)
+		return
+	}
+
 	if len(parts) == 2 && parts[1] == "files" {
 		if r.Method != http.MethodGet {
 			w.WriteHeader(http.StatusMethodNotAllowed)

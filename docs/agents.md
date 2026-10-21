@@ -212,6 +212,11 @@ All messages use a JSON envelope with these fields:
 | `stack_history` | Get stack action history |
 | `stack_containers` | Get runtime containers for a stack |
 | `stack_discover` | Discover compose projects on the agent host |
+| `stack_file_list` | List editable compose and env files |
+| `stack_file_read` | Read one stack file |
+| `stack_file_validate` | Validate draft file content |
+| `stack_file_write` | Save one stack file |
+| `stack_env_file_create` | Create a new env file in a stack working directory |
 | `disconnect` | Graceful channel shutdown — sent when an agent is deleted or the server is shutting down |
 
 > [!NOTE]

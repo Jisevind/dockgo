@@ -74,10 +74,12 @@ their containers:
 - distinct network and volume counts
 - source and working directory
 
-Select the chevron beside a stack name to see its containers. The aggregated
-status is simplified to `running`, `stopped`, or `unknown`; the detailed
-operational states (`Unbound`, `Drifted`, `Degraded`, and so on) remain in the
-dashboard's **Stacks** tab.
+Select the chevron beside a stack name to see its containers and an
+**Edit Files** button for its compose and env files; the editor can save a file
+by itself or save and deploy the stack in one step. The aggregated status is
+simplified to `running`, `stopped`, or `unknown`; the detailed operational
+states (`Unbound`, `Drifted`, `Degraded`, and so on) remain in the dashboard's
+**Stacks** tab.
 
 ### Add Stack
 

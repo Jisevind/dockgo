@@ -279,6 +279,21 @@ document.addEventListener("DOMContentLoaded", () => {
                 detailRow.dataset.detailRow = "true";
                 const detailCell = document.createElement("td");
                 detailCell.colSpan = 11;
+
+                const toolbar = document.createElement("div");
+                toolbar.className = "stack-detail-toolbar";
+                const editLink = document.createElement("a");
+                editLink.className = "btn secondary small";
+                const agentID = page.getState().currentAgentID;
+                editLink.href =
+                    `/stacks/${encodeURIComponent(stack.id)}/files` +
+                    (agentID
+                        ? `?agent=${encodeURIComponent(agentID)}`
+                        : "");
+                editLink.textContent = "Edit Files";
+                toolbar.appendChild(editLink);
+                detailCell.appendChild(toolbar);
+
                 const members = stack.members || [];
                 if (members.length === 0) {
                     detailCell.textContent =

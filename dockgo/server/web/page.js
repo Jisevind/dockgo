@@ -16,12 +16,19 @@
     const loginPasswordInput = document.getElementById("password");
     const noAuthModal = document.getElementById("no-auth-modal");
 
+    const urlAgentID =
+        new URLSearchParams(window.location.search).get("agent") || "";
     const state = {
-        currentAgentID: localStorage.getItem("dockgo_agent_id") || "",
+        currentAgentID:
+            urlAgentID || localStorage.getItem("dockgo_agent_id") || "",
         isLoggedIn: false,
         authEnabled: false,
         apiTokenEnabled: false,
     };
+
+    if (urlAgentID) {
+        localStorage.setItem("dockgo_agent_id", urlAgentID);
+    }
 
     let callbacks = {};
 

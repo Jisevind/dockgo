@@ -27,10 +27,19 @@ func buildWebHandler(webFS fs.FS) http.Handler {
 		mux.HandleFunc("GET "+path, func(w http.ResponseWriter, r *http.Request) {
 			http.ServeFileFS(w, r, webFS, document)
 		})
-		mux.HandleFunc("GET "+path+"/", func(w http.ResponseWriter, r *http.Request) {
+		mux.HandleFunc("GET "+path+"/{$}", func(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, path, http.StatusMovedPermanently)
 		})
 	}
+
+	mux.HandleFunc("GET /stacks/{id}/files", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFileFS(w, r, webFS, "stack-editor.html")
+	})
+	mux.HandleFunc("GET /stacks/{id}/files/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r,
+			"/stacks/"+url.PathEscape(r.PathValue("id"))+"/files",
+			http.StatusMovedPermanently)
+	})
 
 	mux.HandleFunc("GET /volumes/{name}", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFileFS(w, r, webFS, "volume.html")

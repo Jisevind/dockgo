@@ -11,15 +11,16 @@ import (
 
 func testWebFS() fs.FS {
 	return fstest.MapFS{
-		"index.html":      {Data: []byte("<!doctype html><title>dashboard</title>")},
-		"networks.html":   {Data: []byte("<!doctype html><title>networks page</title>")},
-		"images.html":     {Data: []byte("<!doctype html><title>images page</title>")},
-		"volumes.html":    {Data: []byte("<!doctype html><title>volumes page</title>")},
-		"volume.html":     {Data: []byte("<!doctype html><title>volume overview</title>")},
-		"containers.html": {Data: []byte("<!doctype html><title>containers page</title>")},
-		"stacks.html":     {Data: []byte("<!doctype html><title>stacks page</title>")},
-		"stacks-new.html": {Data: []byte("<!doctype html><title>add stack page</title>")},
-		"style.css":       {Data: []byte("body{}")},
+		"index.html":        {Data: []byte("<!doctype html><title>dashboard</title>")},
+		"networks.html":     {Data: []byte("<!doctype html><title>networks page</title>")},
+		"images.html":       {Data: []byte("<!doctype html><title>images page</title>")},
+		"volumes.html":      {Data: []byte("<!doctype html><title>volumes page</title>")},
+		"volume.html":       {Data: []byte("<!doctype html><title>volume overview</title>")},
+		"containers.html":   {Data: []byte("<!doctype html><title>containers page</title>")},
+		"stacks.html":       {Data: []byte("<!doctype html><title>stacks page</title>")},
+		"stacks-new.html":   {Data: []byte("<!doctype html><title>add stack page</title>")},
+		"stack-editor.html": {Data: []byte("<!doctype html><title>stack editor page</title>")},
+		"style.css":         {Data: []byte("body{}")},
 	}
 }
 
@@ -27,13 +28,14 @@ func TestWebHandlerServesStandalonePagesAtOwnURLs(t *testing.T) {
 	handler := buildWebHandler(testWebFS())
 
 	for path, want := range map[string]string{
-		"/networks":     "networks page",
-		"/images":       "images page",
-		"/volumes":      "volumes page",
-		"/volumes/data": "volume overview",
-		"/containers":   "containers page",
-		"/stacks":       "stacks page",
-		"/stacks/new":   "add stack page",
+		"/networks":        "networks page",
+		"/images":          "images page",
+		"/volumes":         "volumes page",
+		"/volumes/data":    "volume overview",
+		"/containers":      "containers page",
+		"/stacks":          "stacks page",
+		"/stacks/new":      "add stack page",
+		"/stacks/s1/files": "stack editor page",
 	} {
 		req := httptest.NewRequest(http.MethodGet, path, nil)
 		rr := httptest.NewRecorder()

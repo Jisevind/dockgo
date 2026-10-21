@@ -155,13 +155,24 @@ Use `Validate` after editing stack paths or changing mount strategy.
 ## Editing Compose And Env Files
 
 DockGo can edit the compose and env files of a registered stack directly, from
-the dashboard or through the API.
+the dashboard, the standalone Stacks page, or through the API.
 
-### From the dashboard
+### From the dashboard or Stacks page
 
 Open the editor from a stack's **⋮** menu → **Edit Files**, or from a stack's
-Details view → **Edit Files**. The selector at the top lists the stack's compose
-files first, then its env files.
+Details view → **Edit Files** in the dashboard. On the standalone `/stacks`
+page, expand a stack row and choose **Edit Files** to open
+`/stacks/{id}/files`.
+
+Both editors use the same file API and behaviour; the standalone page presents
+the editor full-page instead of in a modal. The selector at the top lists the
+stack's compose files first, then its env files. The standalone editor also has
+**Save & deploy**, which saves the current file and then runs the stack deploy,
+streaming progress in the status line.
+
+If the stack has no env file yet, the standalone editor shows **Add env file**.
+Enter a file name (for example `.env`), and DockGo creates an empty file in the
+stack's working directory, registers it with the stack, and opens it for editing.
 
 The draft is validated as you type, and **Save** stays disabled while it is known
 to be invalid. Validating never touches the file — nothing is written until you
@@ -246,6 +257,7 @@ If deploy succeeds but ownership cannot be bound, DockGo now treats that as an e
 | `GET` | `/api/stacks/:id/file?kind=&index=` | Read one compose or env file |
 | `POST` | `/api/stacks/:id/file/validate?kind=&index=` | Validate draft content without saving |
 | `PUT` | `/api/stacks/:id/file?kind=&index=` | Save a file (validated, rolled back on failure) |
+| `POST` | `/api/stacks/:id/env-file` | Create and register a new env file |
 | `POST` | `/api/stacks/:id/reconcile` | Adopt currently running containers |
 | `GET` | `/api/stacks/:id/history` | Get stack action history (supports `?limit=`, `?action=`, `?status=`, `?source=` filters) |
 | `POST` | `/api/stacks/discover` | Discover Compose projects on the selected host |

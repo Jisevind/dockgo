@@ -190,6 +190,7 @@ The sidebar opens dedicated pages for the read-heavy views:
 | `/containers` | `containers.html` | Container table and start/stop controls |
 | `/stacks` | `stacks.html` | Registered stacks with aggregated usage |
 | `/stacks/new` | `stacks-new.html` | Project discovery and stack registration |
+| `/stacks/{id}/files` | `stack-editor.html` | File editor for one stack |
 | `/images` | `images.html` | Local images by repository and tag |
 | `/volumes` | `volumes.html` | Volumes with stack and container usage |
 | `/volumes/{name}` | `volume.html` | One volume's labels and containers |
