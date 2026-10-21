@@ -491,6 +491,8 @@ func (a *Agent) runOp(ctx context.Context, conn *websocket.Conn, env Envelope) {
 		a.opVolumesList(ctx, conn, env)
 	case TypeVolumeInspect:
 		a.opVolumeInspect(ctx, conn, env)
+	case TypeVolumesPrune:
+		a.opVolumesPrune(ctx, conn, env)
 	case TypeNetworkInspect:
 		a.opNetworkInspect(ctx, conn, env)
 	case TypeScan:

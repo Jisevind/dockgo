@@ -1,8 +1,8 @@
 /* Shared page chrome for standalone DockGo pages.
  *
- * Owns authentication state, the login/no-auth modals, logout controls, the
- * host selector, and the API headers/URL helpers those controls need. The
- * dashboard still uses app.js until it is migrated to its own page.
+ * Owns authentication state, the login/no-auth/confirmation modals, logout
+ * controls, the host selector, and the API headers/URL helpers those controls
+ * need. The dashboard still uses app.js until it is migrated to its own page.
  */
 /* eslint-env browser */
 (() => {
@@ -15,6 +15,11 @@
     const loginUsernameInput = document.getElementById("username");
     const loginPasswordInput = document.getElementById("password");
     const noAuthModal = document.getElementById("no-auth-modal");
+    const confirmModal = document.getElementById("confirm-modal");
+    const confirmTitleEl = document.getElementById("confirm-modal-title");
+    const confirmMessageEl = document.getElementById("confirm-modal-message");
+    const confirmCancelBtn = document.getElementById("confirm-modal-cancel");
+    const confirmOkBtn = document.getElementById("confirm-modal-ok");
 
     const urlAgentID =
         new URLSearchParams(window.location.search).get("agent") || "";
@@ -397,6 +402,74 @@
         return button;
     };
 
+    // Shows the shared confirmation modal. Falls back to the native dialog on
+    // pages that do not include the modal markup.
+    const showConfirmModal = ({
+        title = "Confirm",
+        message,
+        confirmLabel = "OK",
+        danger = false,
+    } = {}) => {
+        return new Promise((resolve) => {
+            if (
+                !confirmModal ||
+                !confirmTitleEl ||
+                !confirmMessageEl ||
+                !confirmCancelBtn ||
+                !confirmOkBtn
+            ) {
+                resolve(window.confirm(message));
+                return;
+            }
+
+            const previousFocus = document.activeElement;
+
+            confirmTitleEl.textContent = title;
+            confirmMessageEl.textContent = message;
+            confirmOkBtn.textContent = confirmLabel;
+            confirmOkBtn.classList.toggle("danger", danger);
+            confirmOkBtn.classList.toggle("primary", !danger);
+            confirmModal.classList.remove("hidden");
+            confirmCancelBtn.focus();
+
+            const cleanup = () => {
+                confirmModal.classList.add("hidden");
+                confirmOkBtn.removeEventListener("click", onConfirm);
+                confirmCancelBtn.removeEventListener("click", onCancel);
+                confirmModal.removeEventListener("click", onOverlayClick);
+                document.removeEventListener("keydown", onKeyDown);
+                confirmOkBtn.classList.add("primary");
+                confirmOkBtn.classList.remove("danger");
+                confirmTitleEl.textContent = "Confirm";
+                if (previousFocus && typeof previousFocus.focus === "function") {
+                    previousFocus.focus();
+                }
+            };
+
+            const finish = (confirmed) => {
+                cleanup();
+                resolve(confirmed);
+            };
+
+            const onConfirm = () => finish(true);
+            const onCancel = () => finish(false);
+            const onOverlayClick = (event) => {
+                if (event.target === confirmModal) finish(false);
+            };
+            const onKeyDown = (event) => {
+                if (event.key === "Escape") {
+                    event.preventDefault();
+                    finish(false);
+                }
+            };
+
+            confirmOkBtn.addEventListener("click", onConfirm);
+            confirmCancelBtn.addEventListener("click", onCancel);
+            confirmModal.addEventListener("click", onOverlayClick);
+            document.addEventListener("keydown", onKeyDown);
+        });
+    };
+
     // Adds a "Toggle columns" dropdown to a table's panel header. Visibility is
     // persisted per table and reapplied whenever rows are re-rendered.
     const createColumnToggle = ({ tableSelector, storageKey } = {}) => {
@@ -621,6 +694,7 @@
         withAgentQuery,
         getState: () => ({ ...state }),
         showLoginModal,
+        showConfirmModal,
         formatBytes,
         formatBytesCompact,
         formatDate,

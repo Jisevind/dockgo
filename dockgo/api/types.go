@@ -78,6 +78,13 @@ type DockerVolume struct {
 	Containers int      `json:"containers"`
 	Stacks     []string `json:"stacks"`
 	UsedBy     []string `json:"used_by"`
+	Anonymous  bool     `json:"anonymous"`
+}
+
+// VolumePruneResult summarizes a Docker volume prune operation.
+type VolumePruneResult struct {
+	VolumesDeleted int    `json:"volumes_deleted"`
+	SpaceReclaimed uint64 `json:"space_reclaimed"`
 }
 
 // DockerVolumeContainer identifies a container that mounts a volume.

@@ -9,8 +9,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/style.css?v=1.0.0">
-    <script src="/page.js?v=1.0.0" defer></script>
-    <script src="/volumes.js?v=1.0.0" defer></script>
+    <script src="/page.js?v=1.0.1" defer></script>
+    <script src="/volumes.js?v=1.0.1" defer></script>
 
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
@@ -96,6 +96,10 @@
                 <div class="stack-panel-header">
                     <h2>Docker Volumes</h2>
                     <div class="stack-panel-actions">
+                        <button id="prune-volumes-btn" class="btn secondary"
+                            title="Prune anonymous unused volumes (docker volume prune)">Prune</button>
+                        <button id="prune-all-volumes-btn" class="btn danger"
+                            title="Prune all unused volumes (docker volume prune -a)">Prune All</button>
                         <button id="refresh-volumes-list-btn" class="btn secondary">Refresh</button>
                     </div>
                 </div>
@@ -119,6 +123,25 @@
                 </div>
             </div>
         </section>
+
+        <!-- Prune Confirmation Modal -->
+        <div id="confirm-modal" class="modal-overlay hidden" style="z-index: 2000;">
+            <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title"
+                aria-describedby="confirm-modal-message">
+                <div class="modal-header">
+                    <h2 id="confirm-modal-title">Confirm</h2>
+                </div>
+                <div class="modal-body" style="text-align: center;">
+                    <p id="confirm-modal-message" style="white-space: pre-line;"></p>
+                    <div style="display: flex; gap: 10px; justify-content: center;">
+                        <button id="confirm-modal-cancel" class="btn secondary" style="min-width: 100px;"
+                            type="button">Cancel</button>
+                        <button id="confirm-modal-ok" class="btn primary" style="min-width: 100px;"
+                            type="button">OK</button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- Login Modal -->
         <div id="login-modal" class="modal-overlay hidden">

@@ -8,11 +8,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const refreshListBtn = document.getElementById("refresh-images-list-btn");
     const pruneBtn = document.getElementById("prune-images-btn");
     const pruneAllBtn = document.getElementById("prune-all-images-btn");
-    const confirmModal = document.getElementById("confirm-modal");
-    const confirmTitleEl = document.getElementById("confirm-modal-title");
-    const confirmMessageEl = document.getElementById("confirm-modal-message");
-    const confirmCancelBtn = document.getElementById("confirm-modal-cancel");
-    const confirmOkBtn = document.getElementById("confirm-modal-ok");
 
     const page = window.DockGoPage;
 
@@ -367,72 +362,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     };
 
-    const showConfirmModal = ({
-        title = "Confirm",
-        message,
-        confirmLabel = "OK",
-        danger = false,
-    } = {}) => {
-        return new Promise((resolve) => {
-            if (
-                !confirmModal ||
-                !confirmTitleEl ||
-                !confirmMessageEl ||
-                !confirmCancelBtn ||
-                !confirmOkBtn
-            ) {
-                resolve(window.confirm(message));
-                return;
-            }
-
-            const previousFocus = document.activeElement;
-
-            confirmTitleEl.textContent = title;
-            confirmMessageEl.textContent = message;
-            confirmOkBtn.textContent = confirmLabel;
-            confirmOkBtn.classList.toggle("danger", danger);
-            confirmOkBtn.classList.toggle("primary", !danger);
-            confirmModal.classList.remove("hidden");
-            confirmCancelBtn.focus();
-
-            const cleanup = () => {
-                confirmModal.classList.add("hidden");
-                confirmOkBtn.removeEventListener("click", onConfirm);
-                confirmCancelBtn.removeEventListener("click", onCancel);
-                confirmModal.removeEventListener("click", onOverlayClick);
-                document.removeEventListener("keydown", onKeyDown);
-                confirmOkBtn.classList.add("primary");
-                confirmOkBtn.classList.remove("danger");
-                confirmTitleEl.textContent = "Confirm";
-                if (previousFocus && typeof previousFocus.focus === "function") {
-                    previousFocus.focus();
-                }
-            };
-
-            const finish = (confirmed) => {
-                cleanup();
-                resolve(confirmed);
-            };
-
-            const onConfirm = () => finish(true);
-            const onCancel = () => finish(false);
-            const onOverlayClick = (event) => {
-                if (event.target === confirmModal) finish(false);
-            };
-            const onKeyDown = (event) => {
-                if (event.key === "Escape") {
-                    event.preventDefault();
-                    finish(false);
-                }
-            };
-
-            confirmOkBtn.addEventListener("click", onConfirm);
-            confirmCancelBtn.addEventListener("click", onCancel);
-            confirmModal.addEventListener("click", onOverlayClick);
-            document.addEventListener("keydown", onKeyDown);
-        });
-    };
-
     const countPruneCandidates = (all) => {
         const inUse = new Set();
         rows.forEach((image) => {
@@ -455,7 +384,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const warning = all
             ? `${countText}\n\nThis removes all unused images, not just dangling ones, including tagged images not used by any container.\n\nCommand: docker image prune -a`
             : `${countText}\n\nThis removes dangling images that no container uses.\n\nCommand: docker image prune`;
-        const confirmed = await showConfirmModal({
+        const confirmed = await page.showConfirmModal({
             title: all ? "Prune All Unused Images" : "Prune Dangling Images",
             message: warning,
             confirmLabel: all ? "Prune All" : "Prune",

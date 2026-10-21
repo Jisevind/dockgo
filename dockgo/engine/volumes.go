@@ -8,12 +8,16 @@ import (
 	"dockgo/api"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/volume"
 )
 
 // composeProjectLabel is set by Docker Compose on the volumes and containers it
 // creates.
 const composeProjectLabel = "com.docker.compose.project"
+
+// anonymousVolumeLabel is set by Docker on volumes created without a name.
+const anonymousVolumeLabel = "com.docker.volume.anonymous"
 
 // volumeUsage records which containers use a volume and which Compose projects
 // they belong to.
@@ -36,6 +40,25 @@ func (d *DiscoveryEngine) ListVolumes(ctx context.Context) ([]api.DockerVolume, 
 	}
 
 	return summarizeVolumes(response.Volumes, collectVolumeUsage(containers)), nil
+}
+
+// PruneVolumes removes unused anonymous volumes, or all unused volumes when
+// all is true.
+func (d *DiscoveryEngine) PruneVolumes(ctx context.Context, all bool) (api.VolumePruneResult, error) {
+	args := filters.NewArgs()
+	if all {
+		args.Add("all", "true")
+	}
+
+	report, err := d.Client.VolumesPrune(ctx, args)
+	if err != nil {
+		return api.VolumePruneResult{}, err
+	}
+
+	return api.VolumePruneResult{
+		VolumesDeleted: len(report.VolumesDeleted),
+		SpaceReclaimed: report.SpaceReclaimed,
+	}, nil
 }
 
 // collectVolumeUsage maps volume names to the containers mounting them and the
@@ -171,6 +194,7 @@ func summarizeVolumes(volumes []*volume.Volume, usage map[string]volumeUsage) []
 		if usedBy == nil {
 			usedBy = []string{}
 		}
+		_, anonymous := v.Labels[anonymousVolumeLabel]
 
 		result = append(result, api.DockerVolume{
 			Name:       v.Name,
@@ -181,6 +205,7 @@ func summarizeVolumes(volumes []*volume.Volume, usage map[string]volumeUsage) []
 			Containers: len(u.containers),
 			Stacks:     stacks,
 			UsedBy:     usedBy,
+			Anonymous:  anonymous,
 		})
 	}
 

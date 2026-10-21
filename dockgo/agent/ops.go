@@ -147,6 +147,22 @@ func (a *Agent) opVolumeInspect(ctx context.Context, conn *websocket.Conn, env E
 	a.sendResult(ctx, conn, env.RequestID, detail)
 }
 
+// opVolumesPrune prunes unused volumes.
+func (a *Agent) opVolumesPrune(ctx context.Context, conn *websocket.Conn, env Envelope) {
+	var req VolumePruneRequest
+	if err := env.Decode(&req); err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+
+	result, err := a.discovery.PruneVolumes(ctx, req.All)
+	if err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+	a.sendResult(ctx, conn, env.RequestID, result)
+}
+
 // opImageInspect returns the overview for one image.
 func (a *Agent) opImageInspect(ctx context.Context, conn *websocket.Conn, env Envelope) {
 	var req ImageInspectRequest

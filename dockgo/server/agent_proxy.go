@@ -265,6 +265,11 @@ func (s *Server) handleAgentVolumes(w http.ResponseWriter, r *http.Request) {
 	s.handleAgentList(w, r, agent.TypeVolumesList, nil)
 }
 
+// handleAgentVolumesPrune proxies a volume prune operation to an agent.
+func (s *Server) handleAgentVolumesPrune(w http.ResponseWriter, r *http.Request, all bool) {
+	s.handleAgentList(w, r, agent.TypeVolumesPrune, agent.VolumePruneRequest{All: all})
+}
+
 // handleAgentVolumeDetail proxies one volume overview to an agent.
 func (s *Server) handleAgentVolumeDetail(w http.ResponseWriter, r *http.Request) {
 	name := strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/volumes/"), "/")
@@ -275,8 +280,8 @@ func (s *Server) handleAgentVolumeDetail(w http.ResponseWriter, r *http.Request)
 	s.handleAgentList(w, r, agent.TypeVolumeInspect, agent.VolumeInspectRequest{Name: name})
 }
 
-// handleAgentList proxies a read-only list operation to an agent and returns
-// its result unchanged.
+// handleAgentList proxies an agent operation to an agent and returns its result
+// unchanged.
 func (s *Server) handleAgentList(w http.ResponseWriter, r *http.Request, msgType string, payload any) {
 	agentID, ok := agentQueryAgentID(r)
 	if !ok {

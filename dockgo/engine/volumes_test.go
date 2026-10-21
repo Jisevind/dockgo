@@ -29,6 +29,16 @@ func TestSummarizeVolumesIncludesStackAndUsedBy(t *testing.T) {
 			Mountpoint: "/var/lib/docker/volumes/data/_data",
 			CreatedAt:  "2024-01-01T00:00:00Z",
 		},
+		{
+			Name:       "scratch",
+			Driver:     "local",
+			Scope:      "local",
+			Mountpoint: "/var/lib/docker/volumes/scratch/_data",
+			CreatedAt:  "2024-03-03T00:00:00Z",
+			Labels: map[string]string{
+				anonymousVolumeLabel: "",
+			},
+		},
 		nil,
 	}
 
@@ -61,6 +71,17 @@ func TestSummarizeVolumesIncludesStackAndUsedBy(t *testing.T) {
 			Containers: 0,
 			Stacks:     []string{"unused-project"},
 			UsedBy:     []string{},
+		},
+		{
+			Name:       "scratch",
+			Driver:     "local",
+			Scope:      "local",
+			Mountpoint: "/var/lib/docker/volumes/scratch/_data",
+			CreatedAt:  "2024-03-03T00:00:00Z",
+			Containers: 0,
+			Stacks:     []string{},
+			UsedBy:     []string{},
+			Anonymous:  true,
 		},
 	}
 

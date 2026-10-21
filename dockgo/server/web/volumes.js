@@ -8,6 +8,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const refreshListBtn = document.getElementById(
         "refresh-volumes-list-btn",
     );
+    const pruneBtn = document.getElementById("prune-volumes-btn");
+    const pruneAllBtn = document.getElementById("prune-all-volumes-btn");
 
     const page = window.DockGoPage;
 
@@ -305,12 +307,101 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    const responseErrorMessage = async (response) => {
+        const text = (await response.text()).trim();
+        try {
+            const data = JSON.parse(text);
+            if (data && typeof data.error === "string") return data.error;
+        } catch {
+            // Not JSON; fall back to the plain-text body.
+        }
+        return text || `HTTP ${response.status}`;
+    };
+
+    const showStatus = (message, success = false) => {
+        if (!statusEl) return;
+        statusEl.textContent = message;
+        statusEl.style.color = success ? "var(--success)" : "";
+        statusEl.classList.remove("hidden");
+    };
+
+    const hideStatus = () => {
+        if (!statusEl) return;
+        statusEl.classList.add("hidden");
+        statusEl.style.color = "";
+    };
+
     const setBusy = (busy) => {
         [refreshBtn, refreshListBtn].forEach((button) => {
             if (!button) return;
             button.disabled = busy;
             button.classList.toggle("spinning", busy);
         });
+        [pruneBtn, pruneAllBtn].forEach((button) => {
+            if (!button) return;
+            button.disabled = busy;
+        });
+    };
+
+    const countPruneCandidates = (all) => {
+        const candidates = new Set();
+        rows.forEach((volume) => {
+            if (!volume.name || (volume.containers ?? 0) > 0) return;
+            if (volume.driver !== "local" || volume.scope !== "local") return;
+            if (!all && !volume.anonymous) return;
+            candidates.add(volume.name);
+        });
+        return candidates.size;
+    };
+
+    const pruneVolumes = async (all) => {
+        const command = all ? "docker volume prune -a" : "docker volume prune";
+        const count = countPruneCandidates(all);
+        const countText = `${count} ${count === 1 ? "volume" : "volumes"} will be pruned.`;
+        const warning = all
+            ? `${countText}\n\nThis removes all unused volumes, not just anonymous ones.\n\nCommand: docker volume prune -a`
+            : `${countText}\n\nThis removes anonymous volumes not used by any container.\n\nCommand: docker volume prune`;
+        const confirmed = await page.showConfirmModal({
+            title: all ? "Prune All Unused Volumes" : "Prune Anonymous Volumes",
+            message: warning,
+            confirmLabel: all ? "Prune All" : "Prune",
+            danger: all,
+        });
+        if (!confirmed) return;
+
+        setBusy(true);
+        hideStatus();
+        try {
+            const response = await fetch(
+                page.withAgentQuery(`/api/volumes/prune?all=${all}`),
+                {
+                    method: "POST",
+                    headers: page.getAuthHeaders(),
+                },
+            );
+
+            if (response.status === 401 || response.status === 403) {
+                if (page.getState().authEnabled) page.showLoginModal();
+                throw new Error("Authentication required");
+            }
+            if (!response.ok) {
+                throw new Error(await responseErrorMessage(response));
+            }
+
+            const result = await response.json();
+            const refreshed = await fetchVolumes();
+            if (refreshed) {
+                showStatus(
+                    `${command}: ${result.volumes_deleted} volume(s) removed, ${page.formatBytes(result.space_reclaimed)} reclaimed.`,
+                    true,
+                );
+            }
+        } catch (error) {
+            console.error(`Failed to prune volumes with ${command}:`, error);
+            showStatus(`Failed to prune volumes: ${error.message}`);
+        } finally {
+            setBusy(false);
+        }
     };
 
     const fetchVolumes = async () => {
@@ -320,7 +411,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         setBusy(true);
-        if (statusEl) statusEl.classList.add("hidden");
+        hideStatus();
         if (emptyEl) {
             emptyEl.textContent = "Loading volumes...";
             emptyEl.classList.remove("hidden");
@@ -336,30 +427,24 @@ document.addEventListener("DOMContentLoaded", () => {
             if (response.status === 401 || response.status === 403) {
                 const state = page.getState();
                 if (state.authEnabled) page.showLoginModal();
-                if (statusEl) {
-                    statusEl.textContent =
-                        "Authentication required to list volumes.";
-                    statusEl.classList.remove("hidden");
-                }
+                showStatus("Authentication required to list volumes.");
                 if (emptyEl) emptyEl.classList.add("hidden");
-                return;
+                return false;
             }
             if (!response.ok) {
-                const message = (await response.text()).trim();
-                throw new Error(message || `HTTP ${response.status}`);
+                throw new Error(await responseErrorMessage(response));
             }
 
             rows = await response.json();
             detailCache.clear();
             detailLoading.clear();
             renderVolumes(rows);
+            return true;
         } catch (error) {
             console.error("Failed to fetch volumes:", error);
             if (emptyEl) emptyEl.classList.add("hidden");
-            if (statusEl) {
-                statusEl.textContent = `Failed to load volumes: ${error.message}`;
-                statusEl.classList.remove("hidden");
-            }
+            showStatus(`Failed to load volumes: ${error.message}`);
+            return false;
         } finally {
             setBusy(false);
         }
@@ -367,6 +452,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (refreshBtn) refreshBtn.addEventListener("click", fetchVolumes);
     if (refreshListBtn) refreshListBtn.addEventListener("click", fetchVolumes);
+    if (pruneBtn) pruneBtn.addEventListener("click", () => pruneVolumes(false));
+    if (pruneAllBtn)
+        pruneAllBtn.addEventListener("click", () => pruneVolumes(true));
 
     if (page) {
         page.init({

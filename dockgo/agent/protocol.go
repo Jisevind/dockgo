@@ -22,6 +22,7 @@ const (
 	TypeImagesPrune        = "images_prune"
 	TypeVolumesList        = "volumes_list"
 	TypeVolumeInspect      = "volume_inspect"
+	TypeVolumesPrune       = "volumes_prune"
 	TypeNetworkInspect     = "network_inspect"
 	TypeScan               = "scan"
 	TypeUpdate             = "update"
@@ -150,6 +151,11 @@ type Request struct {
 // VolumeInspectRequest asks for one volume overview.
 type VolumeInspectRequest struct {
 	Name string `json:"name"`
+}
+
+// VolumePruneRequest asks the agent to prune unused volumes.
+type VolumePruneRequest struct {
+	All bool `json:"all"`
 }
 
 // ImageInspectRequest asks for one image overview.

@@ -217,6 +217,7 @@ The overview data comes from these endpoints:
 | `POST /api/images/prune?all={bool}` | Prune dangling or all unused images |
 | `GET /api/volumes` | Volumes with stack and container usage |
 | `GET /api/volumes/{name}` | One volume with labels and container IDs |
+| `POST /api/volumes/prune?all={bool}` | Prune anonymous or all unused volumes |
 
 Each endpoint is agent-aware. The server either reads its local Docker daemon
 or relays the equivalent operation to the selected agent.

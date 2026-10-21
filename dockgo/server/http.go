@@ -332,6 +332,7 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/images/prune", s.enableCors(s.requireAuth(s.handleImagesPrune)))
 	mux.HandleFunc("/api/images/", s.enableCors(s.requireAuth(s.handleImageByID)))
 	mux.HandleFunc("/api/volumes", s.enableCors(s.requireAuth(s.handleVolumes)))
+	mux.HandleFunc("/api/volumes/prune", s.enableCors(s.requireAuth(s.handleVolumesPrune)))
 	mux.HandleFunc("/api/volumes/", s.enableCors(s.requireAuth(s.handleVolumeByID)))
 	mux.HandleFunc("/api/stream/check", s.enableCors(s.requireAuth(s.handleStreamCheck)))
 	mux.HandleFunc("/api/update/", s.enableCors(s.requireAuth(s.handleUpdate)))
@@ -1340,6 +1341,37 @@ func (s *Server) handleVolumes(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(volumes)
+}
+
+func (s *Server) handleVolumesPrune(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	all := false
+	if raw := r.URL.Query().Get("all"); raw != "" {
+		parsed, err := strconv.ParseBool(raw)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid all query parameter")
+			return
+		}
+		all = parsed
+	}
+
+	if _, ok := agentQueryAgentID(r); ok {
+		s.handleAgentVolumesPrune(w, r, all)
+		return
+	}
+
+	result, err := s.Discovery.PruneVolumes(r.Context(), all)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(result)
 }
 
 func (s *Server) handleVolumeByID(w http.ResponseWriter, r *http.Request) {

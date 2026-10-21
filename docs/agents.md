@@ -198,6 +198,7 @@ All messages use a JSON envelope with these fields:
 | `images_prune` | Prune dangling or all unused images |
 | `volumes_list` | List Docker volumes with stack and container usage |
 | `volume_inspect` | Get one volume's details, labels, and containers |
+| `volumes_prune` | Prune anonymous or all unused volumes |
 | `scan` | Scan for container updates |
 | `update` | Update a specific container |
 | `container_action` | Start/stop/restart a container |
@@ -223,9 +224,10 @@ All messages use a JSON envelope with these fields:
 > [!NOTE]
 > The Containers, Stacks, Images, Volumes, and Networks pages rely on
 > `containers_overview`, `images_list`, `image_inspect`, `images_prune`,
-> `volumes_list`, `volume_inspect`, `networks_list`, and `network_inspect`.
-> Agents built before these operations return `unsupported operation`; update
-> the agent image when using those pages against a remote host.
+> `volumes_list`, `volume_inspect`, `volumes_prune`, `networks_list`, and
+> `network_inspect`. Agents built before these operations return
+> `unsupported operation`; update the agent image when using those pages
+> against a remote host.
 
 ### Agent → Server messages
 

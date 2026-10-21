@@ -171,3 +171,33 @@ func TestAgentVolumeDetailDispatch(t *testing.T) {
 		(*Server).handleVolumeByID,
 	)
 }
+
+func TestAgentVolumesPruneDispatch(t *testing.T) {
+	data := testAgentListDispatch(t,
+		"/api/volumes/prune?all=true",
+		agent.TypeVolumesPrune,
+		`{"volumes_deleted":2,"space_reclaimed":4096}`,
+		(*Server).handleVolumesPrune,
+		http.MethodPost,
+	)
+
+	var req agent.VolumePruneRequest
+	if err := json.Unmarshal(data, &req); err != nil {
+		t.Fatalf("prune request unmarshal error = %v", err)
+	}
+	if !req.All {
+		t.Fatalf("prune request all = false, want true")
+	}
+}
+
+func TestVolumesPruneRejectsNonPost(t *testing.T) {
+	srv := &Server{}
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/volumes/prune", nil)
+
+	srv.handleVolumesPrune(rr, req)
+
+	if rr.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("status = %d, want %d", rr.Code, http.StatusMethodNotAllowed)
+	}
+}
