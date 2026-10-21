@@ -111,7 +111,8 @@ Select a volume name to open its full overview page, which adds:
 The Images page lists local images one row per repository and tag, with image
 ID, creation time, size, and the number of containers using the image. Expand a
 row to see the containers using that image, their state, and the Compose stacks
-they belong to.
+they belong to. The **Prune** and **Prune All** buttons run `docker image prune`
+and `docker image prune -a` respectively on the selected host.
 
 ## Networks Page
 

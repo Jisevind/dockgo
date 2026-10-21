@@ -163,6 +163,22 @@ func (a *Agent) opImageInspect(ctx context.Context, conn *websocket.Conn, env En
 	a.sendResult(ctx, conn, env.RequestID, detail)
 }
 
+// opImagesPrune prunes unused images.
+func (a *Agent) opImagesPrune(ctx context.Context, conn *websocket.Conn, env Envelope) {
+	var req ImagePruneRequest
+	if err := env.Decode(&req); err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+
+	result, err := a.discovery.PruneImages(ctx, req.All)
+	if err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+	a.sendResult(ctx, conn, env.RequestID, result)
+}
+
 // opNetworkInspect returns the overview for one network.
 func (a *Agent) opNetworkInspect(ctx context.Context, conn *websocket.Conn, env Envelope) {
 	var req NetworkInspectRequest

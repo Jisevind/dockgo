@@ -44,6 +44,12 @@ type DockerImage struct {
 	Containers int    `json:"containers"`
 }
 
+// ImagePruneResult summarizes a Docker image prune operation.
+type ImagePruneResult struct {
+	ImagesDeleted  int    `json:"images_deleted"`
+	SpaceReclaimed uint64 `json:"space_reclaimed"`
+}
+
 // DockerImageContainer identifies a container using an image.
 type DockerImageContainer struct {
 	ID    string `json:"id"`

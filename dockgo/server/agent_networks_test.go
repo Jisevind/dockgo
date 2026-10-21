@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"dockgo/agent"
@@ -11,9 +12,9 @@ import (
 	"github.com/coder/websocket"
 )
 
-// testAgentListDispatch verifies a list endpoint proxies the request to the
-// selected agent and returns its result unchanged.
-func testAgentListDispatch(t *testing.T, route, msgType, payload string, handler func(*Server, http.ResponseWriter, *http.Request)) {
+// testAgentListDispatch verifies an agent-backed endpoint proxies the request
+// to the selected agent and returns its result unchanged.
+func testAgentListDispatch(t *testing.T, route, msgType, payload string, handler func(*Server, http.ResponseWriter, *http.Request), method ...string) []byte {
 	t.Helper()
 
 	srv, _ := newTestServerWithAgent(t)
@@ -26,7 +27,15 @@ func testAgentListDispatch(t *testing.T, route, msgType, payload string, handler
 
 	conn, ctx := connectTestAgent(t, srv, mux, agentRec)
 
-	req := httptest.NewRequest(http.MethodGet, route+"?agent="+agentRec.ID, nil)
+	httpMethod := http.MethodGet
+	if len(method) > 0 {
+		httpMethod = method[0]
+	}
+	separator := "?"
+	if strings.Contains(route, "?") {
+		separator = "&"
+	}
+	req := httptest.NewRequest(httpMethod, route+separator+"agent="+agentRec.ID, nil)
 	rr := httptest.NewRecorder()
 
 	done := make(chan struct{})
@@ -66,6 +75,8 @@ func testAgentListDispatch(t *testing.T, route, msgType, payload string, handler
 	if got := rr.Body.String(); got != payload {
 		t.Errorf("body = %s, want %s", got, payload)
 	}
+
+	return reqEnv.Data
 }
 
 func TestAgentContainersOverviewDispatch(t *testing.T) {
@@ -111,6 +122,36 @@ func TestAgentImagesDispatch(t *testing.T) {
 		`[{"id":"sha256:aaa","repository":"nginx","tag":"latest","created":100,"size":1000,"containers":2}]`,
 		(*Server).handleImages,
 	)
+}
+
+func TestAgentImagesPruneDispatch(t *testing.T) {
+	data := testAgentListDispatch(t,
+		"/api/images/prune?all=true",
+		agent.TypeImagesPrune,
+		`{"images_deleted":2,"space_reclaimed":4096}`,
+		(*Server).handleImagesPrune,
+		http.MethodPost,
+	)
+
+	var req agent.ImagePruneRequest
+	if err := json.Unmarshal(data, &req); err != nil {
+		t.Fatalf("prune request unmarshal error = %v", err)
+	}
+	if !req.All {
+		t.Fatalf("prune request all = false, want true")
+	}
+}
+
+func TestImagesPruneRejectsNonPost(t *testing.T) {
+	srv := &Server{}
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/images/prune", nil)
+
+	srv.handleImagesPrune(rr, req)
+
+	if rr.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("status = %d, want %d", rr.Code, http.StatusMethodNotAllowed)
+	}
 }
 
 func TestAgentVolumesDispatch(t *testing.T) {

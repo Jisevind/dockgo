@@ -204,7 +204,7 @@ UI text uses Inter. Identifiers, timestamps, and metrics use the bundled
 Ioskeley Mono webfont (SIL Open Font License; see
 `dockgo/server/web/fonts/LICENSE-IoskeleyMono.txt`).
 
-The overview data comes from read-only endpoints:
+The overview data comes from these endpoints:
 
 | Endpoint | Purpose |
 | --- | --- |
@@ -214,6 +214,7 @@ The overview data comes from read-only endpoints:
 | `GET /api/networks/{name}` | One network with containers and stacks |
 | `GET /api/images` | Local images with usage counts |
 | `GET /api/images/{id}` | One image with containers and stacks |
+| `POST /api/images/prune?all={bool}` | Prune dangling or all unused images |
 | `GET /api/volumes` | Volumes with stack and container usage |
 | `GET /api/volumes/{name}` | One volume with labels and container IDs |
 

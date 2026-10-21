@@ -485,6 +485,8 @@ func (a *Agent) runOp(ctx context.Context, conn *websocket.Conn, env Envelope) {
 		a.opImagesList(ctx, conn, env)
 	case TypeImageInspect:
 		a.opImageInspect(ctx, conn, env)
+	case TypeImagesPrune:
+		a.opImagesPrune(ctx, conn, env)
 	case TypeVolumesList:
 		a.opVolumesList(ctx, conn, env)
 	case TypeVolumeInspect:

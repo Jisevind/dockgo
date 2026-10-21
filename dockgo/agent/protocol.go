@@ -19,6 +19,7 @@ const (
 	TypeNetworksList       = "networks_list"
 	TypeImagesList         = "images_list"
 	TypeImageInspect       = "image_inspect"
+	TypeImagesPrune        = "images_prune"
 	TypeVolumesList        = "volumes_list"
 	TypeVolumeInspect      = "volume_inspect"
 	TypeNetworkInspect     = "network_inspect"
@@ -154,6 +155,11 @@ type VolumeInspectRequest struct {
 // ImageInspectRequest asks for one image overview.
 type ImageInspectRequest struct {
 	ID string `json:"id"`
+}
+
+// ImagePruneRequest asks the agent to prune unused images.
+type ImagePruneRequest struct {
+	All bool `json:"all"`
 }
 
 // NetworkInspectRequest asks for one network overview.

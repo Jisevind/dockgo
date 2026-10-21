@@ -3,12 +3,14 @@ package engine
 import (
 	"context"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	"dockgo/api"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
 )
 
@@ -26,6 +28,27 @@ func (d *DiscoveryEngine) ListImages(ctx context.Context) ([]api.DockerImage, er
 	}
 
 	return summarizeImages(images, countContainersByImage(containers)), nil
+}
+
+// PruneImages removes dangling images, or all unused images when all is true.
+func (d *DiscoveryEngine) PruneImages(ctx context.Context, all bool) (api.ImagePruneResult, error) {
+	report, err := d.Client.ImagesPrune(ctx, filters.NewArgs(
+		filters.Arg("dangling", strconv.FormatBool(!all)),
+	))
+	if err != nil {
+		return api.ImagePruneResult{}, err
+	}
+	return summarizePruneReport(report), nil
+}
+
+func summarizePruneReport(report image.PruneReport) api.ImagePruneResult {
+	result := api.ImagePruneResult{SpaceReclaimed: report.SpaceReclaimed}
+	for _, deleted := range report.ImagesDeleted {
+		if deleted.Deleted != "" {
+			result.ImagesDeleted++
+		}
+	}
+	return result
 }
 
 // countContainersByImage maps image IDs to the number of containers using them.

@@ -134,3 +134,21 @@ func TestSummarizeImageDetail(t *testing.T) {
 		t.Fatalf("summarizeImageDetail() = %#v, want %#v", got, want)
 	}
 }
+
+func TestSummarizePruneReportCountsDeletedImagesOnly(t *testing.T) {
+	report := image.PruneReport{
+		ImagesDeleted: []image.DeleteResponse{
+			{Deleted: "sha256:aaa"},
+			{Untagged: "nginx:latest"},
+			{Deleted: "sha256:bbb"},
+		},
+		SpaceReclaimed: 4096,
+	}
+
+	got := summarizePruneReport(report)
+	want := api.ImagePruneResult{ImagesDeleted: 2, SpaceReclaimed: 4096}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("summarizePruneReport() = %#v, want %#v", got, want)
+	}
+}

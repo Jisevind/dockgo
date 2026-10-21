@@ -195,6 +195,7 @@ All messages use a JSON envelope with these fields:
 | `network_inspect` | Get one network with its containers and stacks |
 | `images_list` | List Docker images by repository and tag |
 | `image_inspect` | Get one image with its containers and stacks |
+| `images_prune` | Prune dangling or all unused images |
 | `volumes_list` | List Docker volumes with stack and container usage |
 | `volume_inspect` | Get one volume's details, labels, and containers |
 | `scan` | Scan for container updates |
@@ -221,10 +222,10 @@ All messages use a JSON envelope with these fields:
 
 > [!NOTE]
 > The Containers, Stacks, Images, Volumes, and Networks pages rely on
-> `containers_overview`, `images_list`, `image_inspect`, `volumes_list`,
-> `volume_inspect`, `networks_list`, and `network_inspect`. Agents built before
-> these operations return `unsupported operation`; update the agent image when
-> using those pages against a remote host.
+> `containers_overview`, `images_list`, `image_inspect`, `images_prune`,
+> `volumes_list`, `volume_inspect`, `networks_list`, and `network_inspect`.
+> Agents built before these operations return `unsupported operation`; update
+> the agent image when using those pages against a remote host.
 
 ### Agent → Server messages
 

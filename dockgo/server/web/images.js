@@ -6,6 +6,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const statusEl = document.getElementById("images-status");
     const refreshBtn = document.getElementById("refresh-images-btn");
     const refreshListBtn = document.getElementById("refresh-images-list-btn");
+    const pruneBtn = document.getElementById("prune-images-btn");
+    const pruneAllBtn = document.getElementById("prune-all-images-btn");
+    const confirmModal = document.getElementById("confirm-modal");
+    const confirmTitleEl = document.getElementById("confirm-modal-title");
+    const confirmMessageEl = document.getElementById("confirm-modal-message");
+    const confirmCancelBtn = document.getElementById("confirm-modal-cancel");
+    const confirmOkBtn = document.getElementById("confirm-modal-ok");
 
     const page = window.DockGoPage;
 
@@ -324,12 +331,171 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    const responseErrorMessage = async (response) => {
+        const text = (await response.text()).trim();
+        try {
+            const data = JSON.parse(text);
+            if (data && typeof data.error === "string") return data.error;
+        } catch {
+            // Not JSON; fall back to the plain-text body.
+        }
+        return text || `HTTP ${response.status}`;
+    };
+
+    const showStatus = (message, success = false) => {
+        if (!statusEl) return;
+        statusEl.textContent = message;
+        statusEl.style.color = success ? "var(--success)" : "";
+        statusEl.classList.remove("hidden");
+    };
+
+    const hideStatus = () => {
+        if (!statusEl) return;
+        statusEl.classList.add("hidden");
+        statusEl.style.color = "";
+    };
+
     const setBusy = (busy) => {
         [refreshBtn, refreshListBtn].forEach((button) => {
             if (!button) return;
             button.disabled = busy;
             button.classList.toggle("spinning", busy);
         });
+        [pruneBtn, pruneAllBtn].forEach((button) => {
+            if (!button) return;
+            button.disabled = busy;
+        });
+    };
+
+    const showConfirmModal = ({
+        title = "Confirm",
+        message,
+        confirmLabel = "OK",
+        danger = false,
+    } = {}) => {
+        return new Promise((resolve) => {
+            if (
+                !confirmModal ||
+                !confirmTitleEl ||
+                !confirmMessageEl ||
+                !confirmCancelBtn ||
+                !confirmOkBtn
+            ) {
+                resolve(window.confirm(message));
+                return;
+            }
+
+            const previousFocus = document.activeElement;
+
+            confirmTitleEl.textContent = title;
+            confirmMessageEl.textContent = message;
+            confirmOkBtn.textContent = confirmLabel;
+            confirmOkBtn.classList.toggle("danger", danger);
+            confirmOkBtn.classList.toggle("primary", !danger);
+            confirmModal.classList.remove("hidden");
+            confirmCancelBtn.focus();
+
+            const cleanup = () => {
+                confirmModal.classList.add("hidden");
+                confirmOkBtn.removeEventListener("click", onConfirm);
+                confirmCancelBtn.removeEventListener("click", onCancel);
+                confirmModal.removeEventListener("click", onOverlayClick);
+                document.removeEventListener("keydown", onKeyDown);
+                confirmOkBtn.classList.add("primary");
+                confirmOkBtn.classList.remove("danger");
+                confirmTitleEl.textContent = "Confirm";
+                if (previousFocus && typeof previousFocus.focus === "function") {
+                    previousFocus.focus();
+                }
+            };
+
+            const finish = (confirmed) => {
+                cleanup();
+                resolve(confirmed);
+            };
+
+            const onConfirm = () => finish(true);
+            const onCancel = () => finish(false);
+            const onOverlayClick = (event) => {
+                if (event.target === confirmModal) finish(false);
+            };
+            const onKeyDown = (event) => {
+                if (event.key === "Escape") {
+                    event.preventDefault();
+                    finish(false);
+                }
+            };
+
+            confirmOkBtn.addEventListener("click", onConfirm);
+            confirmCancelBtn.addEventListener("click", onCancel);
+            confirmModal.addEventListener("click", onOverlayClick);
+            document.addEventListener("keydown", onKeyDown);
+        });
+    };
+
+    const countPruneCandidates = (all) => {
+        const inUse = new Set();
+        rows.forEach((image) => {
+            if ((image.containers ?? 0) > 0) inUse.add(image.id);
+        });
+
+        const candidates = new Set();
+        rows.forEach((image) => {
+            if (!image.id || inUse.has(image.id)) return;
+            if (!all && image.repository !== "<none>") return;
+            candidates.add(image.id);
+        });
+        return candidates.size;
+    };
+
+    const pruneImages = async (all) => {
+        const command = all ? "docker image prune -a" : "docker image prune";
+        const count = countPruneCandidates(all);
+        const countText = `${count} ${count === 1 ? "image" : "images"} will be pruned.`;
+        const warning = all
+            ? `${countText}\n\nThis removes all unused images, not just dangling ones, including tagged images not used by any container.\n\nCommand: docker image prune -a`
+            : `${countText}\n\nThis removes dangling images that no container uses.\n\nCommand: docker image prune`;
+        const confirmed = await showConfirmModal({
+            title: all ? "Prune All Unused Images" : "Prune Dangling Images",
+            message: warning,
+            confirmLabel: all ? "Prune All" : "Prune",
+            danger: all,
+        });
+        if (!confirmed) return;
+
+        setBusy(true);
+        hideStatus();
+        try {
+            const response = await fetch(
+                page.withAgentQuery(`/api/images/prune?all=${all}`),
+                {
+                    method: "POST",
+                    headers: page.getAuthHeaders(),
+                },
+            );
+
+            if (response.status === 401 || response.status === 403) {
+                if (page.getState().authEnabled) page.showLoginModal();
+                throw new Error("Authentication required");
+            }
+            if (!response.ok) {
+                throw new Error(await responseErrorMessage(response));
+            }
+
+            const result = await response.json();
+            const refreshed = await fetchImages();
+            if (refreshed) {
+                showStatus(
+                    `${command}: ${result.images_deleted} image(s) removed, ${page.formatBytes(result.space_reclaimed)} reclaimed.`,
+                    true,
+                );
+            }
+        } catch (error) {
+            console.error(`Failed to prune images with ${command}:`, error);
+            showStatus(`Failed to prune images: ${error.message}`);
+        } finally {
+            setBusy(false);
+        }
     };
 
     const fetchImages = async () => {
@@ -339,7 +505,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         setBusy(true);
-        if (statusEl) statusEl.classList.add("hidden");
+        hideStatus();
         if (emptyEl) {
             emptyEl.textContent = "Loading images...";
             emptyEl.classList.remove("hidden");
@@ -354,30 +520,24 @@ document.addEventListener("DOMContentLoaded", () => {
             if (response.status === 401 || response.status === 403) {
                 const state = page.getState();
                 if (state.authEnabled) page.showLoginModal();
-                if (statusEl) {
-                    statusEl.textContent =
-                        "Authentication required to list images.";
-                    statusEl.classList.remove("hidden");
-                }
+                showStatus("Authentication required to list images.");
                 if (emptyEl) emptyEl.classList.add("hidden");
-                return;
+                return false;
             }
             if (!response.ok) {
-                const message = (await response.text()).trim();
-                throw new Error(message || `HTTP ${response.status}`);
+                throw new Error(await responseErrorMessage(response));
             }
 
             rows = await response.json();
             detailCache.clear();
             detailLoading.clear();
             renderImages(rows);
+            return true;
         } catch (error) {
             console.error("Failed to fetch images:", error);
             if (emptyEl) emptyEl.classList.add("hidden");
-            if (statusEl) {
-                statusEl.textContent = `Failed to load images: ${error.message}`;
-                statusEl.classList.remove("hidden");
-            }
+            showStatus(`Failed to load images: ${error.message}`);
+            return false;
         } finally {
             setBusy(false);
         }
@@ -385,6 +545,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (refreshBtn) refreshBtn.addEventListener("click", fetchImages);
     if (refreshListBtn) refreshListBtn.addEventListener("click", fetchImages);
+    if (pruneBtn) pruneBtn.addEventListener("click", () => pruneImages(false));
+    if (pruneAllBtn)
+        pruneAllBtn.addEventListener("click", () => pruneImages(true));
 
     if (page) {
         page.init({

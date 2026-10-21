@@ -250,6 +250,11 @@ func (s *Server) handleAgentImages(w http.ResponseWriter, r *http.Request) {
 	s.handleAgentList(w, r, agent.TypeImagesList, nil)
 }
 
+// handleAgentImagesPrune proxies an image prune operation to an agent.
+func (s *Server) handleAgentImagesPrune(w http.ResponseWriter, r *http.Request, all bool) {
+	s.handleAgentList(w, r, agent.TypeImagesPrune, agent.ImagePruneRequest{All: all})
+}
+
 // handleAgentContainersOverview proxies the live container overview to an agent.
 func (s *Server) handleAgentContainersOverview(w http.ResponseWriter, r *http.Request) {
 	s.handleAgentList(w, r, agent.TypeContainersOverview, nil)
