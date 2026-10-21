@@ -25,7 +25,9 @@ func buildStackOverviews(stackList []stacks.Stack, containers []api.ContainerOve
 	}
 
 	members := make(map[string][]api.ContainerOverview)
+	presentIDs := make(map[string]bool, len(containers))
 	for _, container := range containers {
+		presentIDs[container.ID] = true
 		stackID, ok := managed[container.ID]
 		if !ok && container.ComposeProject != "" {
 			stackID, ok = projects[container.ComposeProject]
@@ -39,11 +41,12 @@ func buildStackOverviews(stackList []stacks.Stack, containers []api.ContainerOve
 	result := make([]api.StackOverview, 0, len(stackList))
 	for _, stack := range stackList {
 		row := api.StackOverview{
-			ID:       stack.ID,
-			Name:     stack.Name,
-			Source:   stackSourceLabel(stack.Kind),
-			Location: stackLocation(stack),
-			Members:  []api.ContainerOverview{},
+			ID:        stack.ID,
+			Name:      stack.Name,
+			Ownership: stackOwnershipState(stack, presentIDs, members[stack.ID]),
+			Source:    stackSourceLabel(stack.Kind),
+			Location:  stackLocation(stack),
+			Members:   []api.ContainerOverview{},
 		}
 
 		stackMembers := members[stack.ID]
@@ -96,6 +99,28 @@ func buildStackOverviews(stackList []stacks.Stack, containers []api.ContainerOve
 		return strings.ToLower(result[i].Name) < strings.ToLower(result[j].Name)
 	})
 	return result
+}
+
+func stackOwnershipState(stack stacks.Stack, presentIDs map[string]bool, members []api.ContainerOverview) string {
+	if len(stack.ManagedContainers) == 0 {
+		return "unbound"
+	}
+
+	owned := make(map[string]bool, len(stack.ManagedContainers))
+	for _, containerID := range stack.ManagedContainers {
+		if !presentIDs[containerID] {
+			return "drifted"
+		}
+		owned[containerID] = true
+	}
+
+	for _, member := range members {
+		if !owned[member.ID] {
+			return "drifted"
+		}
+	}
+
+	return "bound"
 }
 
 func stackSourceLabel(kind stacks.Kind) string {

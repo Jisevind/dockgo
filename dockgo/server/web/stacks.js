@@ -32,6 +32,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 return (stack.name || "").toLowerCase();
             case "status":
                 return (stack.status || "").toLowerCase();
+            case "ownership":
+                return (stack.ownership || "").toLowerCase();
             case "source":
                 return (stack.source || "").toLowerCase();
             case "location":
@@ -60,6 +62,33 @@ document.addEventListener("DOMContentLoaded", () => {
         const badge = document.createElement("span");
         badge.className = `status-badge ${stateStatusClass(normalized)}`;
         badge.textContent = normalized;
+        return badge;
+    };
+
+    const ownershipStatusClass = (ownership) => {
+        switch (ownership) {
+            case "bound":
+                return "status-running";
+            case "drifted":
+                return "status-warning";
+            case "unbound":
+                return "status-other";
+            default:
+                return "status-other";
+        }
+    };
+
+    const ownershipBadge = (ownership) => {
+        const normalized = ownership || "unknown";
+        const descriptions = {
+            bound: "Managed containers match runtime ownership.",
+            drifted: "Runtime containers do not match recorded ownership.",
+            unbound: "No managed containers recorded yet.",
+        };
+        const badge = document.createElement("span");
+        badge.className = `status-badge ${ownershipStatusClass(normalized)}`;
+        badge.textContent = normalized;
+        badge.title = descriptions[normalized] || "";
         return badge;
     };
 
@@ -185,6 +214,9 @@ document.addEventListener("DOMContentLoaded", () => {
             const statusCell = document.createElement("td");
             statusCell.appendChild(stateBadge(stack.status));
 
+            const ownershipCell = document.createElement("td");
+            ownershipCell.appendChild(ownershipBadge(stack.ownership));
+
             const sourceCell = document.createElement("td");
             const source = document.createElement("span");
             source.className = "source-tag";
@@ -261,6 +293,7 @@ document.addEventListener("DOMContentLoaded", () => {
             row.append(
                 nameCell,
                 statusCell,
+                ownershipCell,
                 sourceCell,
                 locationCell,
                 containersCell,
@@ -278,7 +311,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 detailRow.className = "stack-detail-row";
                 detailRow.dataset.detailRow = "true";
                 const detailCell = document.createElement("td");
-                detailCell.colSpan = 11;
+                detailCell.colSpan = 12;
 
                 const toolbar = document.createElement("div");
                 toolbar.className = "stack-detail-toolbar";
@@ -292,13 +325,44 @@ document.addEventListener("DOMContentLoaded", () => {
                         : "");
                 editLink.textContent = "Edit Files";
                 toolbar.appendChild(editLink);
+
+                const reconcileBtn = document.createElement("button");
+                reconcileBtn.type = "button";
+                reconcileBtn.className = "btn secondary small";
+                reconcileBtn.textContent = "Reconcile";
+                reconcileBtn.title =
+                    "Reconcile stack ownership with runtime containers";
+                if (stack.ownership === "bound") {
+                    reconcileBtn.disabled = true;
+                    reconcileBtn.title = "Ownership is already bound";
+                }
+
+                const deployBtn = document.createElement("button");
+                deployBtn.type = "button";
+                deployBtn.className = "btn primary small";
+                deployBtn.textContent = "Deploy";
+                deployBtn.title = "Deploy the stack";
+
+                reconcileBtn.addEventListener("click", () =>
+                    runStackAction(stack, "reconcile", [
+                        reconcileBtn,
+                        deployBtn,
+                    ]),
+                );
+                deployBtn.addEventListener("click", () =>
+                    runStackAction(stack, "deploy", [reconcileBtn, deployBtn]),
+                );
+
+                toolbar.append(editLink, reconcileBtn, deployBtn);
                 detailCell.appendChild(toolbar);
 
                 const members = stack.members || [];
                 if (members.length === 0) {
-                    detailCell.textContent =
+                    const empty = document.createElement("div");
+                    empty.className = "stack-detail-empty";
+                    empty.textContent =
                         "No containers associated with this stack.";
-                    detailCell.className = "stack-detail-empty";
+                    detailCell.appendChild(empty);
                 } else {
                     detailCell.appendChild(memberTable(members));
                 }
@@ -338,10 +402,35 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     };
 
-    const showStatus = (message) => {
+    const responseErrorMessage = async (response) => {
+        const text = (await response.text()).trim();
+        try {
+            const data = JSON.parse(text);
+            if (data && typeof data.error === "string") return data.error;
+        } catch {
+            // Not JSON; fall back to the plain-text body.
+        }
+        return text || `HTTP ${response.status}`;
+    };
+
+    const showStatus = (message, tone = "error") => {
         if (!statusEl) return;
+        const colors = {
+            success: "var(--success)",
+            info: "var(--text-secondary)",
+        };
         statusEl.textContent = message;
+        statusEl.style.color = colors[tone] || "";
+        statusEl.classList.toggle("success", tone === "success");
+        statusEl.classList.toggle("info", tone === "info");
         statusEl.classList.remove("hidden");
+    };
+
+    const hideStatus = () => {
+        if (!statusEl) return;
+        statusEl.classList.add("hidden");
+        statusEl.classList.remove("success", "info");
+        statusEl.style.color = "";
     };
 
     const fetchStacks = async ({ showLoading = false, busy = false } = {}) => {
@@ -351,7 +440,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (busy) setBusy(true);
-        if (statusEl) statusEl.classList.add("hidden");
+        hideStatus();
         if (showLoading && emptyEl) {
             emptyEl.textContent = "Loading stacks...";
             emptyEl.classList.remove("hidden");
@@ -365,29 +454,152 @@ document.addEventListener("DOMContentLoaded", () => {
 
             if (response.status === 401 || response.status === 403) {
                 if (page.getState().authEnabled) page.showLoginModal();
-                if (statusEl) {
-                    statusEl.textContent =
-                        "Authentication required to list stacks.";
-                    statusEl.classList.remove("hidden");
-                }
-                return;
+                showStatus("Authentication required to list stacks.");
+                return false;
             }
             if (!response.ok) {
-                const message = (await response.text()).trim();
-                throw new Error(message || `HTTP ${response.status}`);
+                throw new Error(await responseErrorMessage(response));
             }
 
             rows = await response.json();
             renderRows();
+            return true;
         } catch (error) {
             console.error("Failed to fetch stacks:", error);
-            if (statusEl) {
-                statusEl.textContent = `Failed to load stacks: ${error.message}`;
-                statusEl.classList.remove("hidden");
-            }
+            showStatus(`Failed to load stacks: ${error.message}`);
             if (showLoading && emptyEl) emptyEl.classList.add("hidden");
+            return false;
         } finally {
             if (busy) setBusy(false);
+        }
+    };
+
+    const stackActionMessages = {
+        deploy: {
+            title: "Deploy Stack",
+            label: "Deploy",
+            start: "Starting stack deployment...",
+            success: "Deployment completed successfully.",
+            failure: "Deployment failed",
+        },
+        reconcile: {
+            title: "Reconcile Stack",
+            label: "Reconcile",
+            start: "Reconciling stack ownership...",
+            success: "Stack ownership reconciled.",
+            failure: "Reconcile failed",
+        },
+    };
+
+    const runStackAction = async (stack, action, buttons = []) => {
+        const messages = stackActionMessages[action];
+        if (!messages || !page) return;
+
+        const confirmed = await page.showConfirmModal({
+            title: messages.title,
+            message:
+                action === "deploy"
+                    ? `Deploy "${stack.name}"? This may pull images and recreate its containers.`
+                    : `Reconcile "${stack.name}"? This re-binds recorded ownership to the current runtime containers.`,
+            confirmLabel: messages.label,
+            danger: action === "deploy",
+        });
+        if (!confirmed) return;
+
+        buttons.forEach((button) => {
+            if (button) button.disabled = true;
+        });
+        hideStatus();
+        showStatus(`${messages.start} (${stack.name})`, "info");
+
+        try {
+            const response = await fetch(
+                page.withAgentQuery(
+                    `/api/stacks/${encodeURIComponent(stack.id)}/${action}`,
+                ),
+                {
+                    method: "POST",
+                    headers: page.getAuthHeaders(),
+                },
+            );
+
+            if (response.status === 401 || response.status === 403) {
+                if (page.getState().authEnabled) page.showLoginModal();
+                throw new Error("Authentication required");
+            }
+            if (!response.ok) {
+                throw new Error(await responseErrorMessage(response));
+            }
+
+            if (action === "reconcile") {
+                await response.json().catch(() => null);
+            } else if (response.body) {
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = "";
+                let streamError = "";
+                let sawDone = false;
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) {
+                        buffer += decoder.decode();
+                    } else {
+                        buffer += decoder.decode(value, { stream: true });
+                    }
+
+                    const parts = buffer.split("\n\n");
+                    buffer = parts.pop() || "";
+                    for (const part of parts) {
+                        if (!part.startsWith("data: ")) continue;
+                        let event;
+                        try {
+                            event = JSON.parse(part.slice(6));
+                        } catch (parseError) {
+                            console.error(
+                                "Failed to parse stack action event",
+                                parseError,
+                            );
+                            continue;
+                        }
+                        if (event.type === "start") {
+                            showStatus(
+                                event.message ||
+                                    `${messages.start} (${stack.name})`,
+                                "info",
+                            );
+                        } else if (event.type === "progress") {
+                            showStatus(event.status || "Working...", "info");
+                        } else if (event.type === "error") {
+                            streamError = event.error || messages.failure;
+                        } else if (event.type === "done") {
+                            sawDone = true;
+                        }
+                    }
+
+                    if (done) break;
+                }
+
+                if (streamError) throw new Error(streamError);
+                if (!sawDone) {
+                    console.warn(
+                        `Stack ${stack.name} action stream ended without a done event`,
+                    );
+                }
+            }
+
+            const refreshed = await fetchStacks();
+            if (refreshed) {
+                showStatus(messages.success, "success");
+            }
+        } catch (error) {
+            console.error(`Failed to ${action} stack:`, error);
+            await fetchStacks();
+            showStatus(`${messages.failure}: ${error.message}`);
+        } finally {
+            buttons.forEach((button) => {
+                if (button) button.disabled = false;
+            });
         }
     };
 

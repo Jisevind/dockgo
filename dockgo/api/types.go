@@ -135,6 +135,7 @@ type StackOverview struct {
 	ID          string              `json:"id"`
 	Name        string              `json:"name"`
 	Status      string              `json:"status"`
+	Ownership   string              `json:"ownership"`
 	Source      string              `json:"source"`
 	Location    string              `json:"location"`
 	Containers  int                 `json:"containers"`

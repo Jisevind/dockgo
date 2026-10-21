@@ -99,6 +99,9 @@ func TestBuildStackOverviewsAggregatesMembers(t *testing.T) {
 		t.Errorf("db status/counts = %q %d/%d/%d, want running 2/1/1",
 			dbRow.Status, dbRow.Containers, dbRow.Running, dbRow.Stopped)
 	}
+	if dbRow.Ownership != "unbound" {
+		t.Errorf("db ownership = %q, want unbound", dbRow.Ownership)
+	}
 	if dbRow.CPUPercent != 0.5 || dbRow.MemoryUsed != 200 || dbRow.MemoryLimit != 1000 ||
 		dbRow.NetRx != 5 || dbRow.NetTx != 6 || dbRow.DiskRead != 7 || dbRow.DiskWrite != 8 {
 		t.Errorf("db aggregate stats = %#v", dbRow)
@@ -117,10 +120,16 @@ func TestBuildStackOverviewsAggregatesMembers(t *testing.T) {
 	if offlineRow.Status != "unknown" || offlineRow.Containers != 0 || len(offlineRow.Members) != 0 {
 		t.Errorf("offline row = %#v, want unknown with no members", offlineRow)
 	}
+	if offlineRow.Ownership != "unbound" {
+		t.Errorf("offline ownership = %q, want unbound", offlineRow.Ownership)
+	}
 
 	webRow := got[2]
 	if webRow.Status != "running" || webRow.Containers != 1 || webRow.Running != 1 {
 		t.Errorf("web status/counts = %q %d/%d", webRow.Status, webRow.Containers, webRow.Running)
+	}
+	if webRow.Ownership != "bound" {
+		t.Errorf("web ownership = %q, want bound", webRow.Ownership)
 	}
 	if webRow.Source != "Compose files" || webRow.Location != "/compose/web" {
 		t.Errorf("web source/location = %q/%q", webRow.Source, webRow.Location)
@@ -146,6 +155,36 @@ func TestBuildStackOverviewsStoppedStatus(t *testing.T) {
 	if got[0].Status != "stopped" || got[0].Running != 0 || got[0].Stopped != 2 {
 		t.Fatalf("status/counts = %q %d/%d, want stopped 0/2",
 			got[0].Status, got[0].Running, got[0].Stopped)
+	}
+}
+
+func TestBuildStackOverviewsOwnership(t *testing.T) {
+	stackList := []stacks.Stack{
+		{ID: "bound", Name: "bound", ProjectName: "bound", ManagedContainers: []string{"b1"}},
+		{ID: "missing", Name: "missing", ProjectName: "missing", ManagedContainers: []string{"gone"}},
+		{ID: "extra", Name: "extra", ProjectName: "extra", ManagedContainers: []string{"e1"}},
+		{ID: "unbound", Name: "unbound", ProjectName: "unbound"},
+	}
+	containers := []api.ContainerOverview{
+		{ID: "b1", Name: "bound-app", ComposeProject: "bound"},
+		{ID: "e1", Name: "extra-app", ComposeProject: "extra"},
+		{ID: "e2", Name: "extra-orphan", ComposeProject: "extra"},
+	}
+
+	got := buildStackOverviews(stackList, containers)
+	ownership := make(map[string]string, len(got))
+	for _, row := range got {
+		ownership[row.Name] = row.Ownership
+	}
+
+	want := map[string]string{
+		"bound":   "bound",
+		"extra":   "drifted",
+		"missing": "drifted",
+		"unbound": "unbound",
+	}
+	if !reflect.DeepEqual(ownership, want) {
+		t.Fatalf("ownership = %#v, want %#v", ownership, want)
 	}
 }
 
@@ -213,6 +252,7 @@ func TestHandleStacksOverviewAgent(t *testing.T) {
 		t.Fatalf("got %d stacks, want 1", len(rows))
 	}
 	if rows[0].Name != "web" || rows[0].Status != "running" ||
+		rows[0].Ownership != "bound" ||
 		rows[0].Running != 1 || rows[0].Networks != 1 || rows[0].Volumes != 1 {
 		t.Fatalf("stack row = %#v", rows[0])
 	}

@@ -58,6 +58,9 @@ The stack status API returns two separate concepts:
 
 This is surfaced explicitly so the UI and API do not silently guess.
 
+Stack overview rows also expose `ownership` as `bound`, `drifted`, or
+`unbound` for the Stacks table.
+
 ## Reconcile
 
 `Reconcile` updates ownership from the currently running runtime containers for the stack.
