@@ -2144,6 +2144,11 @@ h1 {
     background: rgba(239, 68, 68, 0.1);
     color: var(--danger);
     font-size: 0.85rem;
+    transition: opacity 0.4s ease;
+}
+
+.page-status.fading {
+    opacity: 0;
 }
 
 .page-status.success {
@@ -2639,5 +2644,43 @@ h1 {
     .candidate-row {
         flex-direction: column;
         align-items: stretch;
+    }
+}
+
+/* ── Dashboard page ─────────────────────────────────────────────── */
+.dashboard-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.dashboard-toolbar .search-input {
+    max-width: 360px;
+}
+
+.dashboard-panel .progress-container {
+    margin: 0 0 1rem;
+}
+
+.dashboard-panel .grid-list {
+    gap: 1rem;
+}
+
+.dashboard-panel .card,
+.dashboard-panel .list-item {
+    background: rgba(15, 23, 42, 0.35);
+}
+
+.dashboard-panel .stack-group-card,
+.dashboard-panel .stack-group-list-item {
+    cursor: default;
+}
+
+@media (max-width: 600px) {
+    .dashboard-toolbar .search-input {
+        max-width: none;
     }
 }

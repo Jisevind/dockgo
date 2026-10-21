@@ -9,6 +9,7 @@ import (
 // webPages maps each standalone page URL to its document in the embedded web
 // assets.
 var webPages = map[string]string{
+	"/dashboard":  "dashboard.html",
 	"/networks":   "networks.html",
 	"/images":     "images.html",
 	"/volumes":    "volumes.html",

@@ -184,12 +184,14 @@ In short: no manual versioning or publishing is needed — merging conventional 
 
 The web UI is embedded in the binary (`//go:embed web`) and served as static
 documents. The main dashboard at `/` stays container-first: update checks,
-one-click updates, logs, and the management tabs for Agents and Stacks.
+one-click updates, logs, and the management tabs for Agents and Stacks. A
+standalone port of its container view is available at `/dashboard`.
 
-The sidebar opens dedicated pages for the read-heavy views:
+The standalone page routes are:
 
 | Route | Document | Purpose |
 | --- | --- | --- |
+| `/dashboard` | `dashboard.html` | Standalone container dashboard with update checks |
 | `/containers` | `containers.html` | Container table and start/stop controls |
 | `/stacks` | `stacks.html` | Registered stacks with aggregated usage |
 | `/stacks/new` | `stacks-new.html` | Project discovery and stack registration |
@@ -201,7 +203,9 @@ The sidebar opens dedicated pages for the read-heavy views:
 
 These pages share `page.js`, which owns authentication, the host selector,
 table sorting, column visibility, pagination, formatting helpers, and container
-start/stop actions. The dashboard keeps its own `app.js` until it is migrated.
+start/stop actions. `/dashboard` adds `dashboard.js` for its container cards,
+update stream, and logs. The original dashboard at `/` keeps its own `app.js`
+until it is migrated.
 
 UI text uses Inter. Identifiers, timestamps, and metrics use the bundled
 Ioskeley Mono webfont (SIL Open Font License; see

@@ -5,6 +5,7 @@ The sidebar links each page; the host selector in the header applies to all of
 them.
 
 - **Dashboard** (`/`): container cards, update checks, and one-click updates
+- **New Dashboard** (`/dashboard`): standalone port of the container dashboard
 - **Containers** (`/containers`): live container table and start/stop controls
 - **Stacks** (`/stacks`): registered Compose stacks with aggregated usage
 - **Add Stack** (`/stacks/new`): discover projects and register a stack
@@ -34,6 +35,15 @@ Secondary actions in the menu:
 - restart
 - view logs
 - view stack, when the container is managed by a registered stack
+
+## New Dashboard
+
+The **New Dashboard** page at `/dashboard` ports the main dashboard's container
+card view into the shared page layout. It keeps update checks, one-click
+updates, start/stop/restart, and container logs. Cards with available updates
+are shown first, and **Group by Stack** groups containers under their
+registered stacks. The Stacks and Agents views are not included; the original
+dashboard at `/` remains available unchanged for now.
 
 ## Shared Table Controls
 
