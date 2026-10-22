@@ -178,17 +178,7 @@ func (s *Server) handleAgentContainers(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		s.mu.RLock()
-		agentCache := s.agentUpdatesCache[agentID]
-		s.mu.RUnlock()
-
-		for _, c := range containers {
-			if id, ok := c["id"].(string); ok && id != "" && agentCache != nil {
-				if agentCache[id] {
-					c["update_available"] = true
-				}
-			}
-		}
+		s.overlayAgentUpdates(agentID, containers)
 
 		// Overlay stack ownership from the server's central store so the
 		// dashboard can group agent containers by stack, mirroring the local
@@ -540,9 +530,9 @@ func (s *Server) handleAgentUpdate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Refresh the per-agent cache for the updated container: the agent
-		// just pulled and recreated it, so clear any pending update flag.
-		go s.clearAgentUpdateBadge(agentID)
+		// Only this container was recreated, so keep unrelated update flags.
+		// The old container ID is pruned the next time the agent's containers
+		// are listed, and the new ID is intentionally absent until a scan.
 
 		s.Notifier.Notify("DockGo Update Success", fmt.Sprintf("Container %s updated successfully", name), notify.TypeSuccess)
 		emitSSE(map[string]any{
@@ -555,12 +545,34 @@ func (s *Server) handleAgentUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// clearAgentUpdateBadge drops all pending update flags for an agent after a
-// successful update. The next scan will repopulate accurate flags.
-func (s *Server) clearAgentUpdateBadge(agentID string) {
+// overlayAgentUpdates applies cached update flags to agent containers and
+// prunes cache entries for container IDs that no longer exist.
+func (s *Server) overlayAgentUpdates(agentID string, containers []map[string]any) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.agentUpdatesCache[agentID] = make(map[string]bool)
+
+	cache := s.agentUpdatesCache[agentID]
+	if cache == nil {
+		return
+	}
+
+	alive := make(map[string]bool, len(containers))
+	for _, c := range containers {
+		id, _ := c["id"].(string)
+		if id == "" {
+			continue
+		}
+		alive[id] = true
+		if cache[id] {
+			c["update_available"] = true
+		}
+	}
+
+	for id := range cache {
+		if !alive[id] {
+			delete(cache, id)
+		}
+	}
 }
 
 // handleAgentContainerAction proxies start/stop/restart to an agent.
