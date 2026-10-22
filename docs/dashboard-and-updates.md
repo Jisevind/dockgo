@@ -84,6 +84,12 @@ their containers:
 - CPU, memory, network, and disk usage
 - distinct network and volume counts
 - source and working directory
+- row actions: **Redeploy**, **Restart**, **Start/Stop**, **Down**, and
+  **Remove**
+
+Start/Stop, Restart, and Down are disabled while ownership is drifted or
+unbound; Redeploy remains available. Remove deletes the DockGo registration
+only and leaves the stack's containers running.
 
 Select the chevron beside a stack name to see its containers plus **Edit
 Files**, **Reconcile**, and **Deploy** actions. **Edit Files** opens the editor,

@@ -92,6 +92,22 @@ document.addEventListener("DOMContentLoaded", () => {
         return badge;
     };
 
+    const makeStackRowActionButton = ({
+        icon,
+        label,
+        danger = false,
+        disabled = false,
+    }) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `stack-row-action${danger ? " danger" : ""}`;
+        button.title = label;
+        button.setAttribute("aria-label", label);
+        button.innerHTML = `<span class="nf ${icon}" aria-hidden="true"></span>`;
+        button.disabled = disabled;
+        return button;
+    };
+
     const memberTable = (members) => {
         const table = document.createElement("table");
         table.className = "stack-containers-table";
@@ -290,6 +306,72 @@ document.addEventListener("DOMContentLoaded", () => {
             volumesCell.className = "cell-data";
             volumesCell.textContent = stack.volumes ? String(stack.volumes) : "-";
 
+            const needsReconcile =
+                stack.ownership === "drifted" || stack.ownership === "unbound";
+            const isRunning = (stack.running || 0) > 0;
+            const startStopAction = isRunning ? "stop" : "start";
+
+            const redeployBtn = makeStackRowActionButton({
+                icon: "nf-rocket",
+                label: `Redeploy ${stack.name}`,
+            });
+            const restartBtn = makeStackRowActionButton({
+                icon: "nf-restart",
+                label: `Restart ${stack.name}`,
+                disabled: needsReconcile || !isRunning,
+            });
+            const startStopBtn = makeStackRowActionButton({
+                icon: isRunning ? "nf-stop" : "nf-play",
+                label: `${isRunning ? "Stop" : "Start"} ${stack.name}`,
+                disabled: needsReconcile,
+            });
+            const downBtn = makeStackRowActionButton({
+                icon: "nf-power",
+                label: `Bring ${stack.name} down`,
+                disabled: needsReconcile,
+            });
+            const removeBtn = makeStackRowActionButton({
+                icon: "nf-trash",
+                label: `Remove ${stack.name}`,
+                danger: true,
+            });
+
+            const actionButtons = [
+                redeployBtn,
+                restartBtn,
+                startStopBtn,
+                downBtn,
+                removeBtn,
+            ];
+            redeployBtn.addEventListener("click", () =>
+                runStackAction(stack, "deploy", actionButtons),
+            );
+            restartBtn.addEventListener("click", () =>
+                runStackAction(stack, "restart", actionButtons),
+            );
+            startStopBtn.addEventListener("click", () =>
+                runStackAction(stack, startStopAction, actionButtons),
+            );
+            downBtn.addEventListener("click", () =>
+                runStackAction(stack, "down", actionButtons),
+            );
+            removeBtn.addEventListener("click", () =>
+                removeStack(stack, actionButtons),
+            );
+
+            const actionsCell = document.createElement("td");
+            actionsCell.className = "stack-actions-cell";
+            const actionsWrap = document.createElement("div");
+            actionsWrap.className = "stack-row-actions";
+            actionsWrap.append(
+                redeployBtn,
+                restartBtn,
+                startStopBtn,
+                downBtn,
+                removeBtn,
+            );
+            actionsCell.appendChild(actionsWrap);
+
             row.append(
                 nameCell,
                 statusCell,
@@ -303,6 +385,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 diskCell,
                 networksCell,
                 volumesCell,
+                actionsCell,
             );
             tableBodyEl.appendChild(row);
 
@@ -311,7 +394,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 detailRow.className = "stack-detail-row";
                 detailRow.dataset.detailRow = "true";
                 const detailCell = document.createElement("td");
-                detailCell.colSpan = 12;
+                detailCell.colSpan = 13;
 
                 const toolbar = document.createElement("div");
                 toolbar.className = "stack-detail-toolbar";
@@ -479,11 +562,51 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const stackActionMessages = {
         deploy: {
-            title: "Deploy Stack",
-            label: "Deploy",
+            title: "Redeploy Stack",
+            label: "Redeploy",
             start: "Starting stack deployment...",
             success: "Deployment completed successfully.",
             failure: "Deployment failed",
+            confirm: (name) =>
+                `Redeploy "${name}"? This may pull images and recreate its containers.`,
+            danger: true,
+        },
+        restart: {
+            title: "Restart Stack",
+            label: "Restart",
+            start: "Restarting stack services...",
+            success: "Stack restarted successfully.",
+            failure: "Restart failed",
+            confirm: (name) => `Restart "${name}"?`,
+            danger: true,
+        },
+        start: {
+            title: "Start Stack",
+            label: "Start",
+            start: "Starting stack services...",
+            success: "Stack started successfully.",
+            failure: "Start failed",
+            confirm: (name) => `Start "${name}"?`,
+            danger: false,
+        },
+        stop: {
+            title: "Stop Stack",
+            label: "Stop",
+            start: "Stopping stack services...",
+            success: "Stack stopped.",
+            failure: "Stop failed",
+            confirm: (name) => `Stop "${name}"?`,
+            danger: true,
+        },
+        down: {
+            title: "Bring Stack Down",
+            label: "Down",
+            start: "Bringing stack down...",
+            success: "Stack is down.",
+            failure: "Down failed",
+            confirm: (name) =>
+                `Bring "${name}" down? This removes its containers and networks.`,
+            danger: true,
         },
         reconcile: {
             title: "Reconcile Stack",
@@ -491,6 +614,9 @@ document.addEventListener("DOMContentLoaded", () => {
             start: "Reconciling stack ownership...",
             success: "Stack ownership reconciled.",
             failure: "Reconcile failed",
+            confirm: (name) =>
+                `Reconcile "${name}"? This re-binds recorded ownership to the current runtime containers.`,
+            danger: false,
         },
     };
 
@@ -500,12 +626,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const confirmed = await page.showConfirmModal({
             title: messages.title,
-            message:
-                action === "deploy"
-                    ? `Deploy "${stack.name}"? This may pull images and recreate its containers.`
-                    : `Reconcile "${stack.name}"? This re-binds recorded ownership to the current runtime containers.`,
+            message: messages.confirm(stack.name),
             confirmLabel: messages.label,
-            danger: action === "deploy",
+            danger: messages.danger,
         });
         if (!confirmed) return;
 
@@ -599,6 +722,55 @@ document.addEventListener("DOMContentLoaded", () => {
             console.error(`Failed to ${action} stack:`, error);
             await fetchStacks();
             showStatus(`${messages.failure}: ${error.message}`);
+        } finally {
+            buttons.forEach((button) => {
+                if (button) button.disabled = false;
+            });
+        }
+    };
+
+    const removeStack = async (stack, buttons = []) => {
+        const confirmed = await page.showConfirmModal({
+            title: "Remove Stack",
+            message: `Remove "${stack.name}"? This deletes the DockGo registration only; its containers keep running.`,
+            confirmLabel: "Remove",
+            danger: true,
+        });
+        if (!confirmed) return;
+
+        buttons.forEach((button) => {
+            if (button) button.disabled = true;
+        });
+        hideStatus();
+        showStatus(`Removing ${stack.name}...`, "info");
+
+        try {
+            const response = await fetch(
+                page.withAgentQuery(
+                    `/api/stacks/${encodeURIComponent(stack.id)}`,
+                ),
+                {
+                    method: "DELETE",
+                    headers: page.getAuthHeaders(),
+                },
+            );
+
+            if (response.status === 401 || response.status === 403) {
+                if (page.getState().authEnabled) page.showLoginModal();
+                throw new Error("Authentication required");
+            }
+            if (!response.ok) {
+                throw new Error(await responseErrorMessage(response));
+            }
+
+            const refreshed = await fetchStacks();
+            if (refreshed) {
+                showStatus(`Removed stack ${stack.name}.`, "success");
+            }
+        } catch (error) {
+            console.error("Failed to remove stack", error);
+            await fetchStacks();
+            showStatus(`Remove failed: ${error.message}`);
         } finally {
             buttons.forEach((button) => {
                 if (button) button.disabled = false;
