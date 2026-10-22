@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agents · DockGo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/style.css?v=1.4.0">
+    <script src="/page.js?v=1.2.0" defer></script>
+    <script src="/agents.js?v=1.0.0" defer></script>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-180x180.png">
+    <!-- Android Chrome -->
+    <link rel="icon" type="image/png" sizes="192x192" href="/android-chrome-192x192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="/android-chrome-512x512.png">
+    <!-- Microsoft Tiles -->
+    <meta name="msapplication-TileColor" content="#ffffff">
+    <meta name="msapplication-TileImage" content="/mstile-150x150.png">
+    <meta name="msapplication-config" href="/browserconfig.xml">
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+</head>
+
+<body>
+    <aside class="sidebar">
+        <nav class="sidebar-nav" aria-label="Primary navigation">
+            <a class="sidebar-link" href="/"><span class="nf nf-dashboard" aria-hidden="true"></span>Dashboard</a>
+            <a class="sidebar-link" href="/dashboard"><span class="nf nf-dashboard-variant" aria-hidden="true"></span>New Dashboard</a>
+            <a class="sidebar-link" href="/containers"><span class="nf nf-docker" aria-hidden="true"></span>Containers</a>
+            <a class="sidebar-link" href="/stacks"><span class="nf nf-layers" aria-hidden="true"></span>Stacks</a>
+            <a class="sidebar-link" href="/volumes"><span class="nf nf-database" aria-hidden="true"></span>Volumes</a>
+            <a class="sidebar-link" href="/images"><span class="nf nf-package" aria-hidden="true"></span>Images</a>
+            <a class="sidebar-link" href="/networks"><span class="nf nf-network" aria-hidden="true"></span>Networks</a>
+            <a class="sidebar-link active" href="/agents" aria-current="page"><span class="nf nf-server" aria-hidden="true"></span>Agents</a>
+        </nav>
+    </aside>
+
+    <div class="container">
+        <header>
+            <div style="display: flex; align-items: flex-end; gap: 0.75rem;">
+                <img src="/dockgo-logo-web.svg" width="125" alt="DockGo Logo">
+                <span id="app-version" class="version-tag"
+                    style="font-family: monospace; color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.2rem;"></span>
+            </div>
+            <div class="header-controls">
+                <div class="control-group host-selector-group">
+                    <select id="host-selector" title="Select host" class="host-selector">
+                        <option value="">Local host</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <button id="refresh-agents-icon" class="btn-icon" title="Refresh Agents">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M23 4v6h-6"></path>
+                            <path d="M1 20v-6h6"></path>
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                        </svg>
+                    </button>
+                    <button id="logout-btn" class="btn-icon hidden" title="Logout">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                            <polyline points="16 17 21 12 16 7"></polyline>
+                            <line x1="21" y1="12" x2="9" y2="12"></line>
+                        </svg>
+                    </button>
+                    <button id="logout-all-btn" class="btn-icon hidden" title="Logout All Devices"
+                        style="color: var(--danger);">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+                            <line x1="12" y1="2" x2="12" y2="12"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <section class="page-section">
+            <div class="stacks-overview">
+                <div>
+                    <p class="stacks-kicker">Multi-Host Management</p>
+                    <h2>Agents</h2>
+                    <p class="stacks-description">Register remote Docker hosts as agents. Agents dial out to this server
+                        over an encrypted channel; the dashboard then operates on their containers and stacks.</p>
+                </div>
+                <div class="stacks-overview-stats">
+                    <div class="stacks-stat">
+                        <span class="stacks-stat-label">Registered</span>
+                        <strong id="agents-stat-registered">0</strong>
+                    </div>
+                    <div class="stacks-stat">
+                        <span class="stacks-stat-label">Online</span>
+                        <strong id="agents-stat-online">0</strong>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stack-panel page-panel">
+                <div class="stack-panel-header">
+                    <h2>Registered Agents</h2>
+                    <div class="stack-panel-actions">
+                        <button id="refresh-agents-list-btn" class="btn secondary">
+                            <span class="nf nf-refresh" aria-hidden="true"></span>Refresh
+                        </button>
+                        <button id="add-agent-btn" class="btn primary">Add Agent</button>
+                    </div>
+                </div>
+                <div id="agents-status" class="page-status hidden"></div>
+                <div class="data-table-wrapper">
+                    <table class="data-table agents-table">
+                        <thead>
+                            <tr>
+                                <th data-column="name"><button type="button" class="sort-btn" data-sort="name">Name<span class="sort-arrow"></span></button></th>
+                                <th data-column="hostname"><button type="button" class="sort-btn" data-sort="hostname">Hostname<span class="sort-arrow"></span></button></th>
+                                <th data-column="status"><button type="button" class="sort-btn" data-sort="status">Status<span class="sort-arrow"></span></button></th>
+                                <th data-column="version"><button type="button" class="sort-btn" data-sort="version">Version<span class="sort-arrow"></span></button></th>
+                                <th data-column="last_seen"><button type="button" class="sort-btn" data-sort="last_seen">Last Seen<span class="sort-arrow"></span></button></th>
+                                <th data-column="actions" class="actions-header">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="agents-table-body"></tbody>
+                    </table>
+                    <div id="agents-empty" class="loading">Loading agents...</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Agent Create Modal -->
+        <div id="agent-modal" class="modal-overlay hidden">
+            <div class="modal">
+                <div class="modal-header">
+                    <h2 id="agent-modal-title">Add Agent</h2>
+                    <button id="close-agent-btn" class="close-btn" title="Close">✕</button>
+                </div>
+                <div class="modal-body">
+                    <form id="agent-form">
+                        <div class="form-group">
+                            <label for="agent-name">Agent Name</label>
+                            <input type="text" id="agent-name" name="agent_name" required
+                                placeholder="e.g. media-server">
+                            <small class="form-hint">Used to identify this host in the dashboard and in agent
+                                registration.</small>
+                        </div>
+                        <div id="agent-form-error" class="error-message hidden"></div>
+                        <div class="stack-form-actions">
+                            <button type="button" id="agent-cancel-btn" class="btn secondary">Cancel</button>
+                            <button type="submit" class="btn primary">Create Agent</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Agent Key Display Modal -->
+        <div id="agent-key-modal" class="modal-overlay hidden">
+            <div class="modal">
+                <div class="modal-header">
+                    <h2>Agent Key Created</h2>
+                    <button id="close-agent-key-btn" class="close-btn" title="Close">✕</button>
+                </div>
+                <div class="modal-body" style="text-align: center;">
+                    <p>Set this as <code>AGENT_KEY</code> on the remote host. It is shown only once.</p>
+                    <pre id="agent-key-value" class="stack-details-pre" style="user-select: all;"></pre>
+                    <p class="stacks-description">Agent keys are bcrypt-hashed at rest. Rotate from the Agents page if
+                        it leaks.</p>
+                    <div style="display: flex; gap: 10px; justify-content: center;">
+                        <button id="agent-key-copy-btn" class="btn primary">Copy Key</button>
+                        <button id="agent-key-close-btn" class="btn secondary">Done</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Confirm Modal -->
+        <div id="confirm-modal" class="modal-overlay hidden" style="z-index: 2000;">
+            <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title"
+                aria-describedby="confirm-modal-message">
+                <div class="modal-header">
+                    <h2 id="confirm-modal-title">Confirm</h2>
+                </div>
+                <div class="modal-body" style="text-align: center;">
+                    <p id="confirm-modal-message" style="white-space: pre-line;"></p>
+                    <div style="display: flex; gap: 10px; justify-content: center;">
+                        <button id="confirm-modal-cancel" class="btn secondary" style="min-width: 100px;"
+                            type="button">Cancel</button>
+                        <button id="confirm-modal-ok" class="btn primary" style="min-width: 100px;"
+                            type="button">OK</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Login Modal -->
+        <div id="login-modal" class="modal-overlay hidden">
+            <div class="modal">
+                <div class="modal-header">
+                    <h2>Login</h2>
+                </div>
+                <div class="modal-body">
+                    <form id="login-form">
+                        <div class="form-group">
+                            <label for="username">Username</label>
+                            <input type="text" id="username" name="username" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="password">Password</label>
+                            <input type="password" id="password" name="password" required>
+                        </div>
+                        <div id="login-error" class="error-message hidden"></div>
+                        <button type="submit" class="btn primary full-width">Login</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- No Auth Modal -->
+        <div id="no-auth-modal" class="modal-overlay hidden">
+            <div class="modal">
+                <div class="modal-header">
+                    <h2 style="color: var(--danger);">Authentication Required</h2>
+                </div>
+                <div class="modal-body" style="text-align: center;">
+                    <p style="margin-bottom: 1rem;">DockGo has been started without any authentication configured
+                        (Missing <code>AUTH_USERNAME</code> and <code>API_TOKEN</code>).</p>
+                    <p style="margin-bottom: 1rem;">To protect your server, the dashboard and API connection have been
+                        <strong>blocked</strong>.</p>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem;">Please restart the DockGo container with
+                        authentication environment variables set in order to access the dashboard.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

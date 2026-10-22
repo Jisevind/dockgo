@@ -17,6 +17,7 @@ func init() {
 // assets.
 var webPages = map[string]string{
 	"/dashboard":  "dashboard.html",
+	"/agents":     "agents.html",
 	"/networks":   "networks.html",
 	"/images":     "images.html",
 	"/volumes":    "volumes.html",

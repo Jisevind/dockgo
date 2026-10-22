@@ -192,6 +192,7 @@ The standalone page routes are:
 | Route | Document | Purpose |
 | --- | --- | --- |
 | `/dashboard` | `dashboard.html` | Standalone container dashboard with update checks |
+| `/agents` | `agents.html` | Remote agent registration and management |
 | `/containers` | `containers.html` | Container table and start/stop controls |
 | `/stacks` | `stacks.html` | Registered stacks with aggregated usage |
 | `/stacks/new` | `stacks-new.html` | Project discovery and stack registration |
@@ -204,8 +205,9 @@ The standalone page routes are:
 These pages share `page.js`, which owns authentication, the host selector,
 table sorting, column visibility, pagination, formatting helpers, and container
 start/stop actions. `/dashboard` adds `dashboard.js` for its container cards,
-update stream, and logs. The original dashboard at `/` keeps its own `app.js`
-until it is migrated.
+update stream, and logs; `/agents` adds `agents.js` for registration and key
+management. The original dashboard at `/` keeps its own `app.js` until it is
+migrated.
 
 UI text uses Inter. Identifiers, timestamps, and metrics use the bundled
 Ioskeley Mono webfont (SIL Open Font License; see

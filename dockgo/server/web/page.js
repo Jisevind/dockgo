@@ -143,8 +143,13 @@
                 headers: getAuthHeaders(),
             });
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            const agents = await response.json();
-            updateHostSelector(Array.isArray(agents) ? agents : []);
+            const data = await response.json();
+            const agents = Array.isArray(data)
+                ? data
+                : data && Array.isArray(data.agents)
+                  ? data.agents
+                  : [];
+            updateHostSelector(agents);
         } catch (error) {
             console.error("Failed to fetch agents", error);
             updateHostSelector([]);
@@ -693,6 +698,7 @@
         getAuthHeaders,
         withAgentQuery,
         getState: () => ({ ...state }),
+        refreshAgents: fetchAgents,
         showLoginModal,
         showConfirmModal,
         formatBytes,

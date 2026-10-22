@@ -90,7 +90,7 @@ waits for the agent's response, and streams it back to the web client.
 
 ### 1. Server side
 
-1. Open the DockGo dashboard and go to the **Agents** view.
+1. Open the **Agents** page at `/agents`.
 2. Click **Add Agent**, enter a name (e.g. `media-server`), and click
    **Create Agent**.
 3. Copy the generated key (**shown only once**). If you lose it, use
@@ -100,7 +100,7 @@ Environment variables on the server:
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `AGENT_STORE_PATH` | `/app/data/agents.json` | JSON file that persists agent records |
+| `AGENT_STORE_PATH` | `/app/data/agents.json` | Absolute path to the JSON file that persists agent records |
 | `AGENT_MAX_CONCURRENT` | `8` | Per-agent concurrent op cap |
 | `AGENT_HANDSHAKE_CONCURRENCY` | `8` | Concurrent registration handshakes |
 | `AGENT_JWT_TTL` | `1h` | Lifetime of the channel JWT |

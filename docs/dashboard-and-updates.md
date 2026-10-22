@@ -13,6 +13,7 @@ them.
 - **Volume overview** (`/volumes/{name}`): one volume's details and labels
 - **Images** (`/images`): local images by repository and tag
 - **Networks** (`/networks`): Docker networks with IPAM details
+- **Agents** (`/agents`): register and manage remote Docker hosts
 
 ## Main Dashboard
 
@@ -133,6 +134,16 @@ ID, creation time, size, and the number of containers using the image. Expand a
 row to see the containers using that image, their state, and the Compose stacks
 they belong to. The **Prune** and **Prune All** buttons run `docker image prune`
 and `docker image prune -a` respectively on the selected host.
+
+## Agents Page
+
+The **Agents** page shows the number of registered and online agents plus a
+table with each agent's hostname, status, version, and last-seen time.
+
+Use **Add Agent** to create a registration key, then set it as `AGENT_KEY` on
+the remote host. The key is shown only once and can be copied from the modal.
+Each agent row can rotate its key or be deleted; deleting an agent disconnects
+it permanently.
 
 ## Networks Page
 

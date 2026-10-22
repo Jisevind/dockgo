@@ -13,6 +13,7 @@ func testWebFS() fs.FS {
 	return fstest.MapFS{
 		"index.html":        {Data: []byte("<!doctype html><title>dashboard</title>")},
 		"dashboard.html":    {Data: []byte("<!doctype html><title>new dashboard page</title>")},
+		"agents.html":       {Data: []byte("<!doctype html><title>agents page</title>")},
 		"networks.html":     {Data: []byte("<!doctype html><title>networks page</title>")},
 		"images.html":       {Data: []byte("<!doctype html><title>images page</title>")},
 		"volumes.html":      {Data: []byte("<!doctype html><title>volumes page</title>")},
@@ -31,6 +32,7 @@ func TestWebHandlerServesStandalonePagesAtOwnURLs(t *testing.T) {
 
 	for path, want := range map[string]string{
 		"/dashboard":       "new dashboard page",
+		"/agents":          "agents page",
 		"/networks":        "networks page",
 		"/images":          "images page",
 		"/volumes":         "volumes page",
@@ -57,7 +59,7 @@ func TestWebHandlerServesStandalonePagesAtOwnURLs(t *testing.T) {
 func TestWebHandlerRedirectsTrailingSlash(t *testing.T) {
 	handler := buildWebHandler(testWebFS())
 
-	for _, page := range []string{"/dashboard", "/networks", "/images", "/volumes"} {
+	for _, page := range []string{"/dashboard", "/agents", "/networks", "/images", "/volumes"} {
 		req := httptest.NewRequest(http.MethodGet, page+"/", nil)
 		rr := httptest.NewRecorder()
 		handler.ServeHTTP(rr, req)
