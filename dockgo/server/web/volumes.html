@@ -8,8 +8,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/style.css?v=1.0.0">
-    <script src="/page.js?v=1.0.1" defer></script>
+    <link rel="stylesheet" href="/style.css?v=1.1.0">
+    <script src="/page.js?v=1.1.0" defer></script>
     <script src="/volumes.js?v=1.0.3" defer></script>
 
     <!-- Favicon -->
@@ -32,13 +32,13 @@
 <body>
     <aside class="sidebar">
         <nav class="sidebar-nav" aria-label="Primary navigation">
-            <a class="sidebar-link" href="/">Dashboard</a>
-            <a class="sidebar-link" href="/dashboard">New Dashboard</a>
-            <a class="sidebar-link" href="/containers">Containers</a>
-            <a class="sidebar-link" href="/stacks">Stacks</a>
-            <a class="sidebar-link active" href="/volumes" aria-current="page">Volumes</a>
-            <a class="sidebar-link" href="/images">Images</a>
-            <a class="sidebar-link" href="/networks">Networks</a>
+            <a class="sidebar-link" href="/"><span class="nf nf-dashboard" aria-hidden="true"></span>Dashboard</a>
+            <a class="sidebar-link" href="/dashboard"><span class="nf nf-dashboard-variant" aria-hidden="true"></span>New Dashboard</a>
+            <a class="sidebar-link" href="/containers"><span class="nf nf-docker" aria-hidden="true"></span>Containers</a>
+            <a class="sidebar-link" href="/stacks"><span class="nf nf-layers" aria-hidden="true"></span>Stacks</a>
+            <a class="sidebar-link active" href="/volumes" aria-current="page"><span class="nf nf-database" aria-hidden="true"></span>Volumes</a>
+            <a class="sidebar-link" href="/images"><span class="nf nf-package" aria-hidden="true"></span>Images</a>
+            <a class="sidebar-link" href="/networks"><span class="nf nf-network" aria-hidden="true"></span>Networks</a>
         </nav>
     </aside>
 
@@ -98,9 +98,9 @@
                     <h2>Docker Volumes</h2>
                     <div class="stack-panel-actions">
                         <button id="prune-volumes-btn" class="btn secondary"
-                            title="Prune anonymous unused volumes (docker volume prune)">Prune</button>
+                            title="Prune anonymous unused volumes (docker volume prune)"><span class="nf nf-broom" aria-hidden="true"></span>Prune</button>
                         <button id="prune-all-volumes-btn" class="btn danger"
-                            title="Prune all unused volumes (docker volume prune -a)">Prune All</button>
+                            title="Prune all unused volumes (docker volume prune -a)"><span class="nf nf-delete-sweep" aria-hidden="true"></span>Prune All</button>
                         <button id="refresh-volumes-list-btn" class="btn secondary">Refresh</button>
                     </div>
                 </div>

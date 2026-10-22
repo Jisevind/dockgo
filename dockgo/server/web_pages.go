@@ -2,9 +2,16 @@ package server
 
 import (
 	"io/fs"
+	"mime"
 	"net/http"
 	"net/url"
 )
+
+func init() {
+	// Alpine does not ship a MIME database by default, so register the icon
+	// font type explicitly instead of relying on the host system.
+	_ = mime.AddExtensionType(".woff2", "font/woff2")
+}
 
 // webPages maps each standalone page URL to its document in the embedded web
 // assets.

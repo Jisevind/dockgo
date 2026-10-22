@@ -211,6 +211,13 @@ UI text uses Inter. Identifiers, timestamps, and metrics use the bundled
 Ioskeley Mono webfont (SIL Open Font License; see
 `dockgo/server/web/fonts/LICENSE-IoskeleyMono.txt`).
 
+UI icons use `dockgo-symbols.woff2`, a curated subset of Nerd Fonts
+SymbolsOnly v3.5.1 containing only Material Design Icons glyphs. The
+class-to-codepoint map lives in `style.css`; regenerate the subset with the
+same codepoints when adding icons. See
+`dockgo/server/web/fonts/NOTICE-DockGoSymbols.txt` and the accompanying
+Apache 2.0 and Nerd Fonts license files.
+
 The overview data comes from these endpoints:
 
 | Endpoint | Purpose |

@@ -8,8 +8,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/style.css?v=1.0.3">
-    <script src="/page.js?v=1.0.1" defer></script>
+    <link rel="stylesheet" href="/style.css?v=1.1.0">
+    <script src="/page.js?v=1.1.0" defer></script>
     <script src="/dashboard.js?v=1.0.3" defer></script>
 
     <!-- Favicon -->
@@ -32,13 +32,13 @@
 <body>
     <aside class="sidebar">
         <nav class="sidebar-nav" aria-label="Primary navigation">
-            <a class="sidebar-link" href="/">Dashboard</a>
-            <a class="sidebar-link active" href="/dashboard" aria-current="page">New Dashboard</a>
-            <a class="sidebar-link" href="/containers">Containers</a>
-            <a class="sidebar-link" href="/stacks">Stacks</a>
-            <a class="sidebar-link" href="/volumes">Volumes</a>
-            <a class="sidebar-link" href="/images">Images</a>
-            <a class="sidebar-link" href="/networks">Networks</a>
+            <a class="sidebar-link" href="/"><span class="nf nf-dashboard" aria-hidden="true"></span>Dashboard</a>
+            <a class="sidebar-link active" href="/dashboard" aria-current="page"><span class="nf nf-dashboard-variant" aria-hidden="true"></span>New Dashboard</a>
+            <a class="sidebar-link" href="/containers"><span class="nf nf-docker" aria-hidden="true"></span>Containers</a>
+            <a class="sidebar-link" href="/stacks"><span class="nf nf-layers" aria-hidden="true"></span>Stacks</a>
+            <a class="sidebar-link" href="/volumes"><span class="nf nf-database" aria-hidden="true"></span>Volumes</a>
+            <a class="sidebar-link" href="/images"><span class="nf nf-package" aria-hidden="true"></span>Images</a>
+            <a class="sidebar-link" href="/networks"><span class="nf nf-network" aria-hidden="true"></span>Networks</a>
         </nav>
     </aside>
 
@@ -99,11 +99,11 @@
                     <span id="connection-status" class="status-indicator">Connecting...</span>
                 </div>
                 <div class="server-stats-metrics">
-                    <span class="stat-item"><span class="stat-label">CPU:</span> <strong id="stat-cpu">--%</strong></span>
+                    <span class="stat-item"><span class="nf nf-chip" aria-hidden="true"></span><span class="stat-label">CPU:</span> <strong id="stat-cpu">--%</strong></span>
                     <span class="stat-divider"></span>
-                    <span class="stat-item"><span class="stat-label">RAM:</span> <strong id="stat-ram">-- / --</strong></span>
+                    <span class="stat-item"><span class="nf nf-memory" aria-hidden="true"></span><span class="stat-label">RAM:</span> <strong id="stat-ram">-- / --</strong></span>
                     <span class="stat-divider"></span>
-                    <span class="stat-item"><span class="stat-label">Disk:</span> <strong id="stat-disk">-- / --</strong></span>
+                    <span class="stat-item"><span class="nf nf-disk" aria-hidden="true"></span><span class="stat-label">Disk:</span> <strong id="stat-disk">-- / --</strong></span>
                 </div>
             </div>
 
@@ -111,8 +111,8 @@
                 <div class="stack-panel-header">
                     <h2>Containers</h2>
                     <div class="stack-panel-actions">
-                        <button id="scan-updates-btn" class="btn primary">Check for Updates</button>
-                        <button id="refresh-dashboard-list-btn" class="btn secondary">Refresh</button>
+                        <button id="scan-updates-btn" class="btn primary"><span class="nf nf-update" aria-hidden="true"></span>Check for Updates</button>
+                        <button id="refresh-dashboard-list-btn" class="btn secondary"><span class="nf nf-refresh" aria-hidden="true"></span>Refresh</button>
                     </div>
                 </div>
 
@@ -132,34 +132,9 @@
                     <input type="text" id="dashboard-search" class="search-input"
                         placeholder="Search containers by name...">
                     <div class="view-switch" role="tablist" aria-label="Container view">
-                        <button id="view-grid" class="btn-icon active" title="Grid View">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
-                                <rect x="3" y="3" width="7" height="7"></rect>
-                                <rect x="14" y="3" width="7" height="7"></rect>
-                                <rect x="14" y="14" width="7" height="7"></rect>
-                                <rect x="3" y="14" width="7" height="7"></rect>
-                            </svg>
-                        </button>
-                        <button id="view-list" class="btn-icon" title="List View">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
-                                <line x1="8" y1="6" x2="21" y2="6"></line>
-                                <line x1="8" y1="12" x2="21" y2="12"></line>
-                                <line x1="8" y1="18" x2="21" y2="18"></line>
-                                <line x1="3" y1="6" x2="3.01" y2="6"></line>
-                                <line x1="3" y1="12" x2="3.01" y2="12"></line>
-                                <line x1="3" y1="18" x2="3.01" y2="18"></line>
-                            </svg>
-                        </button>
-                        <button id="view-group" class="btn-icon" title="Group by Stack">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <rect x="2" y="3" width="20" height="5" rx="1"></rect>
-                                <rect x="2" y="10" width="20" height="5" rx="1"></rect>
-                                <rect x="2" y="17" width="20" height="5" rx="1"></rect>
-                            </svg>
-                        </button>
+                        <button id="view-grid" class="btn-icon active" title="Grid View"><span class="nf nf-grid" aria-hidden="true"></span></button>
+                        <button id="view-list" class="btn-icon" title="List View"><span class="nf nf-list" aria-hidden="true"></span></button>
+                        <button id="view-group" class="btn-icon" title="Group by Stack"><span class="nf nf-group" aria-hidden="true"></span></button>
                     </div>
                 </div>
 
@@ -177,13 +152,13 @@
                     <div class="header-actions">
                         <span class="status-badge"></span>
                         <div class="menu">
-                            <button class="menu-btn" title="Container Actions">⋮</button>
+                            <button class="menu-btn" title="Container Actions"><span class="nf nf-dots" aria-hidden="true"></span></button>
                             <div class="menu-dropdown hidden">
-                                <button class="menu-action-btn" data-action="start">Start</button>
-                                <button class="menu-action-btn" data-action="stop">Stop</button>
-                                <button class="menu-action-btn" data-action="restart">Restart</button>
+                                <button class="menu-action-btn" data-action="start"><span class="nf nf-play" aria-hidden="true"></span>Start</button>
+                                <button class="menu-action-btn" data-action="stop"><span class="nf nf-stop" aria-hidden="true"></span>Stop</button>
+                                <button class="menu-action-btn" data-action="restart"><span class="nf nf-restart" aria-hidden="true"></span>Restart</button>
                                 <hr style="margin: 4px 0; border: 0; border-top: 1px solid var(--border);">
-                                <button class="menu-action-btn" data-action="logs">View Logs</button>
+                                <button class="menu-action-btn" data-action="logs"><span class="nf nf-console" aria-hidden="true"></span>View Logs</button>
                             </div>
                         </div>
                     </div>
@@ -217,13 +192,13 @@
                 </div>
                 <div class="list-col-actions">
                     <div class="menu">
-                        <button class="menu-btn" title="Container Actions">⋮</button>
+                        <button class="menu-btn" title="Container Actions"><span class="nf nf-dots" aria-hidden="true"></span></button>
                         <div class="menu-dropdown hidden">
-                            <button class="menu-action-btn" data-action="start">Start</button>
-                            <button class="menu-action-btn" data-action="stop">Stop</button>
-                            <button class="menu-action-btn" data-action="restart">Restart</button>
+                            <button class="menu-action-btn" data-action="start"><span class="nf nf-play" aria-hidden="true"></span>Start</button>
+                            <button class="menu-action-btn" data-action="stop"><span class="nf nf-stop" aria-hidden="true"></span>Stop</button>
+                            <button class="menu-action-btn" data-action="restart"><span class="nf nf-restart" aria-hidden="true"></span>Restart</button>
                             <hr style="margin: 4px 0; border: 0; border-top: 1px solid var(--border);">
-                            <button class="menu-action-btn" data-action="logs">View Logs</button>
+                            <button class="menu-action-btn" data-action="logs"><span class="nf nf-console" aria-hidden="true"></span>View Logs</button>
                         </div>
                     </div>
                     <div class="update-section hidden">
@@ -246,13 +221,13 @@
                     <div class="header-actions">
                         <span class="status-badge stack-group-status"></span>
                         <div class="menu">
-                            <button class="menu-btn" title="Stack Actions">⋮</button>
+                            <button class="menu-btn" title="Stack Actions"><span class="nf nf-dots" aria-hidden="true"></span></button>
                             <div class="menu-dropdown hidden">
-                                <button class="menu-action-btn" data-action="start">Start</button>
-                                <button class="menu-action-btn" data-action="stop">Stop</button>
-                                <button class="menu-action-btn" data-action="restart">Restart</button>
+                                <button class="menu-action-btn" data-action="start"><span class="nf nf-play" aria-hidden="true"></span>Start</button>
+                                <button class="menu-action-btn" data-action="stop"><span class="nf nf-stop" aria-hidden="true"></span>Stop</button>
+                                <button class="menu-action-btn" data-action="restart"><span class="nf nf-restart" aria-hidden="true"></span>Restart</button>
                                 <hr style="margin: 4px 0; border: 0; border-top: 1px solid var(--border);">
-                                <button class="menu-action-btn" data-action="edit-files">Edit Files</button>
+                                <button class="menu-action-btn" data-action="edit-files"><span class="nf nf-file-edit" aria-hidden="true"></span>Edit Files</button>
                             </div>
                         </div>
                     </div>
@@ -283,13 +258,13 @@
                 </div>
                 <div class="list-col-actions">
                     <div class="menu">
-                        <button class="menu-btn" title="Stack Actions">⋮</button>
+                        <button class="menu-btn" title="Stack Actions"><span class="nf nf-dots" aria-hidden="true"></span></button>
                         <div class="menu-dropdown hidden">
-                            <button class="menu-action-btn" data-action="start">Start</button>
-                            <button class="menu-action-btn" data-action="stop">Stop</button>
-                            <button class="menu-action-btn" data-action="restart">Restart</button>
+                            <button class="menu-action-btn" data-action="start"><span class="nf nf-play" aria-hidden="true"></span>Start</button>
+                            <button class="menu-action-btn" data-action="stop"><span class="nf nf-stop" aria-hidden="true"></span>Stop</button>
+                            <button class="menu-action-btn" data-action="restart"><span class="nf nf-restart" aria-hidden="true"></span>Restart</button>
                             <hr style="margin: 4px 0; border: 0; border-top: 1px solid var(--border);">
-                            <button class="menu-action-btn" data-action="edit-files">Edit Files</button>
+                            <button class="menu-action-btn" data-action="edit-files"><span class="nf nf-file-edit" aria-hidden="true"></span>Edit Files</button>
                         </div>
                     </div>
                     <div class="update-section hidden">

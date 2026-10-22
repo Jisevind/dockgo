@@ -323,13 +323,15 @@ document.addEventListener("DOMContentLoaded", () => {
                     (agentID
                         ? `?agent=${encodeURIComponent(agentID)}`
                         : "");
-                editLink.textContent = "Edit Files";
+                editLink.innerHTML =
+                    '<span class="nf nf-file-edit" aria-hidden="true"></span>Edit Files';
                 toolbar.appendChild(editLink);
 
                 const reconcileBtn = document.createElement("button");
                 reconcileBtn.type = "button";
                 reconcileBtn.className = "btn secondary small";
-                reconcileBtn.textContent = "Reconcile";
+                reconcileBtn.innerHTML =
+                    '<span class="nf nf-sync" aria-hidden="true"></span>Reconcile';
                 reconcileBtn.title =
                     "Reconcile stack ownership with runtime containers";
                 if (stack.ownership === "bound") {
@@ -340,7 +342,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 const deployBtn = document.createElement("button");
                 deployBtn.type = "button";
                 deployBtn.className = "btn primary small";
-                deployBtn.textContent = "Deploy";
+                deployBtn.innerHTML =
+                    '<span class="nf nf-rocket" aria-hidden="true"></span>Deploy';
                 deployBtn.title = "Deploy the stack";
 
                 reconcileBtn.addEventListener("click", () =>

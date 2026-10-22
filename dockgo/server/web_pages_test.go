@@ -22,6 +22,7 @@ func testWebFS() fs.FS {
 		"stacks-new.html":   {Data: []byte("<!doctype html><title>add stack page</title>")},
 		"stack-editor.html": {Data: []byte("<!doctype html><title>stack editor page</title>")},
 		"style.css":         {Data: []byte("body{}")},
+		"font.woff2":        {Data: []byte("wOF2")},
 	}
 }
 
@@ -68,6 +69,21 @@ func TestWebHandlerRedirectsTrailingSlash(t *testing.T) {
 		if got := rr.Header().Get("Location"); got != page {
 			t.Errorf("GET %s/ Location = %q, want %s", page, got, page)
 		}
+	}
+}
+
+func TestWebHandlerServesWoff2WithFontMimeType(t *testing.T) {
+	handler := buildWebHandler(testWebFS())
+	req := httptest.NewRequest(http.MethodGet, "/font.woff2", nil)
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("GET /font.woff2 status = %d, want 200", rr.Code)
+	}
+	if got := rr.Header().Get("Content-Type"); got != "font/woff2" {
+		t.Fatalf("Content-Type = %q, want font/woff2", got)
 	}
 }
 

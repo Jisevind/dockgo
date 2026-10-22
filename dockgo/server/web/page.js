@@ -357,8 +357,8 @@
             `${running ? "Stop" : "Start"} ${name}`,
         );
         button.innerHTML = running
-            ? '<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1"></rect></svg>'
-            : '<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>';
+            ? '<span class="nf nf-stop" aria-hidden="true"></span>'
+            : '<span class="nf nf-play" aria-hidden="true"></span>';
 
         button.addEventListener("click", async (event) => {
             event.stopPropagation();

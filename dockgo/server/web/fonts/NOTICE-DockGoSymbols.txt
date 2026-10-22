@@ -1,0 +1,19 @@
+DockGo Symbols icon font
+=========================
+
+This font is a subset of the "Symbols Nerd Font" font from Nerd Fonts
+v3.5.1 (https://github.com/ryanoasis/nerd-fonts).
+
+The subset contains only icons from the Material Design Icons set
+(https://github.com/Templarian/MaterialDesign-Font), which is licensed
+under the Apache License 2.0. See LICENSE-Apache-2.0.txt.
+
+Material Design Icons is maintained by Pictogrammers and its contributors.
+
+Modifications: the original SymbolsNerdFont-Regular.ttf was subset to the
+glyphs used by DockGo and converted to WOFF2. The resulting font is served
+under the CSS family name "DockGo Symbols"; the internal font family name
+is unchanged.
+
+The Nerd Fonts wrapper and build files are licensed under the MIT License.
+See LICENSE-NerdFontsSymbolsOnly.txt.

@@ -22,6 +22,74 @@
     font-display: swap;
 }
 
+@font-face {
+    font-family: 'DockGo Symbols';
+    src: url('/fonts/dockgo-symbols.woff2') format('woff2');
+    font-weight: normal;
+    font-style: normal;
+    font-display: block;
+}
+
+/* Monochrome icon glyphs from a curated Material Design Icons subset. */
+.nf {
+    font-family: 'DockGo Symbols';
+    font-style: normal;
+    font-weight: normal;
+    line-height: 1;
+    speak: never;
+    -webkit-font-smoothing: antialiased;
+}
+
+.nf::before {
+    display: inline-block;
+}
+
+.sidebar-link .nf {
+    width: 1.15em;
+    margin-right: 0.5rem;
+    font-size: 1.05em;
+    text-align: center;
+}
+
+.btn .nf,
+.menu-action-btn .nf {
+    margin-right: 0.35rem;
+}
+
+.btn-icon .nf {
+    font-size: 20px;
+}
+
+.container-action-btn .nf {
+    font-size: 14px;
+}
+
+.nf-dashboard::before { content: "\f056e"; }
+.nf-dashboard-variant::before { content: "\f0843"; }
+.nf-docker::before { content: "\f0868"; }
+.nf-layers::before { content: "\f0328"; }
+.nf-package::before { content: "\f03d6"; }
+.nf-database::before { content: "\f01bc"; }
+.nf-network::before { content: "\f06f3"; }
+.nf-refresh::before { content: "\f0450"; }
+.nf-update::before { content: "\f06b0"; }
+.nf-grid::before { content: "\f0570"; }
+.nf-list::before { content: "\f0572"; }
+.nf-group::before { content: "\f1860"; }
+.nf-dots::before { content: "\f01d9"; }
+.nf-play::before { content: "\f040a"; }
+.nf-stop::before { content: "\f04db"; }
+.nf-restart::before { content: "\f0709"; }
+.nf-console::before { content: "\f018d"; }
+.nf-broom::before { content: "\f00e2"; }
+.nf-delete-sweep::before { content: "\f05e9"; }
+.nf-sync::before { content: "\f04e6"; }
+.nf-rocket::before { content: "\f14de"; }
+.nf-file-edit::before { content: "\f11e7"; }
+.nf-chip::before { content: "\f061a"; }
+.nf-memory::before { content: "\f035b"; }
+.nf-disk::before { content: "\f02ca"; }
+
 :root {
     --bg-color: #0f172a;
     --card-bg: #1e293b;
