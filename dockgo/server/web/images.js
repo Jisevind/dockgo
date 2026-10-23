@@ -4,7 +4,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const tableBodyEl = document.getElementById("images-table-body");
     const emptyEl = document.getElementById("images-empty");
     const statusEl = document.getElementById("images-status");
-    const refreshBtn = document.getElementById("refresh-images-btn");
     const refreshListBtn = document.getElementById("refresh-images-list-btn");
     const pruneBtn = document.getElementById("prune-images-btn");
     const pruneAllBtn = document.getElementById("prune-all-images-btn");
@@ -351,7 +350,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     const setBusy = (busy) => {
-        [refreshBtn, refreshListBtn].forEach((button) => {
+        [refreshListBtn].forEach((button) => {
             if (!button) return;
             button.disabled = busy;
             button.classList.toggle("spinning", busy);
@@ -472,7 +471,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     };
 
-    if (refreshBtn) refreshBtn.addEventListener("click", fetchImages);
     if (refreshListBtn) refreshListBtn.addEventListener("click", fetchImages);
     if (pruneBtn) pruneBtn.addEventListener("click", () => pruneImages(false));
     if (pruneAllBtn)

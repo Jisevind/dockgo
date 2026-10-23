@@ -4,7 +4,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const tableBodyEl = document.getElementById("stacks-table-body");
     const emptyEl = document.getElementById("stacks-empty");
     const statusEl = document.getElementById("stacks-status");
-    const refreshBtn = document.getElementById("refresh-stacks-btn");
     const refreshListBtn = document.getElementById("refresh-stacks-list-btn");
 
     const page = window.DockGoPage;
@@ -481,7 +480,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const setBusy = (busy) => {
-        [refreshBtn, refreshListBtn].forEach((button) => {
+        [refreshListBtn].forEach((button) => {
             if (!button) return;
             button.disabled = busy;
             button.classList.toggle("spinning", busy);
@@ -778,9 +777,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     };
 
-    if (refreshBtn) {
-        refreshBtn.addEventListener("click", () => fetchStacks({ busy: true }));
-    }
     if (refreshListBtn) {
         refreshListBtn.addEventListener("click", () =>
             fetchStacks({ busy: true }),

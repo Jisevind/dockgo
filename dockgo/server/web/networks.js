@@ -4,7 +4,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const tableBodyEl = document.getElementById("networks-table-body");
     const emptyEl = document.getElementById("networks-empty");
     const statusEl = document.getElementById("networks-status");
-    const refreshBtn = document.getElementById("refresh-networks-btn");
     const refreshListBtn = document.getElementById(
         "refresh-networks-list-btn",
     );
@@ -325,7 +324,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const setBusy = (busy) => {
-        [refreshBtn, refreshListBtn].forEach((button) => {
+        [refreshListBtn].forEach((button) => {
             if (!button) return;
             button.disabled = busy;
             button.classList.toggle("spinning", busy);
@@ -384,7 +383,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     };
 
-    if (refreshBtn) refreshBtn.addEventListener("click", fetchNetworks);
     if (refreshListBtn) refreshListBtn.addEventListener("click", fetchNetworks);
 
     if (page) {

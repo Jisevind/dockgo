@@ -4,7 +4,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const tableBodyEl = document.getElementById("containers-table-body");
     const emptyEl = document.getElementById("containers-empty");
     const statusEl = document.getElementById("containers-status");
-    const refreshBtn = document.getElementById("refresh-containers-btn");
     const refreshListBtn = document.getElementById(
         "refresh-containers-list-btn",
     );
@@ -255,7 +254,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     const setBusy = (busy) => {
-        [refreshBtn, refreshListBtn].forEach((button) => {
+        [refreshListBtn].forEach((button) => {
             if (!button) return;
             button.disabled = busy;
             button.classList.toggle("spinning", busy);
@@ -343,11 +342,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    if (refreshBtn) {
-        refreshBtn.addEventListener("click", () =>
-            fetchContainers({ busy: true }),
-        );
-    }
     if (refreshListBtn) {
         refreshListBtn.addEventListener("click", () =>
             fetchContainers({ busy: true }),

@@ -4,7 +4,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const tableBodyEl = document.getElementById("agents-table-body");
     const emptyEl = document.getElementById("agents-empty");
     const statusEl = document.getElementById("agents-status");
-    const refreshBtn = document.getElementById("refresh-agents-icon");
     const refreshListBtn = document.getElementById("refresh-agents-list-btn");
     const addAgentBtn = document.getElementById("add-agent-btn");
     const registeredStatEl = document.getElementById("agents-stat-registered");
@@ -61,11 +60,10 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     const setBusy = (busy) => {
-        [refreshListBtn, refreshBtn].forEach((button) => {
+        [refreshListBtn].forEach((button) => {
             if (!button) return;
             button.disabled = busy;
         });
-        if (refreshBtn) refreshBtn.classList.toggle("spinning", busy);
     };
 
     const statusClass = (status) => {
@@ -392,11 +390,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     };
 
-    if (refreshBtn) {
-        refreshBtn.addEventListener("click", () =>
-            fetchAgents({ busy: true }),
-        );
-    }
     if (refreshListBtn) {
         refreshListBtn.addEventListener("click", () =>
             fetchAgents({ busy: true }),

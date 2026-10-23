@@ -4,7 +4,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const tableBodyEl = document.getElementById("volumes-table-body");
     const emptyEl = document.getElementById("volumes-empty");
     const statusEl = document.getElementById("volumes-status");
-    const refreshBtn = document.getElementById("refresh-volumes-btn");
     const refreshListBtn = document.getElementById(
         "refresh-volumes-list-btn",
     );
@@ -339,7 +338,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     const setBusy = (busy) => {
-        [refreshBtn, refreshListBtn].forEach((button) => {
+        [refreshListBtn].forEach((button) => {
             if (!button) return;
             button.disabled = busy;
             button.classList.toggle("spinning", busy);
@@ -457,7 +456,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     };
 
-    if (refreshBtn) refreshBtn.addEventListener("click", fetchVolumes);
     if (refreshListBtn) refreshListBtn.addEventListener("click", fetchVolumes);
     if (pruneBtn) pruneBtn.addEventListener("click", () => pruneVolumes(false));
     if (pruneAllBtn)

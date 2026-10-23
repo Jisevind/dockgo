@@ -15,7 +15,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const refreshListBtn = document.getElementById(
         "refresh-dashboard-list-btn",
     );
-    const refreshIconBtn = document.getElementById("refresh-dashboard-icon");
     const searchInput = document.getElementById("dashboard-search");
     const viewGridBtn = document.getElementById("view-grid");
     const viewListBtn = document.getElementById("view-list");
@@ -130,10 +129,6 @@ document.addEventListener("DOMContentLoaded", () => {
         [scanBtn, refreshListBtn].forEach((button) => {
             if (button) button.disabled = busy;
         });
-        if (refreshIconBtn) {
-            refreshIconBtn.disabled = busy;
-            refreshIconBtn.classList.toggle("spinning", busy);
-        }
     };
 
     const stateStatusClass = (state) => {
@@ -1220,7 +1215,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
     if (scanBtn) scanBtn.addEventListener("click", scanUpdates);
-    if (refreshIconBtn) refreshIconBtn.addEventListener("click", scanUpdates);
     if (refreshListBtn) {
         refreshListBtn.addEventListener("click", () => {
             hideStatus();

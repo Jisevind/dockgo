@@ -23,7 +23,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const saveDeployBtn = document.getElementById(
         "file-editor-save-deploy-btn",
     );
-    const refreshBtn = document.getElementById("refresh-stack-editor-btn");
 
     const page = window.DockGoPage;
     const VALIDATE_DEBOUNCE_MS = 400;
@@ -618,18 +617,6 @@ document.addEventListener("DOMContentLoaded", () => {
             createEnvFile();
         }
     });
-
-    if (refreshBtn) {
-        refreshBtn.addEventListener("click", () => {
-            if (
-                state.dirty &&
-                !window.confirm("Discard unsaved changes and reload?")
-            ) {
-                return;
-            }
-            loadEditor();
-        });
-    }
 
     window.addEventListener("beforeunload", (event) => {
         if (!state.dirty) return;
