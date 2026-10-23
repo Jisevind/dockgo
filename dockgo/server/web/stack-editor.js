@@ -45,8 +45,12 @@ document.addEventListener("DOMContentLoaded", () => {
         return match ? decodeURIComponent(match[1]) : "";
     };
 
-    const baseUrl = () =>
-        page.withAgentQuery(`/api/stacks/${encodeURIComponent(stackId())}`);
+    const stackApiUrl = (suffix = "") =>
+        page.withAgentQuery(
+            `/api/stacks/${encodeURIComponent(stackId())}${suffix}`,
+        );
+
+    const baseUrl = () => stackApiUrl();
 
     const fileUrl = (target) =>
         page.withAgentQuery(
@@ -437,7 +441,7 @@ document.addEventListener("DOMContentLoaded", () => {
         addEnvCreateBtn.disabled = true;
         setStatus("Creating env file…");
         try {
-            const response = await fetch(baseUrl() + "/env-file", {
+            const response = await fetch(stackApiUrl("/env-file"), {
                 method: "POST",
                 headers: page.getAuthHeaders(true),
                 body: JSON.stringify({ name }),
@@ -505,7 +509,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 state.stack.working_dir ||
                 "Compose and env files for this registered stack.";
 
-            const filesResponse = await fetch(baseUrl() + "/files", {
+            const filesResponse = await fetch(stackApiUrl("/files"), {
                 headers: page.getAuthHeaders(),
             });
             const filesData = await filesResponse.json().catch(() => ({}));
