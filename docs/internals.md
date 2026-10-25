@@ -195,7 +195,9 @@ The standalone page routes are:
 | `/agents` | `agents.html` | Remote agent registration and management |
 | `/containers` | `containers.html` | Container table and start/stop controls |
 | `/stacks` | `stacks.html` | Registered stacks with aggregated usage |
-| `/stacks/new` | `stacks-new.html` | Project discovery and stack registration |
+| `/stacks/new` | `stack-form.html` | Project discovery and stack registration |
+| `/stacks/{id}` | `stack-detail.html` | Stack definition, validation, containers, and activity |
+| `/stacks/{id}/edit` | `stack-form.html` | Edit a registered stack |
 | `/stacks/{id}/files` | `stack-editor.html` | File editor for one stack |
 | `/images` | `images.html` | Local images by repository and tag |
 | `/volumes` | `volumes.html` | Volumes with stack and container usage |
@@ -206,7 +208,9 @@ These pages share `page.js`, which owns authentication, the host selector,
 table sorting, column visibility, pagination, formatting helpers, and container
 start/stop actions. `/dashboard` adds `dashboard.js` for its container cards,
 update stream, and logs; `/agents` adds `agents.js` for registration and key
-management. The original dashboard at `/` keeps its own `app.js` until it is
+management; `/stacks/{id}` adds `stack-detail.js` for details and stack
+actions; `/stacks/new` and `/stacks/{id}/edit` share `stack-form.js`, which
+switches between create and edit mode from the URL. The original dashboard at `/` keeps its own `app.js` until it is
 migrated.
 
 UI text uses Inter. Identifiers, timestamps, and metrics use the bundled

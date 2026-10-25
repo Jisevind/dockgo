@@ -152,6 +152,19 @@ Validation checks:
 
 Use `Validate` after editing stack paths or changing mount strategy.
 
+### Editing a stack registration
+
+The standalone `/stacks` page opens a stack's details at `/stacks/{id}`, where
+**Edit Stack** leads to `/stacks/{id}/edit`. That form prefills the registration
+and can change the name, project, working directory, compose and env files,
+path mode, profiles, path mappings, environment overrides, and the update and
+health policies. Saving validates the stack against the host that owns it and
+records an `edit` history entry.
+
+Editing the registration never rewrites compose or env file contents, so use
+**Edit Files** for file changes. Because a stack never changes host or kind
+through this form, git-backed stacks are read-only there.
+
 ## Editing Compose And Env Files
 
 DockGo can edit the compose and env files of a registered stack directly, from
@@ -161,7 +174,8 @@ the dashboard, the standalone Stacks page, or through the API.
 
 Open the editor from a stack's **⋮** menu → **Edit Files**, or from a stack's
 Details view → **Edit Files** in the dashboard. On the standalone `/stacks`
-page, expand a stack row and choose **Edit Files** to open
+page, click a stack name to open its details page at `/stacks/{id}` and choose
+**Edit Files**, or expand a stack row and choose **Edit Files**. Both open
 `/stacks/{id}/files`.
 
 Both editors use the same file API and behaviour; the standalone page presents

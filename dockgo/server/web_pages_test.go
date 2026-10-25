@@ -20,8 +20,9 @@ func testWebFS() fs.FS {
 		"volume.html":       {Data: []byte("<!doctype html><title>volume overview</title>")},
 		"containers.html":   {Data: []byte("<!doctype html><title>containers page</title>")},
 		"stacks.html":       {Data: []byte("<!doctype html><title>stacks page</title>")},
-		"stacks-new.html":   {Data: []byte("<!doctype html><title>add stack page</title>")},
+		"stack-form.html":   {Data: []byte("<!doctype html><title>stack form page</title>")},
 		"stack-editor.html": {Data: []byte("<!doctype html><title>stack editor page</title>")},
+		"stack-detail.html": {Data: []byte("<!doctype html><title>stack detail page</title>")},
 		"style.css":         {Data: []byte("body{}")},
 		"font.woff2":        {Data: []byte("wOF2")},
 	}
@@ -39,7 +40,9 @@ func TestWebHandlerServesStandalonePagesAtOwnURLs(t *testing.T) {
 		"/volumes/data":    "volume overview",
 		"/containers":      "containers page",
 		"/stacks":          "stacks page",
-		"/stacks/new":      "add stack page",
+		"/stacks/new":      "stack form page",
+		"/stacks/s1":       "stack detail page",
+		"/stacks/s1/edit":  "stack form page",
 		"/stacks/s1/files": "stack editor page",
 	} {
 		req := httptest.NewRequest(http.MethodGet, path, nil)
@@ -59,7 +62,7 @@ func TestWebHandlerServesStandalonePagesAtOwnURLs(t *testing.T) {
 func TestWebHandlerRedirectsTrailingSlash(t *testing.T) {
 	handler := buildWebHandler(testWebFS())
 
-	for _, page := range []string{"/dashboard", "/agents", "/networks", "/images", "/volumes"} {
+	for _, page := range []string{"/dashboard", "/agents", "/networks", "/images", "/volumes", "/stacks/s1"} {
 		req := httptest.NewRequest(http.MethodGet, page+"/", nil)
 		rr := httptest.NewRecorder()
 		handler.ServeHTTP(rr, req)

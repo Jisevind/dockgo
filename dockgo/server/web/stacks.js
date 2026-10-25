@@ -25,6 +25,14 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     };
 
+    const stackHref = (stack, suffix = "") => {
+        const agentID = page.getState().currentAgentID;
+        return (
+            `/stacks/${encodeURIComponent(stack.id)}${suffix}` +
+            (agentID ? `?agent=${encodeURIComponent(agentID)}` : "")
+        );
+    };
+
     const stackSortValue = (stack, key) => {
         switch (key) {
             case "name":
@@ -219,8 +227,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 renderRows();
             });
 
-            const name = document.createElement("span");
-            name.className = "stack-table-name";
+            const name = document.createElement("a");
+            name.className = "stack-table-name stack-name-link";
+            name.href = stackHref(stack);
+            name.title = `View details for ${stack.name}`;
             name.textContent = stack.name || "-";
 
             nameWrap.append(toggle, name);
@@ -399,12 +409,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 toolbar.className = "stack-detail-toolbar";
                 const editLink = document.createElement("a");
                 editLink.className = "btn secondary small";
-                const agentID = page.getState().currentAgentID;
-                editLink.href =
-                    `/stacks/${encodeURIComponent(stack.id)}/files` +
-                    (agentID
-                        ? `?agent=${encodeURIComponent(agentID)}`
-                        : "");
+                editLink.href = stackHref(stack, "/files");
                 editLink.innerHTML =
                     '<span class="nf nf-file-edit" aria-hidden="true"></span>Edit Files';
                 toolbar.appendChild(editLink);

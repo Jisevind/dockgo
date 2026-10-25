@@ -9,6 +9,8 @@ them.
 - **Containers** (`/containers`): live container table and start/stop controls
 - **Stacks** (`/stacks`): registered Compose stacks with aggregated usage
 - **Add Stack** (`/stacks/new`): discover projects and register a stack
+- **Stack details** (`/stacks/{id}`): definition, validation, containers, and activity
+- **Edit stack** (`/stacks/{id}/edit`): registration settings for a stack
 - **Volumes** (`/volumes`): volumes with stack and container usage
 - **Volume overview** (`/volumes/{name}`): one volume's details and labels
 - **Images** (`/images`): local images by repository and tag
@@ -91,6 +93,20 @@ their containers:
 Start/Stop, Restart, and Down are disabled while ownership is drifted or
 unbound; Redeploy remains available. Remove deletes the DockGo registration
 only and leaves the stack's containers running.
+
+Select a stack name to open its details page at `/stacks/{id}`. The page shows
+the compose definition, resolved host/runtime paths, validation results,
+associated containers, and recent activity. Its toolbar can edit the
+registration, validate, pull, restart, deploy, bring down, reconcile, or remove
+the stack.
+
+**Edit Stack** opens `/stacks/{id}/edit`, which prefills the registration
+settings: name, project, working directory, compose and env files, path mode,
+profiles, path mappings, environment overrides, and the update and health
+policies. Editing registration data never rewrites compose or env file
+contents; use **Edit Files** for that. Path changes only update the
+registration, so move the files on the host yourself and then Validate and
+Deploy.
 
 Select the chevron beside a stack name to see its containers plus **Edit
 Files**, **Reconcile**, and **Deploy** actions. **Edit Files** opens the editor,

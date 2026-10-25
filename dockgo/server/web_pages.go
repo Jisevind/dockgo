@@ -23,7 +23,7 @@ var webPages = map[string]string{
 	"/volumes":    "volumes.html",
 	"/containers": "containers.html",
 	"/stacks":     "stacks.html",
-	"/stacks/new": "stacks-new.html",
+	"/stacks/new": "stack-form.html",
 }
 
 // buildWebHandler serves the embedded dashboard assets and gives each
@@ -41,6 +41,22 @@ func buildWebHandler(webFS fs.FS) http.Handler {
 		})
 	}
 
+	mux.HandleFunc("GET /stacks/{id}", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFileFS(w, r, webFS, "stack-detail.html")
+	})
+	mux.HandleFunc("GET /stacks/{id}/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r,
+			"/stacks/"+url.PathEscape(r.PathValue("id")),
+			http.StatusMovedPermanently)
+	})
+	mux.HandleFunc("GET /stacks/{id}/edit", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFileFS(w, r, webFS, "stack-form.html")
+	})
+	mux.HandleFunc("GET /stacks/{id}/edit/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r,
+			"/stacks/"+url.PathEscape(r.PathValue("id"))+"/edit",
+			http.StatusMovedPermanently)
+	})
 	mux.HandleFunc("GET /stacks/{id}/files", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFileFS(w, r, webFS, "stack-editor.html")
 	})
