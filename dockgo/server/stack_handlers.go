@@ -260,7 +260,7 @@ func (s *Server) handleStackByID(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			updatedInput := stackFromPayload(stack, payload)
+			updatedInput := stackUpdateFromPayload(stack, payload)
 			validation := s.validateStackWithRuntime(context.Background(), updatedInput)
 			if !validation.Valid {
 				writeJSON(w, http.StatusBadRequest, map[string]any{
@@ -546,6 +546,30 @@ func stackFromPayload(existing stacks.Stack, payload stackPayload) stacks.Stack 
 	}
 
 	return stack
+}
+
+// stackUpdateFromPayload applies an edit payload while preserving the ownership
+// and provenance fields the edit form does not own. A stack never changes host,
+// kind, or git provenance through an edit; labels and the discovery selector are
+// kept unless the payload explicitly supplies new values.
+func stackUpdateFromPayload(existing stacks.Stack, payload stackPayload) stacks.Stack {
+	updated := stackFromPayload(existing, payload)
+
+	updated.Kind = existing.Kind
+	updated.AgentID = existing.AgentID
+	updated.ManagedContainers = existing.ManagedContainers
+
+	if payload.GitSource == nil {
+		updated.GitSource = existing.GitSource
+	}
+	if payload.Labels == nil {
+		updated.Labels = existing.Labels
+	}
+	if payload.Discovery.ComposeProject == "" && len(payload.Discovery.ServiceNames) == 0 {
+		updated.Discovery = existing.Discovery
+	}
+
+	return updated
 }
 
 func validationPtr(result stacks.ValidationResult) *stacks.ValidationResult {

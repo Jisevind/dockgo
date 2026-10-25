@@ -276,7 +276,7 @@ func (s *Server) handleAgentStackUpdate(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	updated := stackFromPayload(existing, payload)
+	updated := stackUpdateFromPayload(existing, payload)
 	updated.AgentID = agentID
 
 	ctx, cancel := context.WithTimeout(r.Context(), agentOpTimeout)
