@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Networks · DockGo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/style.css?v=1.5.0">
+    <script src="/page.js?v=1.2.0" defer></script>
+    <script src="/networks.js?v=1.0.1" defer></script>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-180x180.png">
+    <!-- Android Chrome -->
+    <link rel="icon" type="image/png" sizes="192x192" href="/android-chrome-192x192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="/android-chrome-512x512.png">
+    <!-- Microsoft Tiles -->
+    <meta name="msapplication-TileColor" content="#ffffff">
+    <meta name="msapplication-TileImage" content="/mstile-150x150.png">
+    <meta name="msapplication-config" href="/browserconfig.xml">
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+</head>
+
+<body>
+    <aside class="sidebar">
+        <nav class="sidebar-nav" aria-label="Primary navigation">
+            <a class="sidebar-link" href="/"><span class="nf nf-dashboard" aria-hidden="true"></span>Dashboard</a>
+            <a class="sidebar-link" href="/dashboard"><span class="nf nf-dashboard-variant" aria-hidden="true"></span>New Dashboard</a>
+            <a class="sidebar-link" href="/stacks"><span class="nf nf-layers" aria-hidden="true"></span>Stacks</a>
+            <a class="sidebar-link" href="/containers"><span class="nf nf-docker" aria-hidden="true"></span>Containers</a>
+            <a class="sidebar-link" href="/volumes"><span class="nf nf-database" aria-hidden="true"></span>Volumes</a>
+            <a class="sidebar-link" href="/images"><span class="nf nf-package" aria-hidden="true"></span>Images</a>
+            <a class="sidebar-link active" href="/networks" aria-current="page"><span class="nf nf-network" aria-hidden="true"></span>Networks</a>
+            <a class="sidebar-link" href="/agents"><span class="nf nf-server" aria-hidden="true"></span>Agents</a>
+        </nav>
+    </aside>
+
+    <div class="container">
+        <header>
+            <div style="display: flex; align-items: flex-end; gap: 0.75rem;">
+                <img src="/dockgo-logo-web.svg" width="125" alt="DockGo Logo">
+                <span id="app-version" class="version-tag"
+                    style="font-family: monospace; color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.2rem;"></span>
+            </div>
+            <div class="header-controls">
+                <div class="control-group host-selector-group">
+                    <select id="host-selector" title="Select host" class="host-selector">
+                        <option value="">Local host</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <button id="logout-btn" class="btn-icon hidden" title="Logout">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                            <polyline points="16 17 21 12 16 7"></polyline>
+                            <line x1="21" y1="12" x2="9" y2="12"></line>
+                        </svg>
+                    </button>
+                    <button id="logout-all-btn" class="btn-icon hidden" title="Logout All Devices"
+                        style="color: var(--danger);">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+                            <line x1="12" y1="2" x2="12" y2="12"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <section class="page-section">
+            <div class="stacks-overview">
+                <div>
+                    <p class="stacks-kicker">Docker Networking</p>
+                    <h2>Networks</h2>
+                    <p class="stacks-description">Networks available on the selected host, including their driver,
+                        scope, IPAM configuration, and attached container count.</p>
+                </div>
+            </div>
+            <div class="stack-panel page-panel">
+                <div class="stack-panel-header">
+                    <h2>Docker Networks</h2>
+                    <div class="stack-panel-actions">
+                        <button id="refresh-networks-list-btn" class="btn secondary">Refresh</button>
+                    </div>
+                </div>
+                <div id="networks-status" class="page-status hidden"></div>
+                <div class="data-table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th data-column="name"><button type="button" class="sort-btn" data-sort="name">Name<span class="sort-arrow"></span></button></th>
+                                <th data-column="driver"><button type="button" class="sort-btn" data-sort="driver">Driver<span class="sort-arrow"></span></button></th>
+                                <th data-column="scope"><button type="button" class="sort-btn" data-sort="scope">Scope<span class="sort-arrow"></span></button></th>
+                                <th data-column="subnet"><button type="button" class="sort-btn" data-sort="subnet">Subnet<span class="sort-arrow"></span></button></th>
+                                <th data-column="gateway"><button type="button" class="sort-btn" data-sort="gateway">Gateway<span class="sort-arrow"></span></button></th>
+                                <th data-column="containers"><button type="button" class="sort-btn" data-sort="containers">Containers<span class="sort-arrow"></span></button></th>
+                            </tr>
+                        </thead>
+                        <tbody id="networks-table-body"></tbody>
+                    </table>
+                    <div id="networks-empty" class="loading">Loading networks...</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Login Modal -->
+        <div id="login-modal" class="modal-overlay hidden">
+            <div class="modal">
+                <div class="modal-header">
+                    <h2>Login</h2>
+                </div>
+                <div class="modal-body">
+                    <form id="login-form">
+                        <div class="form-group">
+                            <label for="username">Username</label>
+                            <input type="text" id="username" name="username" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="password">Password</label>
+                            <input type="password" id="password" name="password" required>
+                        </div>
+                        <div id="login-error" class="error-message hidden"></div>
+                        <button type="submit" class="btn primary full-width">Login</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- No Auth Modal -->
+        <div id="no-auth-modal" class="modal-overlay hidden">
+            <div class="modal">
+                <div class="modal-header">
+                    <h2 style="color: var(--danger);">Authentication Required</h2>
+                </div>
+                <div class="modal-body" style="text-align: center;">
+                    <p style="margin-bottom: 1rem;">DockGo has been started without any authentication configured
+                        (Missing <code>AUTH_USERNAME</code> and <code>API_TOKEN</code>).</p>
+                    <p style="margin-bottom: 1rem;">To protect your server, the dashboard and API connection have been
+                        <strong>blocked</strong>.</p>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem;">Please restart the DockGo container with
+                        authentication environment variables set in order to access the dashboard.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

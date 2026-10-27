@@ -58,6 +58,9 @@ The stack status API returns two separate concepts:
 
 This is surfaced explicitly so the UI and API do not silently guess.
 
+Stack overview rows also expose `ownership` as `bound`, `drifted`, or
+`unbound` for the Stacks table.
+
 ## Reconcile
 
 `Reconcile` updates ownership from the currently running runtime containers for the stack.
@@ -177,15 +180,74 @@ Only if a new version was published:
 
 In short: no manual versioning or publishing is needed — merging conventional commits to `main` automatically tags, changelogs, builds, and publishes the Docker image.
 
-## Dashboard vs Stacks
+## Web UI and Stacks
 
-The main dashboard is intentionally simple and container-first.
+The web UI is embedded in the binary (`//go:embed web`) and served as static
+documents. The main dashboard at `/` stays container-first: update checks,
+one-click updates, logs, and the management tabs for Agents and Stacks. A
+standalone port of its container view is available at `/dashboard`.
 
-The `Stacks` view is the advanced operational surface for Compose projects.
+The standalone page routes are:
 
-That split exists so DockGo can support:
+| Route | Document | Purpose |
+| --- | --- | --- |
+| `/dashboard` | `dashboard.html` | Standalone container dashboard with update checks |
+| `/agents` | `agents.html` | Remote agent registration and management |
+| `/containers` | `containers.html` | Container table and start/stop controls |
+| `/stacks` | `stacks.html` | Registered stacks with aggregated usage |
+| `/stacks/new` | `stack-form.html` | Project discovery and stack registration |
+| `/stacks/{id}` | `stack-detail.html` | Stack definition, validation, containers, and activity |
+| `/stacks/{id}/edit` | `stack-form.html` | Edit a registered stack |
+| `/stacks/{id}/files` | `stack-editor.html` | File editor for one stack |
+| `/images` | `images.html` | Local images by repository and tag |
+| `/volumes` | `volumes.html` | Volumes with stack and container usage |
+| `/volumes/{name}` | `volume.html` | One volume's labels and containers |
+| `/networks` | `networks.html` | Networks with IPAM details |
+
+These pages share `page.js`, which owns authentication, the host selector,
+table sorting, column visibility, pagination, formatting helpers, and container
+start/stop actions. `/dashboard` adds `dashboard.js` for its container cards,
+update stream, and logs; `/agents` adds `agents.js` for registration and key
+management; `/stacks/{id}` adds `stack-detail.js` for details and stack
+actions; `/stacks/new` and `/stacks/{id}/edit` share `stack-form.js`, which
+switches between create and edit mode from the URL. The original dashboard at `/` keeps its own `app.js` until it is
+migrated.
+
+UI text uses Inter. Identifiers, timestamps, and metrics use the bundled
+Ioskeley Mono webfont (SIL Open Font License; see
+`dockgo/server/web/fonts/LICENSE-IoskeleyMono.txt`).
+
+UI icons use `dockgo-symbols.woff2`, a curated subset of Nerd Fonts
+SymbolsOnly v3.5.1 containing only Material Design Icons glyphs. The
+class-to-codepoint map lives in `style.css`; regenerate the subset with the
+same codepoints when adding icons. See
+`dockgo/server/web/fonts/NOTICE-DockGoSymbols.txt` and the accompanying
+Apache 2.0 and Nerd Fonts license files.
+
+The overview data comes from these endpoints:
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /api/containers/overview` | Container state with live resource stats |
+| `GET /api/stacks/overview` | Stacks aggregated from their containers |
+| `GET /api/networks` | Docker networks with IPAM and container counts |
+| `GET /api/networks/{name}` | One network with containers and stacks |
+| `GET /api/images` | Local images with usage counts |
+| `GET /api/images/{id}` | One image with containers and stacks |
+| `POST /api/images/prune?all={bool}` | Prune dangling or all unused images |
+| `GET /api/volumes` | Volumes with stack and container usage |
+| `GET /api/volumes/{name}` | One volume with labels and container IDs |
+| `POST /api/volumes/prune?all={bool}` | Prune anonymous or all unused volumes |
+
+Each endpoint is agent-aware. The server either reads its local Docker daemon
+or relays the equivalent operation to the selected agent.
+
+The split exists so DockGo can support:
 
 - one-click updates for normal usage
+- dedicated, sortable resource views for day-to-day inspection
 - stronger stack correctness for Compose users
 
-without forcing every user to think in stack internals all the time.
+without forcing every user to think in stack internals all the time. The
+`/stacks` page is an overview only; stack mutation (deploy, edit, reconcile)
+stays in the dashboard's `Stacks` tab.

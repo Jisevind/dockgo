@@ -13,30 +13,40 @@ import (
 // a single persistent WebSocket channel per agent.
 const (
 	// Server -> Agent: request messages (a request_id is mandatory).
-	TypeRegister        = "register"
-	TypeContainersList  = "containers_list"
-	TypeScan            = "scan"
-	TypeUpdate          = "update"
-	TypeContainerAction = "container_action"
-	TypeContainerLogs   = "container_logs"
-	TypeServerStats     = "server_stats"
-	TypeStackList       = "stack_list"
-	TypeStackGet        = "stack_get"
-	TypeStackCreate     = "stack_create"
-	TypeStackUpdate     = "stack_update"
-	TypeStackDelete     = "stack_delete"
-	TypeStackAction     = "stack_action"
-	TypeStackValidate   = "stack_validate"
-	TypeStackHistory    = "stack_history"
-	TypeStackContainers = "stack_containers"
-	TypeStackDiscover   = "stack_discover"
-	TypeDisconnect      = "disconnect"
-	TypeCancel          = "cancel"
+	TypeRegister           = "register"
+	TypeContainersList     = "containers_list"
+	TypeContainersOverview = "containers_overview"
+	TypeNetworksList       = "networks_list"
+	TypeImagesList         = "images_list"
+	TypeImageInspect       = "image_inspect"
+	TypeImagesPrune        = "images_prune"
+	TypeVolumesList        = "volumes_list"
+	TypeVolumeInspect      = "volume_inspect"
+	TypeVolumesPrune       = "volumes_prune"
+	TypeNetworkInspect     = "network_inspect"
+	TypeScan               = "scan"
+	TypeUpdate             = "update"
+	TypeContainerAction    = "container_action"
+	TypeContainerLogs      = "container_logs"
+	TypeServerStats        = "server_stats"
+	TypeStackList          = "stack_list"
+	TypeStackGet           = "stack_get"
+	TypeStackCreate        = "stack_create"
+	TypeStackUpdate        = "stack_update"
+	TypeStackDelete        = "stack_delete"
+	TypeStackAction        = "stack_action"
+	TypeStackValidate      = "stack_validate"
+	TypeStackHistory       = "stack_history"
+	TypeStackContainers    = "stack_containers"
+	TypeStackDiscover      = "stack_discover"
+	TypeDisconnect         = "disconnect"
+	TypeCancel             = "cancel"
 
-	TypeStackFileList     = "stack_file_list"
-	TypeStackFileRead     = "stack_file_read"
-	TypeStackFileValidate = "stack_file_validate"
-	TypeStackFileWrite    = "stack_file_write"
+	TypeStackFileList      = "stack_file_list"
+	TypeStackFileRead      = "stack_file_read"
+	TypeStackFileValidate  = "stack_file_validate"
+	TypeStackFileWrite     = "stack_file_write"
+	TypeStackEnvFileCreate = "stack_env_file_create"
 
 	// Agent -> Server: response/stream messages.
 	TypeWelcome   = "welcome"
@@ -138,6 +148,31 @@ type Request struct {
 
 // ContainersListRequest is empty (the agent lists all containers).
 
+// VolumeInspectRequest asks for one volume overview.
+type VolumeInspectRequest struct {
+	Name string `json:"name"`
+}
+
+// VolumePruneRequest asks the agent to prune unused volumes.
+type VolumePruneRequest struct {
+	All bool `json:"all"`
+}
+
+// ImageInspectRequest asks for one image overview.
+type ImageInspectRequest struct {
+	ID string `json:"id"`
+}
+
+// ImagePruneRequest asks the agent to prune unused images.
+type ImagePruneRequest struct {
+	All bool `json:"all"`
+}
+
+// NetworkInspectRequest asks for one network overview.
+type NetworkInspectRequest struct {
+	Name string `json:"name"`
+}
+
 // ScanRequest requests an update scan.
 type ScanRequest struct {
 	Force bool `json:"force"`
@@ -197,6 +232,12 @@ type StackContainersRequest struct {
 
 // StackDiscoverRequest discovers compose projects on the agent host.
 type StackDiscoverRequest struct{}
+
+// StackEnvFileRequest creates a new env file in a stack working directory.
+type StackEnvFileRequest struct {
+	Stack stacks.Stack `json:"stack"`
+	Name  string       `json:"name"`
+}
 
 // StackFileRequest addresses one file of an agent-hosted stack. The client
 // never sends a path: Kind and Index select an entry from the stack's own

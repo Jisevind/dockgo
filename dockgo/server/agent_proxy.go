@@ -51,6 +51,20 @@ func (s *Server) handleAgentRoute(w http.ResponseWriter, r *http.Request) {
 		s.handleAgentServerStats(w, r)
 	case rest == "containers":
 		s.handleAgentContainers(w, r)
+	case rest == "containers/overview":
+		s.handleAgentContainersOverview(w, r)
+	case rest == "networks":
+		s.handleAgentNetworks(w, r)
+	case strings.HasPrefix(rest, "networks/"):
+		s.handleAgentNetworkDetail(w, r)
+	case rest == "images":
+		s.handleAgentImages(w, r)
+	case strings.HasPrefix(rest, "images/"):
+		s.handleAgentImageDetail(w, r)
+	case rest == "volumes":
+		s.handleAgentVolumes(w, r)
+	case strings.HasPrefix(rest, "volumes/"):
+		s.handleAgentVolumeDetail(w, r)
 	case strings.HasPrefix(rest, "stacks"):
 		s.handleAgentStacksRoute(w, r)
 	default:
@@ -164,17 +178,7 @@ func (s *Server) handleAgentContainers(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		s.mu.RLock()
-		agentCache := s.agentUpdatesCache[agentID]
-		s.mu.RUnlock()
-
-		for _, c := range containers {
-			if id, ok := c["id"].(string); ok && id != "" && agentCache != nil {
-				if agentCache[id] {
-					c["update_available"] = true
-				}
-			}
-		}
+		s.overlayAgentUpdates(agentID, containers)
 
 		// Overlay stack ownership from the server's central store so the
 		// dashboard can group agent containers by stack, mirroring the local
@@ -201,6 +205,102 @@ func (s *Server) handleAgentContainers(w http.ResponseWriter, r *http.Request) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write(out)
+	case <-ctx.Done():
+		writeError(w, http.StatusGatewayTimeout, "agent request timed out")
+	}
+}
+
+// handleAgentNetworks proxies the network list to an agent.
+func (s *Server) handleAgentNetworks(w http.ResponseWriter, r *http.Request) {
+	s.handleAgentList(w, r, agent.TypeNetworksList, nil)
+}
+
+// handleAgentImageDetail proxies one image overview to an agent.
+func (s *Server) handleAgentImageDetail(w http.ResponseWriter, r *http.Request) {
+	id := strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/images/"), "/")
+	if id == "" || strings.Contains(id, "/") {
+		writeError(w, http.StatusBadRequest, "image id required")
+		return
+	}
+	s.handleAgentList(w, r, agent.TypeImageInspect, agent.ImageInspectRequest{ID: id})
+}
+
+// handleAgentNetworkDetail proxies one network overview to an agent.
+func (s *Server) handleAgentNetworkDetail(w http.ResponseWriter, r *http.Request) {
+	name := strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/networks/"), "/")
+	if name == "" || strings.Contains(name, "/") {
+		writeError(w, http.StatusBadRequest, "network name required")
+		return
+	}
+	s.handleAgentList(w, r, agent.TypeNetworkInspect, agent.NetworkInspectRequest{Name: name})
+}
+
+// handleAgentImages proxies the image list to an agent.
+func (s *Server) handleAgentImages(w http.ResponseWriter, r *http.Request) {
+	s.handleAgentList(w, r, agent.TypeImagesList, nil)
+}
+
+// handleAgentImagesPrune proxies an image prune operation to an agent.
+func (s *Server) handleAgentImagesPrune(w http.ResponseWriter, r *http.Request, all bool) {
+	s.handleAgentList(w, r, agent.TypeImagesPrune, agent.ImagePruneRequest{All: all})
+}
+
+// handleAgentContainersOverview proxies the live container overview to an agent.
+func (s *Server) handleAgentContainersOverview(w http.ResponseWriter, r *http.Request) {
+	s.handleAgentList(w, r, agent.TypeContainersOverview, nil)
+}
+
+// handleAgentVolumes proxies the volume list to an agent.
+func (s *Server) handleAgentVolumes(w http.ResponseWriter, r *http.Request) {
+	s.handleAgentList(w, r, agent.TypeVolumesList, nil)
+}
+
+// handleAgentVolumesPrune proxies a volume prune operation to an agent.
+func (s *Server) handleAgentVolumesPrune(w http.ResponseWriter, r *http.Request, all bool) {
+	s.handleAgentList(w, r, agent.TypeVolumesPrune, agent.VolumePruneRequest{All: all})
+}
+
+// handleAgentVolumeDetail proxies one volume overview to an agent.
+func (s *Server) handleAgentVolumeDetail(w http.ResponseWriter, r *http.Request) {
+	name := strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/volumes/"), "/")
+	if name == "" || strings.Contains(name, "/") {
+		writeError(w, http.StatusBadRequest, "volume name required")
+		return
+	}
+	s.handleAgentList(w, r, agent.TypeVolumeInspect, agent.VolumeInspectRequest{Name: name})
+}
+
+// handleAgentList proxies an agent operation to an agent and returns its result
+// unchanged.
+func (s *Server) handleAgentList(w http.ResponseWriter, r *http.Request, msgType string, payload any) {
+	agentID, ok := agentQueryAgentID(r)
+	if !ok {
+		writeError(w, http.StatusBadRequest, "agent id required")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), agentOpTimeout)
+	defer cancel()
+
+	response, _, err := s.dispatchToAgent(ctx, agentID, msgType, payload, nil)
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, err.Error())
+		return
+	}
+
+	select {
+	case env := <-response:
+		var rd agent.ResultData
+		if err := env.Decode(&rd); err != nil {
+			writeError(w, http.StatusInternalServerError, "invalid agent response")
+			return
+		}
+		if rd.Error != "" {
+			writeError(w, http.StatusInternalServerError, rd.Error)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(rd.Value)
 	case <-ctx.Done():
 		writeError(w, http.StatusGatewayTimeout, "agent request timed out")
 	}
@@ -430,9 +530,9 @@ func (s *Server) handleAgentUpdate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Refresh the per-agent cache for the updated container: the agent
-		// just pulled and recreated it, so clear any pending update flag.
-		go s.clearAgentUpdateBadge(agentID)
+		// Only this container was recreated, so keep unrelated update flags.
+		// The old container ID is pruned the next time the agent's containers
+		// are listed, and the new ID is intentionally absent until a scan.
 
 		s.Notifier.Notify("DockGo Update Success", fmt.Sprintf("Container %s updated successfully", name), notify.TypeSuccess)
 		emitSSE(map[string]any{
@@ -445,12 +545,34 @@ func (s *Server) handleAgentUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// clearAgentUpdateBadge drops all pending update flags for an agent after a
-// successful update. The next scan will repopulate accurate flags.
-func (s *Server) clearAgentUpdateBadge(agentID string) {
+// overlayAgentUpdates applies cached update flags to agent containers and
+// prunes cache entries for container IDs that no longer exist.
+func (s *Server) overlayAgentUpdates(agentID string, containers []map[string]any) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.agentUpdatesCache[agentID] = make(map[string]bool)
+
+	cache := s.agentUpdatesCache[agentID]
+	if cache == nil {
+		return
+	}
+
+	alive := make(map[string]bool, len(containers))
+	for _, c := range containers {
+		id, _ := c["id"].(string)
+		if id == "" {
+			continue
+		}
+		alive[id] = true
+		if cache[id] {
+			c["update_available"] = true
+		}
+	}
+
+	for id := range cache {
+		if !alive[id] {
+			delete(cache, id)
+		}
+	}
 }
 
 // handleAgentContainerAction proxies start/stop/restart to an agent.

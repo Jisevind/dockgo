@@ -43,7 +43,7 @@ Typical restore flow:
 1. Restore the DockGo data directory
 2. Start DockGo again
 3. Verify sessions, stacks, and logs are present
-4. Open the `Stacks` view and confirm stack states
+4. Open the **Stacks** page and confirm stack states
 
 If state was lost and you re-register stacks manually:
 

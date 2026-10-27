@@ -33,6 +33,7 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/errdefs"
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/google/uuid"
 	"github.com/shirou/gopsutil/v3/cpu"
@@ -324,11 +325,21 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/health", s.handleHealth)
 	mux.HandleFunc("/api/server/stats", s.enableCors(s.requireAuth(s.handleServerStats)))
 	mux.HandleFunc("/api/containers", s.enableCors(s.requireAuth(s.handleContainers)))
+	mux.HandleFunc("/api/containers/overview", s.enableCors(s.requireAuth(s.handleContainersOverview)))
+	mux.HandleFunc("/api/networks", s.enableCors(s.requireAuth(s.handleNetworks)))
+	mux.HandleFunc("/api/networks/", s.enableCors(s.requireAuth(s.handleNetworkByID)))
+	mux.HandleFunc("/api/images", s.enableCors(s.requireAuth(s.handleImages)))
+	mux.HandleFunc("/api/images/prune", s.enableCors(s.requireAuth(s.handleImagesPrune)))
+	mux.HandleFunc("/api/images/", s.enableCors(s.requireAuth(s.handleImageByID)))
+	mux.HandleFunc("/api/volumes", s.enableCors(s.requireAuth(s.handleVolumes)))
+	mux.HandleFunc("/api/volumes/prune", s.enableCors(s.requireAuth(s.handleVolumesPrune)))
+	mux.HandleFunc("/api/volumes/", s.enableCors(s.requireAuth(s.handleVolumeByID)))
 	mux.HandleFunc("/api/stream/check", s.enableCors(s.requireAuth(s.handleStreamCheck)))
 	mux.HandleFunc("/api/update/", s.enableCors(s.requireAuth(s.handleUpdate)))
 	mux.HandleFunc("/api/container/", s.enableCors(s.requireAuth(s.handleContainerAction)))
 	mux.HandleFunc("/api/logs/", s.enableCors(s.requireAuth(s.handleContainerLogs)))
 	mux.HandleFunc("/api/stacks", s.enableCors(s.requireAuth(s.handleStacks)))
+	mux.HandleFunc("/api/stacks/overview", s.enableCors(s.requireAuth(s.handleStacksOverview)))
 	mux.HandleFunc("/api/stacks/", s.enableCors(s.requireAuth(s.handleStackByID)))
 
 	mux.HandleFunc("/api/agents", s.enableCors(s.requireAuth(s.handleAgents)))
@@ -359,7 +370,7 @@ func (s *Server) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	mux.Handle("/", http.FileServer(http.FS(webFS)))
+	mux.Handle("/", buildWebHandler(webFS))
 
 	logger.Info("DockGo server listening",
 		logger.String("address", "localhost:"+s.Port),
@@ -1180,6 +1191,236 @@ func (s *Server) handleContainers(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(result)
+}
+
+func (s *Server) handleNetworks(w http.ResponseWriter, r *http.Request) {
+	if _, ok := agentQueryAgentID(r); ok {
+		s.handleAgentNetworks(w, r)
+		return
+	}
+
+	w.Header().Set("Cache-Control", "no-cache")
+
+	networks, err := s.Discovery.ListNetworks(context.Background())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if networks == nil {
+		networks = []api.DockerNetwork{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(networks)
+}
+
+func (s *Server) handleNetworkByID(w http.ResponseWriter, r *http.Request) {
+	if _, ok := agentQueryAgentID(r); ok {
+		s.handleAgentNetworkDetail(w, r)
+		return
+	}
+
+	name := strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/networks/"), "/")
+	if name == "" || strings.Contains(name, "/") {
+		writeError(w, http.StatusBadRequest, "network name required")
+		return
+	}
+
+	w.Header().Set("Cache-Control", "no-cache")
+
+	detail, err := s.Discovery.GetNetwork(context.Background(), name)
+	if err != nil {
+		if errdefs.IsNotFound(err) {
+			writeError(w, http.StatusNotFound, "network not found")
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(detail)
+}
+
+func (s *Server) handleImages(w http.ResponseWriter, r *http.Request) {
+	if _, ok := agentQueryAgentID(r); ok {
+		s.handleAgentImages(w, r)
+		return
+	}
+
+	w.Header().Set("Cache-Control", "no-cache")
+
+	images, err := s.Discovery.ListImages(context.Background())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if images == nil {
+		images = []api.DockerImage{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(images)
+}
+
+func (s *Server) handleImagesPrune(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	all := false
+	if raw := r.URL.Query().Get("all"); raw != "" {
+		parsed, err := strconv.ParseBool(raw)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid all query parameter")
+			return
+		}
+		all = parsed
+	}
+
+	if _, ok := agentQueryAgentID(r); ok {
+		s.handleAgentImagesPrune(w, r, all)
+		return
+	}
+
+	result, err := s.Discovery.PruneImages(r.Context(), all)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(result)
+}
+
+func (s *Server) handleImageByID(w http.ResponseWriter, r *http.Request) {
+	if _, ok := agentQueryAgentID(r); ok {
+		s.handleAgentImageDetail(w, r)
+		return
+	}
+
+	id := strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/images/"), "/")
+	if id == "" || strings.Contains(id, "/") {
+		writeError(w, http.StatusBadRequest, "image id required")
+		return
+	}
+
+	w.Header().Set("Cache-Control", "no-cache")
+
+	detail, err := s.Discovery.GetImage(context.Background(), id)
+	if err != nil {
+		if errdefs.IsNotFound(err) {
+			writeError(w, http.StatusNotFound, "image not found")
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(detail)
+}
+
+func (s *Server) handleVolumes(w http.ResponseWriter, r *http.Request) {
+	if _, ok := agentQueryAgentID(r); ok {
+		s.handleAgentVolumes(w, r)
+		return
+	}
+
+	w.Header().Set("Cache-Control", "no-cache")
+
+	volumes, err := s.Discovery.ListVolumes(context.Background())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if volumes == nil {
+		volumes = []api.DockerVolume{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(volumes)
+}
+
+func (s *Server) handleVolumesPrune(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	all := false
+	if raw := r.URL.Query().Get("all"); raw != "" {
+		parsed, err := strconv.ParseBool(raw)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid all query parameter")
+			return
+		}
+		all = parsed
+	}
+
+	if _, ok := agentQueryAgentID(r); ok {
+		s.handleAgentVolumesPrune(w, r, all)
+		return
+	}
+
+	result, err := s.Discovery.PruneVolumes(r.Context(), all)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(result)
+}
+
+func (s *Server) handleVolumeByID(w http.ResponseWriter, r *http.Request) {
+	if _, ok := agentQueryAgentID(r); ok {
+		s.handleAgentVolumeDetail(w, r)
+		return
+	}
+
+	name := strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/volumes/"), "/")
+	if name == "" || strings.Contains(name, "/") {
+		writeError(w, http.StatusBadRequest, "volume name required")
+		return
+	}
+
+	w.Header().Set("Cache-Control", "no-cache")
+
+	detail, err := s.Discovery.GetVolume(context.Background(), name)
+	if err != nil {
+		if errdefs.IsNotFound(err) {
+			writeError(w, http.StatusNotFound, "volume not found")
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(detail)
+}
+
+func (s *Server) handleContainersOverview(w http.ResponseWriter, r *http.Request) {
+	if _, ok := agentQueryAgentID(r); ok {
+		s.handleAgentContainersOverview(w, r)
+		return
+	}
+
+	w.Header().Set("Cache-Control", "no-cache")
+
+	overviews, err := s.Discovery.ListContainerOverviews(context.Background())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if overviews == nil {
+		overviews = []api.ContainerOverview{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(overviews)
 }
 
 func (s *Server) handleStreamCheck(w http.ResponseWriter, r *http.Request) {

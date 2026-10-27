@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"dockgo/agent"
+	"dockgo/api"
 	"dockgo/engine"
 	"dockgo/stacks"
 
@@ -146,6 +148,58 @@ func isStackFileRoute(parts []string) bool {
 	return len(parts) == 2 && parts[1] == "file"
 }
 
+func (s *Server) handleStacksOverview(w http.ResponseWriter, r *http.Request) {
+	agentID, isAgent := agentQueryAgentID(r)
+
+	var containers []api.ContainerOverview
+	if isAgent {
+		ctx, cancel := context.WithTimeout(r.Context(), agentOpTimeout)
+		defer cancel()
+
+		response, _, err := s.dispatchToAgent(ctx, agentID, agent.TypeContainersOverview, nil, nil)
+		if err != nil {
+			writeError(w, http.StatusServiceUnavailable, err.Error())
+			return
+		}
+
+		select {
+		case env := <-response:
+			var rd agent.ResultData
+			if err := env.Decode(&rd); err != nil {
+				writeError(w, http.StatusInternalServerError, "invalid agent response")
+				return
+			}
+			if rd.Error != "" {
+				writeError(w, http.StatusInternalServerError, rd.Error)
+				return
+			}
+			if err := json.Unmarshal(rd.Value, &containers); err != nil {
+				writeError(w, http.StatusInternalServerError, "invalid agent container data")
+				return
+			}
+		case <-ctx.Done():
+			writeError(w, http.StatusGatewayTimeout, "agent request timed out")
+			return
+		}
+	} else {
+		var err error
+		containers, err = s.Discovery.ListContainerOverviews(r.Context())
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	stackList := make([]stacks.Stack, 0)
+	for _, stack := range s.StackStore.List() {
+		if stack.AgentID == agentID {
+			stackList = append(stackList, stack)
+		}
+	}
+
+	writeJSON(w, http.StatusOK, buildStackOverviews(stackList, containers))
+}
+
 func (s *Server) handleStackByID(w http.ResponseWriter, r *http.Request) {
 	if _, ok := agentQueryAgentID(r); ok {
 		s.handleAgentStacksRoute(w, r)
@@ -206,7 +260,7 @@ func (s *Server) handleStackByID(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			updatedInput := stackFromPayload(stack, payload)
+			updatedInput := stackUpdateFromPayload(stack, payload)
 			validation := s.validateStackWithRuntime(context.Background(), updatedInput)
 			if !validation.Valid {
 				writeJSON(w, http.StatusBadRequest, map[string]any{
@@ -247,6 +301,15 @@ func (s *Server) handleStackByID(w http.ResponseWriter, r *http.Request) {
 	if stack.AgentID != "" && isStackFileRoute(parts) {
 		writeError(w, http.StatusNotImplemented,
 			"editing an agent-hosted stack requires the agent query parameter (?agent=<id>)")
+		return
+	}
+
+	if len(parts) == 2 && parts[1] == "env-file" {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		s.handleStackEnvFileCreate(w, stack, r)
 		return
 	}
 
@@ -483,6 +546,30 @@ func stackFromPayload(existing stacks.Stack, payload stackPayload) stacks.Stack 
 	}
 
 	return stack
+}
+
+// stackUpdateFromPayload applies an edit payload while preserving the ownership
+// and provenance fields the edit form does not own. A stack never changes host,
+// kind, or git provenance through an edit; labels and the discovery selector are
+// kept unless the payload explicitly supplies new values.
+func stackUpdateFromPayload(existing stacks.Stack, payload stackPayload) stacks.Stack {
+	updated := stackFromPayload(existing, payload)
+
+	updated.Kind = existing.Kind
+	updated.AgentID = existing.AgentID
+	updated.ManagedContainers = existing.ManagedContainers
+
+	if payload.GitSource == nil {
+		updated.GitSource = existing.GitSource
+	}
+	if payload.Labels == nil {
+		updated.Labels = existing.Labels
+	}
+	if payload.Discovery.ComposeProject == "" && len(payload.Discovery.ServiceNames) == 0 {
+		updated.Discovery = existing.Discovery
+	}
+
+	return updated
 }
 
 func validationPtr(result stacks.ValidationResult) *stacks.ValidationResult {

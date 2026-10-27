@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard · DockGo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/style.css?v=1.5.0">
+    <script src="/page.js?v=1.2.0" defer></script>
+    <script src="/dashboard.js?v=1.0.4" defer></script>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-180x180.png">
+    <!-- Android Chrome -->
+    <link rel="icon" type="image/png" sizes="192x192" href="/android-chrome-192x192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="/android-chrome-512x512.png">
+    <!-- Microsoft Tiles -->
+    <meta name="msapplication-TileColor" content="#ffffff">
+    <meta name="msapplication-TileImage" content="/mstile-150x150.png">
+    <meta name="msapplication-config" href="/browserconfig.xml">
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+</head>
+
+<body>
+    <aside class="sidebar">
+        <nav class="sidebar-nav" aria-label="Primary navigation">
+            <a class="sidebar-link" href="/"><span class="nf nf-dashboard" aria-hidden="true"></span>Dashboard</a>
+            <a class="sidebar-link active" href="/dashboard" aria-current="page"><span class="nf nf-dashboard-variant" aria-hidden="true"></span>New Dashboard</a>
+            <a class="sidebar-link" href="/stacks"><span class="nf nf-layers" aria-hidden="true"></span>Stacks</a>
+            <a class="sidebar-link" href="/containers"><span class="nf nf-docker" aria-hidden="true"></span>Containers</a>
+            <a class="sidebar-link" href="/volumes"><span class="nf nf-database" aria-hidden="true"></span>Volumes</a>
+            <a class="sidebar-link" href="/images"><span class="nf nf-package" aria-hidden="true"></span>Images</a>
+            <a class="sidebar-link" href="/networks"><span class="nf nf-network" aria-hidden="true"></span>Networks</a>
+            <a class="sidebar-link" href="/agents"><span class="nf nf-server" aria-hidden="true"></span>Agents</a>
+        </nav>
+    </aside>
+
+    <div class="container">
+        <header>
+            <div style="display: flex; align-items: flex-end; gap: 0.75rem;">
+                <img src="/dockgo-logo-web.svg" width="125" alt="DockGo Logo">
+                <span id="app-version" class="version-tag"
+                    style="font-family: monospace; color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.2rem;"></span>
+            </div>
+            <div class="header-controls">
+                <div class="control-group host-selector-group">
+                    <select id="host-selector" title="Select host" class="host-selector">
+                        <option value="">Local host</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <button id="logout-btn" class="btn-icon hidden" title="Logout">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                            <polyline points="16 17 21 12 16 7"></polyline>
+                            <line x1="21" y1="12" x2="9" y2="12"></line>
+                        </svg>
+                    </button>
+                    <button id="logout-all-btn" class="btn-icon hidden" title="Logout All Devices"
+                        style="color: var(--danger);">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+                            <line x1="12" y1="2" x2="12" y2="12"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <section class="page-section">
+            <div class="stacks-overview">
+                <div>
+                    <p class="stacks-kicker">Container Runtime</p>
+                    <h2>Dashboard</h2>
+                    <p class="stacks-description">Live container state, update availability, and resource usage for the
+                        selected host.</p>
+                </div>
+            </div>
+
+            <div id="server-stats-row" class="server-stats-bar hidden">
+                <div class="server-stats-status">
+                    <span id="connection-status" class="status-indicator">Connecting...</span>
+                </div>
+                <div class="server-stats-metrics">
+                    <span class="stat-item"><span class="nf nf-chip" aria-hidden="true"></span><span class="stat-label">CPU:</span> <strong id="stat-cpu">--%</strong></span>
+                    <span class="stat-divider"></span>
+                    <span class="stat-item"><span class="nf nf-memory" aria-hidden="true"></span><span class="stat-label">RAM:</span> <strong id="stat-ram">-- / --</strong></span>
+                    <span class="stat-divider"></span>
+                    <span class="stat-item"><span class="nf nf-disk" aria-hidden="true"></span><span class="stat-label">Disk:</span> <strong id="stat-disk">-- / --</strong></span>
+                </div>
+            </div>
+
+            <div class="stack-panel page-panel dashboard-panel">
+                <div class="stack-panel-header">
+                    <h2>Containers</h2>
+                    <div class="stack-panel-actions">
+                        <button id="scan-updates-btn" class="btn primary"><span class="nf nf-update" aria-hidden="true"></span>Check for Updates</button>
+                        <button id="refresh-dashboard-list-btn" class="btn secondary"><span class="nf nf-refresh" aria-hidden="true"></span>Refresh</button>
+                    </div>
+                </div>
+
+                <div id="dashboard-status" class="page-status hidden"></div>
+
+                <div id="progress-container" class="progress-container hidden">
+                    <div class="progress-info">
+                        <span id="progress-text">Checking containers...</span>
+                        <span id="progress-count">0/0</span>
+                    </div>
+                    <div class="progress-bar-bg">
+                        <div id="progress-bar-fill" class="progress-bar-fill" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <div class="dashboard-toolbar">
+                    <input type="text" id="dashboard-search" class="search-input"
+                        placeholder="Search containers by name...">
+                    <div class="view-switch" role="tablist" aria-label="Container view">
+                        <button id="view-grid" class="btn-icon active" title="Grid View"><span class="nf nf-grid" aria-hidden="true"></span></button>
+                        <button id="view-list" class="btn-icon" title="List View"><span class="nf nf-list" aria-hidden="true"></span></button>
+                        <button id="view-group" class="btn-icon" title="Group by Stack"><span class="nf nf-group" aria-hidden="true"></span></button>
+                    </div>
+                </div>
+
+                <div id="container-list" class="grid-list">
+                    <div class="loading">Loading containers...</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Container Card Template -->
+        <template id="container-card-template">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="container-name"></h3>
+                    <div class="header-actions">
+                        <span class="status-badge"></span>
+                        <div class="menu">
+                            <button class="menu-btn" title="Container Actions"><span class="nf nf-dots" aria-hidden="true"></span></button>
+                            <div class="menu-dropdown hidden">
+                                <button class="menu-action-btn" data-action="start"><span class="nf nf-play" aria-hidden="true"></span>Start</button>
+                                <button class="menu-action-btn" data-action="stop"><span class="nf nf-stop" aria-hidden="true"></span>Stop</button>
+                                <button class="menu-action-btn" data-action="restart"><span class="nf nf-restart" aria-hidden="true"></span>Restart</button>
+                                <hr style="margin: 4px 0; border: 0; border-top: 1px solid var(--border);">
+                                <button class="menu-action-btn" data-action="logs"><span class="nf nf-console" aria-hidden="true"></span>View Logs</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <p class="image-name"></p>
+                    <div class="badges">
+                        <span class="tag-badge hidden"></span>
+                    </div>
+                    <div class="update-section hidden">
+                        <span class="update-badge">Update Available</span>
+                        <button class="btn-update">Update Now</button>
+                    </div>
+                    <div class="update-message hidden"></div>
+                </div>
+            </div>
+        </template>
+
+        <!-- Container List Template -->
+        <template id="container-list-template">
+            <div class="list-item">
+                <div class="list-col-name">
+                    <h3 class="container-name"></h3>
+                    <div class="image-row">
+                        <p class="image-name"></p>
+                        <span class="tag-badge hidden"></span>
+                    </div>
+                </div>
+                <div class="list-col-status">
+                    <span class="status-badge"></span>
+                </div>
+                <div class="list-col-actions">
+                    <div class="menu">
+                        <button class="menu-btn" title="Container Actions"><span class="nf nf-dots" aria-hidden="true"></span></button>
+                        <div class="menu-dropdown hidden">
+                            <button class="menu-action-btn" data-action="start"><span class="nf nf-play" aria-hidden="true"></span>Start</button>
+                            <button class="menu-action-btn" data-action="stop"><span class="nf nf-stop" aria-hidden="true"></span>Stop</button>
+                            <button class="menu-action-btn" data-action="restart"><span class="nf nf-restart" aria-hidden="true"></span>Restart</button>
+                            <hr style="margin: 4px 0; border: 0; border-top: 1px solid var(--border);">
+                            <button class="menu-action-btn" data-action="logs"><span class="nf nf-console" aria-hidden="true"></span>View Logs</button>
+                        </div>
+                    </div>
+                    <div class="update-section hidden">
+                        <span class="update-badge">Update Available</span>
+                        <button class="btn-update">Update Now</button>
+                    </div>
+                </div>
+                <div class="update-message hidden"></div>
+            </div>
+        </template>
+
+        <!-- Stack Group Card Template -->
+        <template id="stack-group-card-template">
+            <div class="card stack-group-card">
+                <div class="card-header">
+                    <div class="stack-group-title">
+                        <h3 class="container-name stack-group-name"></h3>
+                        <span class="stack-group-count-badge"></span>
+                    </div>
+                    <div class="header-actions">
+                        <span class="status-badge stack-group-status"></span>
+                        <div class="menu">
+                            <button class="menu-btn" title="Stack Actions"><span class="nf nf-dots" aria-hidden="true"></span></button>
+                            <div class="menu-dropdown hidden">
+                                <button class="menu-action-btn" data-action="start"><span class="nf nf-play" aria-hidden="true"></span>Start</button>
+                                <button class="menu-action-btn" data-action="stop"><span class="nf nf-stop" aria-hidden="true"></span>Stop</button>
+                                <button class="menu-action-btn" data-action="restart"><span class="nf nf-restart" aria-hidden="true"></span>Restart</button>
+                                <hr style="margin: 4px 0; border: 0; border-top: 1px solid var(--border);">
+                                <button class="menu-action-btn" data-action="edit-files"><span class="nf nf-file-edit" aria-hidden="true"></span>Edit Files</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <p class="stack-group-services image-name"></p>
+                    <div class="update-section hidden">
+                        <span class="update-badge">Stack Update Available</span>
+                        <button class="btn-update">Update Stack</button>
+                    </div>
+                    <div class="update-message hidden"></div>
+                </div>
+            </div>
+        </template>
+
+        <!-- Stack Group List Template -->
+        <template id="stack-group-list-template">
+            <div class="list-item stack-group-list-item">
+                <div class="list-col-name">
+                    <div class="stack-group-title">
+                        <h3 class="container-name stack-group-name"></h3>
+                        <span class="stack-group-count-badge"></span>
+                    </div>
+                    <p class="stack-group-services image-name"></p>
+                </div>
+                <div class="list-col-status">
+                    <span class="status-badge stack-group-status"></span>
+                </div>
+                <div class="list-col-actions">
+                    <div class="menu">
+                        <button class="menu-btn" title="Stack Actions"><span class="nf nf-dots" aria-hidden="true"></span></button>
+                        <div class="menu-dropdown hidden">
+                            <button class="menu-action-btn" data-action="start"><span class="nf nf-play" aria-hidden="true"></span>Start</button>
+                            <button class="menu-action-btn" data-action="stop"><span class="nf nf-stop" aria-hidden="true"></span>Stop</button>
+                            <button class="menu-action-btn" data-action="restart"><span class="nf nf-restart" aria-hidden="true"></span>Restart</button>
+                            <hr style="margin: 4px 0; border: 0; border-top: 1px solid var(--border);">
+                            <button class="menu-action-btn" data-action="edit-files"><span class="nf nf-file-edit" aria-hidden="true"></span>Edit Files</button>
+                        </div>
+                    </div>
+                    <div class="update-section hidden">
+                        <span class="update-badge">Stack Update Available</span>
+                        <button class="btn-update">Update Stack</button>
+                    </div>
+                </div>
+                <div class="update-message hidden"></div>
+            </div>
+        </template>
+
+        <!-- Confirm Modal -->
+        <div id="confirm-modal" class="modal-overlay hidden" style="z-index: 2000;">
+            <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title"
+                aria-describedby="confirm-modal-message">
+                <div class="modal-header">
+                    <h2 id="confirm-modal-title">Confirm</h2>
+                </div>
+                <div class="modal-body" style="text-align: center;">
+                    <p id="confirm-modal-message" style="white-space: pre-line;"></p>
+                    <div style="display: flex; gap: 10px; justify-content: center;">
+                        <button id="confirm-modal-cancel" class="btn secondary" style="min-width: 100px;"
+                            type="button">Cancel</button>
+                        <button id="confirm-modal-ok" class="btn primary" style="min-width: 100px;"
+                            type="button">OK</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logs Modal -->
+        <div id="logs-modal" class="modal-overlay hidden">
+            <div class="modal logs-modal-content">
+                <div class="modal-header">
+                    <h2 id="logs-title">Container Logs</h2>
+                    <button id="close-logs-btn" class="close-btn" title="Close">✕</button>
+                </div>
+                <div class="modal-body logs-body">
+                    <div id="logs-output"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Login Modal -->
+        <div id="login-modal" class="modal-overlay hidden">
+            <div class="modal">
+                <div class="modal-header">
+                    <h2>Login</h2>
+                </div>
+                <div class="modal-body">
+                    <form id="login-form">
+                        <div class="form-group">
+                            <label for="username">Username</label>
+                            <input type="text" id="username" name="username" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="password">Password</label>
+                            <input type="password" id="password" name="password" required>
+                        </div>
+                        <div id="login-error" class="error-message hidden"></div>
+                        <button type="submit" class="btn primary full-width">Login</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- No Auth Modal -->
+        <div id="no-auth-modal" class="modal-overlay hidden">
+            <div class="modal">
+                <div class="modal-header">
+                    <h2 style="color: var(--danger);">Authentication Required</h2>
+                </div>
+                <div class="modal-body" style="text-align: center;">
+                    <p style="margin-bottom: 1rem;">DockGo has been started without any authentication configured
+                        (Missing <code>AUTH_USERNAME</code> and <code>API_TOKEN</code>).</p>
+                    <p style="margin-bottom: 1rem;">To protect your server, the dashboard and API connection have been
+                        <strong>blocked</strong>.</p>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem;">Please restart the DockGo container with
+                        authentication environment variables set in order to access the dashboard.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

@@ -1,14 +1,15 @@
 # Multi-Host Management with DockGo Agents
 
-![DockGo dashboard showing container updates](../screenshots/screenshot-agents-tab.png)
+![DockGo Agents view](../screenshots/screenshot-agents-tab.png)
 
 DockGo can manage Docker containers and Compose stacks on **multiple remote
 hosts from a single dashboard**. A lightweight **agent** runs on each managed
 host (where the Docker socket lives) and establishes an outbound encrypted
 channel to the DockGo server. The server then relays the existing dashboard
-operations (containers, scans, updates, logs, stats, stacks) to the agent.
+operations (containers, images, volumes, networks, scans, updates, logs, stats,
+and stacks) to the agent.
 
-```
+```text
 +-----------------------------------------------------------+
 | DockGo Server                                              |
 |  - existing REST/SSE UI endpoints                          |
@@ -68,9 +69,9 @@ operations (containers, scans, updates, logs, stats, stacks) to the agent.
 | `* /api/agent/:id/*` | Proxy — relays any request to the specified agent over its WebSocket channel |
 
 The `/api/agent/:id/*` proxy transparently relays dashboard operations
-(containers, scans, updates, logs, stats, stacks) to a specific connected
-agent. The server forwards the request, waits for the agent's response, and
-streams it back to the web client.
+(containers and live stats, images, volumes, networks, scans, updates, logs,
+and stacks) to a specific connected agent. The server forwards the request,
+waits for the agent's response, and streams it back to the web client.
 
 ## Security model
 
@@ -89,7 +90,7 @@ streams it back to the web client.
 
 ### 1. Server side
 
-1. Open the DockGo dashboard and go to the **Agents** view.
+1. Open the **Agents** page at `/agents`.
 2. Click **Add Agent**, enter a name (e.g. `media-server`), and click
    **Create Agent**.
 3. Copy the generated key (**shown only once**). If you lose it, use
@@ -99,7 +100,7 @@ Environment variables on the server:
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `AGENT_STORE_PATH` | `/app/data/agents.json` | JSON file that persists agent records |
+| `AGENT_STORE_PATH` | `/app/data/agents.json` | Absolute path to the JSON file that persists agent records |
 | `AGENT_MAX_CONCURRENT` | `8` | Per-agent concurrent op cap |
 | `AGENT_HANDSHAKE_CONCURRENCY` | `8` | Concurrent registration handshakes |
 | `AGENT_JWT_TTL` | `1h` | Lifetime of the channel JWT |
@@ -162,10 +163,13 @@ provided `Dockerfile.agent` includes them.
 
 - Use the **host selector** in the top-right of the dashboard to switch between
   the local host and each registered agent.
-- Containers, stats, scans, updates, logs, and stacks all operate on the
-  selected host.
-- The **Stacks** view for an agent host shows only that agent's stacks. Creating
-  a stack while an agent is selected targets that agent (git-kind disabled).
+- Containers, images, volumes, networks, stats, scans, updates, logs, and
+  stacks all operate on the selected host.
+- The Containers, Stacks, Images, Volumes, and Networks pages follow the host
+  selector, so each page shows that host's own resources and live metrics.
+- The **Stacks** page and the dashboard's **Stacks** tab show only that agent's
+  stacks. Creating a stack while an agent is selected targets that agent
+  (git-kind disabled).
 - Agents go **offline** in the selector when disconnected; the dashboard shows
   the host as unavailable for operations until the agent reconnects.
 
@@ -186,6 +190,15 @@ All messages use a JSON envelope with these fields:
 | --- | --- |
 | `register` | Initial handshake (agent sends key, hostname, version) |
 | `containers_list` | List all containers on the agent host |
+| `containers_overview` | List containers with live resource usage |
+| `networks_list` | List Docker networks with IPAM and container counts |
+| `network_inspect` | Get one network with its containers and stacks |
+| `images_list` | List Docker images by repository and tag |
+| `image_inspect` | Get one image with its containers and stacks |
+| `images_prune` | Prune dangling or all unused images |
+| `volumes_list` | List Docker volumes with stack and container usage |
+| `volume_inspect` | Get one volume's details, labels, and containers |
+| `volumes_prune` | Prune anonymous or all unused volumes |
 | `scan` | Scan for container updates |
 | `update` | Update a specific container |
 | `container_action` | Start/stop/restart a container |
@@ -201,7 +214,20 @@ All messages use a JSON envelope with these fields:
 | `stack_history` | Get stack action history |
 | `stack_containers` | Get runtime containers for a stack |
 | `stack_discover` | Discover compose projects on the agent host |
+| `stack_file_list` | List editable compose and env files |
+| `stack_file_read` | Read one stack file |
+| `stack_file_validate` | Validate draft file content |
+| `stack_file_write` | Save one stack file |
+| `stack_env_file_create` | Create a new env file in a stack working directory |
 | `disconnect` | Graceful channel shutdown — sent when an agent is deleted or the server is shutting down |
+
+> [!NOTE]
+> The Containers, Stacks, Images, Volumes, and Networks pages rely on
+> `containers_overview`, `images_list`, `image_inspect`, `images_prune`,
+> `volumes_list`, `volume_inspect`, `volumes_prune`, `networks_list`, and
+> `network_inspect`. Agents built before these operations return
+> `unsupported operation`; update the agent image when using those pages
+> against a remote host.
 
 ### Agent → Server messages
 

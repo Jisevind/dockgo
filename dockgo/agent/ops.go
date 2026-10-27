@@ -89,6 +89,141 @@ func (a *Agent) opContainersList(ctx context.Context, conn *websocket.Conn, env 
 	a.sendResult(ctx, conn, env.RequestID, result)
 }
 
+// opNetworksList lists all Docker networks in the same shape as the server's
+// local endpoint.
+func (a *Agent) opNetworksList(ctx context.Context, conn *websocket.Conn, env Envelope) {
+	networks, err := a.discovery.ListNetworks(ctx)
+	if err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+	if networks == nil {
+		networks = []api.DockerNetwork{}
+	}
+	a.sendResult(ctx, conn, env.RequestID, networks)
+}
+
+// opImagesList lists all Docker images in the same shape as the server's local
+// endpoint.
+func (a *Agent) opImagesList(ctx context.Context, conn *websocket.Conn, env Envelope) {
+	images, err := a.discovery.ListImages(ctx)
+	if err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+	if images == nil {
+		images = []api.DockerImage{}
+	}
+	a.sendResult(ctx, conn, env.RequestID, images)
+}
+
+// opVolumesList lists all Docker volumes in the same shape as the server's
+// local endpoint.
+func (a *Agent) opVolumesList(ctx context.Context, conn *websocket.Conn, env Envelope) {
+	volumes, err := a.discovery.ListVolumes(ctx)
+	if err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+	if volumes == nil {
+		volumes = []api.DockerVolume{}
+	}
+	a.sendResult(ctx, conn, env.RequestID, volumes)
+}
+
+// opVolumeInspect returns the overview for one volume.
+func (a *Agent) opVolumeInspect(ctx context.Context, conn *websocket.Conn, env Envelope) {
+	var req VolumeInspectRequest
+	if err := env.Decode(&req); err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+
+	detail, err := a.discovery.GetVolume(ctx, req.Name)
+	if err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+	a.sendResult(ctx, conn, env.RequestID, detail)
+}
+
+// opVolumesPrune prunes unused volumes.
+func (a *Agent) opVolumesPrune(ctx context.Context, conn *websocket.Conn, env Envelope) {
+	var req VolumePruneRequest
+	if err := env.Decode(&req); err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+
+	result, err := a.discovery.PruneVolumes(ctx, req.All)
+	if err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+	a.sendResult(ctx, conn, env.RequestID, result)
+}
+
+// opImageInspect returns the overview for one image.
+func (a *Agent) opImageInspect(ctx context.Context, conn *websocket.Conn, env Envelope) {
+	var req ImageInspectRequest
+	if err := env.Decode(&req); err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+
+	detail, err := a.discovery.GetImage(ctx, req.ID)
+	if err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+	a.sendResult(ctx, conn, env.RequestID, detail)
+}
+
+// opImagesPrune prunes unused images.
+func (a *Agent) opImagesPrune(ctx context.Context, conn *websocket.Conn, env Envelope) {
+	var req ImagePruneRequest
+	if err := env.Decode(&req); err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+
+	result, err := a.discovery.PruneImages(ctx, req.All)
+	if err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+	a.sendResult(ctx, conn, env.RequestID, result)
+}
+
+// opNetworkInspect returns the overview for one network.
+func (a *Agent) opNetworkInspect(ctx context.Context, conn *websocket.Conn, env Envelope) {
+	var req NetworkInspectRequest
+	if err := env.Decode(&req); err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+
+	detail, err := a.discovery.GetNetwork(ctx, req.Name)
+	if err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+	a.sendResult(ctx, conn, env.RequestID, detail)
+}
+
+// opContainersOverview lists containers with live resource metrics.
+func (a *Agent) opContainersOverview(ctx context.Context, conn *websocket.Conn, env Envelope) {
+	overviews, err := a.discovery.ListContainerOverviews(ctx)
+	if err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+	if overviews == nil {
+		overviews = []api.ContainerOverview{}
+	}
+	a.sendResult(ctx, conn, env.RequestID, overviews)
+}
+
 // opScan runs an update scan and streams progress events.
 func (a *Agent) opScan(ctx context.Context, conn *websocket.Conn, env Envelope) {
 	var req ScanRequest
@@ -863,4 +998,20 @@ func stackProjectName(stack stacks.Stack) string {
 		return stack.ProjectName
 	}
 	return stack.ID
+}
+
+// opStackEnvFileCreate creates an empty env file inside the stack working dir.
+func (a *Agent) opStackEnvFileCreate(ctx context.Context, conn *websocket.Conn, env Envelope) {
+	var req StackEnvFileRequest
+	if err := env.Decode(&req); err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+
+	path, err := stacks.CreateEnvFile(req.Stack, req.Name, a.cfg.AllowedPaths)
+	if err != nil {
+		a.sendError(ctx, conn, env.RequestID, err)
+		return
+	}
+	a.sendResult(ctx, conn, env.RequestID, map[string]string{"path": path})
 }

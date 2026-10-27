@@ -229,3 +229,57 @@ func (s *Server) handleStackFileWrite(w http.ResponseWriter, stack stacks.Stack,
 
 	writeJSON(w, http.StatusOK, map[string]any{"target": target})
 }
+
+// handleStackEnvFileCreate creates and registers a new env file for a local
+// stack.
+func (s *Server) handleStackEnvFileCreate(w http.ResponseWriter, stack stacks.Stack, r *http.Request) {
+	if stack.AgentID != "" {
+		writeError(w, http.StatusNotImplemented,
+			"creating an env file for an agent-hosted stack requires the agent query parameter (?agent=<id>)")
+		return
+	}
+
+	var payload struct {
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	storedPath, err := stacks.CreateEnvFile(stack, payload.Name, s.AllowedPaths)
+	if err != nil {
+		status := http.StatusBadRequest
+		if errors.Is(err, stacks.ErrPathNotAllowed) {
+			status = http.StatusForbidden
+		}
+		writeError(w, status, err.Error())
+		return
+	}
+
+	s.finishStackEnvFileCreate(w, stack, storedPath)
+}
+
+// finishStackEnvFileCreate appends the new env file to the stack definition and
+// writes the response shared by the local and agent paths.
+func (s *Server) finishStackEnvFileCreate(w http.ResponseWriter, stack stacks.Stack, storedPath string) {
+	registered := false
+	for _, existing := range stack.EnvFiles {
+		if existing == storedPath {
+			registered = true
+			break
+		}
+	}
+	if !registered {
+		stack.EnvFiles = append(stack.EnvFiles, storedPath)
+		saved, err := s.StackStore.Save(stack)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		stack = saved
+	}
+	s.recordStackHistory(stack, "edit", "success", "env file created: "+storedPath)
+
+	writeJSON(w, http.StatusCreated, map[string]any{"path": storedPath})
+}

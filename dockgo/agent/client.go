@@ -477,6 +477,24 @@ func (a *Agent) runOp(ctx context.Context, conn *websocket.Conn, env Envelope) {
 	switch env.Type {
 	case TypeContainersList:
 		a.opContainersList(ctx, conn, env)
+	case TypeContainersOverview:
+		a.opContainersOverview(ctx, conn, env)
+	case TypeNetworksList:
+		a.opNetworksList(ctx, conn, env)
+	case TypeImagesList:
+		a.opImagesList(ctx, conn, env)
+	case TypeImageInspect:
+		a.opImageInspect(ctx, conn, env)
+	case TypeImagesPrune:
+		a.opImagesPrune(ctx, conn, env)
+	case TypeVolumesList:
+		a.opVolumesList(ctx, conn, env)
+	case TypeVolumeInspect:
+		a.opVolumeInspect(ctx, conn, env)
+	case TypeVolumesPrune:
+		a.opVolumesPrune(ctx, conn, env)
+	case TypeNetworkInspect:
+		a.opNetworkInspect(ctx, conn, env)
 	case TypeScan:
 		a.opScan(ctx, conn, env)
 	case TypeUpdate:
@@ -515,6 +533,8 @@ func (a *Agent) runOp(ctx context.Context, conn *websocket.Conn, env Envelope) {
 		a.opStackFileValidate(ctx, conn, env)
 	case TypeStackFileWrite:
 		a.opStackFileWrite(ctx, conn, env)
+	case TypeStackEnvFileCreate:
+		a.opStackEnvFileCreate(ctx, conn, env)
 	default:
 		a.sendError(ctx, conn, env.RequestID, fmt.Errorf("unsupported operation: %s", env.Type))
 	}
@@ -528,9 +548,12 @@ func opTimeout(msgType string) time.Duration {
 		return 15 * time.Minute
 	case TypeContainerLogs:
 		return 10 * time.Minute
-	case TypeContainersList, TypeServerStats:
+	// Volume listings also calculate on-disk sizes, which can be slow.
+	case TypeVolumesList:
+		return 5 * time.Minute
+	case TypeContainersList, TypeContainersOverview, TypeNetworksList, TypeImagesList, TypeImageInspect, TypeVolumeInspect, TypeNetworkInspect, TypeServerStats:
 		return 2 * time.Minute
-	case TypeStackFileList, TypeStackFileRead, TypeStackFileValidate, TypeStackFileWrite:
+	case TypeStackFileList, TypeStackFileRead, TypeStackFileValidate, TypeStackFileWrite, TypeStackEnvFileCreate:
 		return 2 * time.Minute
 	default:
 		// Stack ops (validate/containers/discover) touch the daemon and the
