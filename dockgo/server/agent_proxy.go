@@ -35,8 +35,19 @@ func (s *Server) handleAgentRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Rewrite the URL path to the canonical form so the sub-handlers can parse it.
-	r = r.Clone(r.Context())
-	r.URL.Path = "/api/" + rest
+	r = rewriteAgentRoute(r, agentID, rest)
+
+	switch agentRouteName(rest) {
+	case "volumes-prune":
+		s.handleVolumesPrune(w, r)
+		return
+	case "images-prune":
+		s.handleImagesPrune(w, r)
+		return
+	case "stacks-overview":
+		s.handleStacksOverview(w, r)
+		return
+	}
 
 	switch {
 	case strings.HasPrefix(rest, "stream/check"):
@@ -70,6 +81,43 @@ func (s *Server) handleAgentRoute(w http.ResponseWriter, r *http.Request) {
 	default:
 		writeError(w, http.StatusNotFound, "unknown agent route")
 	}
+}
+
+// rewriteAgentRoute clones r with the canonical /api/<rest> path and carries the
+// agent ID in the query so sub-handlers can still resolve it.
+func rewriteAgentRoute(r *http.Request, agentID, rest string) *http.Request {
+	r = r.Clone(r.Context())
+	r.URL.Path = "/api/" + rest
+	q := r.URL.Query()
+	q.Set("agent", agentID)
+	r.URL.RawQuery = q.Encode()
+	return r
+}
+
+// agentRouteName identifies sub-routes that must match exactly before the
+// generic prefix routes (a volume or image may not be named "prune").
+func agentRouteName(rest string) string {
+	switch rest {
+	case "volumes/prune":
+		return "volumes-prune"
+	case "images/prune":
+		return "images-prune"
+	case "stacks/overview":
+		return "stacks-overview"
+	case "volumes":
+		return "volumes"
+	}
+	switch {
+	case strings.HasPrefix(rest, "volumes/"):
+		return "volume-detail"
+	case strings.HasPrefix(rest, "images/"):
+		return "image-detail"
+	case strings.HasPrefix(rest, "networks/"):
+		return "network-detail"
+	case strings.HasPrefix(rest, "stacks"):
+		return "stacks"
+	}
+	return ""
 }
 
 // agentOpTimeout bounds a single dispatched agent operation. It must be
