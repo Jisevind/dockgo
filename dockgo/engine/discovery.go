@@ -13,7 +13,8 @@ import (
 type DiscoveryEngine struct {
 	Client *client.Client
 
-	volumeSizes volumeSizeCache
+	volumeSizes    volumeSizeCache
+	containerStats containerStatsCache
 }
 
 // NewDiscoveryEngine creates a Docker discovery client.

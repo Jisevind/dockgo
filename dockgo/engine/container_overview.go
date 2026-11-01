@@ -2,7 +2,6 @@ package engine
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sort"
 	"strconv"
@@ -39,6 +38,16 @@ func (d *DiscoveryEngine) ListContainerOverviews(ctx context.Context) ([]api.Con
 		visible = append(visible, c)
 	}
 
+	running := make([]string, 0, len(visible))
+	for _, c := range visible {
+		if c.State == container.StateRunning {
+			running = append(running, c.ID)
+		}
+	}
+	// Stats come from a background-refreshed cache: sampling every container
+	// inline made the whole response wait on the slowest stats call.
+	stats := d.containerStats.get(ctx, running, d.fetchContainerStats, containerStatsColdWait)
+
 	now := time.Now()
 	results := make([]api.ContainerOverview, len(visible))
 	sem := make(chan struct{}, containerOverviewConcurrency)
@@ -56,21 +65,11 @@ func (d *DiscoveryEngine) ListContainerOverviews(ctx context.Context) ([]api.Con
 				inspect = container.InspectResponse{}
 			}
 
-			var stats *container.StatsResponse
+			var sample *container.StatsResponse
 			if summary.State == container.StateRunning {
-				statsCtx, cancel := context.WithTimeout(ctx, containerStatsTimeout)
-				defer cancel()
-				if reader, err := d.Client.ContainerStatsOneShot(statsCtx, summary.ID); err == nil {
-					var decoded container.StatsResponse
-					decodeErr := json.NewDecoder(reader.Body).Decode(&decoded)
-					_ = reader.Body.Close()
-					if decodeErr == nil {
-						stats = &decoded
-					}
-				}
+				sample = stats[summary.ID]
 			}
-
-			results[i] = buildContainerOverview(summary, inspect, stats, now)
+			results[i] = buildContainerOverview(summary, inspect, sample, now)
 		}(i, summary)
 	}
 	wg.Wait()
