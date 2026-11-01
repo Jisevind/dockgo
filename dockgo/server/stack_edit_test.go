@@ -241,3 +241,20 @@ func quoted(value string) string {
 	}
 	return string(encoded)
 }
+
+func TestStackUpdateFromPayloadDiscoverySelector(t *testing.T) {
+	existing := stacks.Stack{
+		Kind:      stacks.KindComposeFiles,
+		Discovery: stacks.DiscoverySelector{ComposeProject: "shop", ServiceNames: []string{"api"}},
+	}
+
+	kept := stackUpdateFromPayload(existing, stackPayload{Name: "x"})
+	if kept.Discovery.ComposeProject != "shop" {
+		t.Errorf("omitted selector = %#v, want kept", kept.Discovery)
+	}
+
+	cleared := stackUpdateFromPayload(existing, stackPayload{Name: "x", Discovery: &stacks.DiscoverySelector{}})
+	if cleared.Discovery.ComposeProject != "" || len(cleared.Discovery.ServiceNames) != 0 {
+		t.Errorf("explicit empty selector = %#v, want cleared", cleared.Discovery)
+	}
+}

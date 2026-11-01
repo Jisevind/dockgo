@@ -21,22 +21,22 @@ import (
 )
 
 type stackPayload struct {
-	Name         string                   `json:"name"`
-	ProjectName  string                   `json:"project_name"`
-	Kind         stacks.Kind              `json:"kind"`
-	AgentID      string                   `json:"agent_id"`
-	ComposeFiles []string                 `json:"compose_files"`
-	EnvFiles     []string                 `json:"env_files"`
-	WorkingDir   string                   `json:"working_dir"`
-	Profiles     []string                 `json:"profiles"`
-	ProjectEnv   map[string]string        `json:"project_env"`
-	PathMode     stacks.PathMode          `json:"path_mode"`
-	PathMappings []stacks.PathMapping     `json:"path_mappings"`
-	UpdatePolicy *stacks.UpdatePolicy     `json:"update_policy"`
-	HealthPolicy *stacks.HealthPolicy     `json:"health_policy"`
-	Discovery    stacks.DiscoverySelector `json:"discovery_selector"`
-	GitSource    *stacks.GitSource        `json:"git_source"`
-	Labels       map[string]string        `json:"labels"`
+	Name         string                    `json:"name"`
+	ProjectName  string                    `json:"project_name"`
+	Kind         stacks.Kind               `json:"kind"`
+	AgentID      string                    `json:"agent_id"`
+	ComposeFiles []string                  `json:"compose_files"`
+	EnvFiles     []string                  `json:"env_files"`
+	WorkingDir   string                    `json:"working_dir"`
+	Profiles     []string                  `json:"profiles"`
+	ProjectEnv   map[string]string         `json:"project_env"`
+	PathMode     stacks.PathMode           `json:"path_mode"`
+	PathMappings []stacks.PathMapping      `json:"path_mappings"`
+	UpdatePolicy *stacks.UpdatePolicy      `json:"update_policy"`
+	HealthPolicy *stacks.HealthPolicy      `json:"health_policy"`
+	Discovery    *stacks.DiscoverySelector `json:"discovery_selector"`
+	GitSource    *stacks.GitSource         `json:"git_source"`
+	Labels       map[string]string         `json:"labels"`
 }
 
 type stackDetailResponse struct {
@@ -521,7 +521,9 @@ func stackFromPayload(existing stacks.Stack, payload stackPayload) stacks.Stack 
 	stack.ProjectEnv = payload.ProjectEnv
 	stack.PathMode = payload.PathMode
 	stack.PathMappings = payload.PathMappings
-	stack.Discovery = payload.Discovery
+	if payload.Discovery != nil {
+		stack.Discovery = *payload.Discovery
+	}
 	stack.GitSource = payload.GitSource
 	stack.Labels = payload.Labels
 
@@ -551,7 +553,7 @@ func stackFromPayload(existing stacks.Stack, payload stackPayload) stacks.Stack 
 // stackUpdateFromPayload applies an edit payload while preserving the ownership
 // and provenance fields the edit form does not own. A stack never changes host,
 // kind, or git provenance through an edit; labels and the discovery selector are
-// kept unless the payload explicitly supplies new values.
+// kept when the payload omits them.
 func stackUpdateFromPayload(existing stacks.Stack, payload stackPayload) stacks.Stack {
 	updated := stackFromPayload(existing, payload)
 
@@ -565,7 +567,8 @@ func stackUpdateFromPayload(existing stacks.Stack, payload stackPayload) stacks.
 	if payload.Labels == nil {
 		updated.Labels = existing.Labels
 	}
-	if payload.Discovery.ComposeProject == "" && len(payload.Discovery.ServiceNames) == 0 {
+	// A missing selector keeps the existing one; an explicit {} clears it.
+	if payload.Discovery == nil {
 		updated.Discovery = existing.Discovery
 	}
 
