@@ -13,8 +13,18 @@
     if (!sidebar || !toggle || !nav) return;
 
     const label = toggle.querySelector(".sidebar-toggle-label");
-    const active = nav.querySelector(".sidebar-link.active");
-    if (label && active) label.textContent = active.textContent.trim();
+    const updateLabel = () => {
+        const active = nav.querySelector(".sidebar-link.active");
+        if (label && active) label.textContent = active.textContent.trim();
+    };
+    updateLabel();
+
+    // app.js switches the active link in place; keep the label in sync.
+    new MutationObserver(updateLabel).observe(nav, {
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["class"],
+    });
 
     const setOpen = (open) => {
         sidebar.classList.toggle("open", open);
