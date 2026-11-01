@@ -28,8 +28,25 @@ func TestCreateEnvFile(t *testing.T) {
 		t.Errorf("created file size = %d, want 0", info.Size())
 	}
 
-	if _, err := CreateEnvFile(stack, ".env", []string{root}); err == nil {
-		t.Fatal("CreateEnvFile() overwrote an existing file")
+	// An empty file that is not registered yet is adopted so a retry after a
+	// failed registration succeeds.
+	if got, err := CreateEnvFile(stack, ".env", []string{root}); err != nil || got != stored {
+		t.Fatalf("retry CreateEnvFile() = %q, %v; want %q, nil", got, err, stored)
+	}
+
+	// A registered file is never reused.
+	registered := stack
+	registered.EnvFiles = []string{stored}
+	if _, err := CreateEnvFile(registered, ".env", []string{root}); err == nil {
+		t.Fatal("CreateEnvFile() reused a registered file")
+	}
+
+	// A non-empty file is never adopted.
+	if err := os.WriteFile(filepath.Join(root, "data.env"), []byte("A=1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := CreateEnvFile(stack, "data.env", []string{root}); err == nil {
+		t.Fatal("CreateEnvFile() overwrote a non-empty file")
 	}
 }
 

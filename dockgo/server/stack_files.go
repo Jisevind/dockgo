@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -146,12 +145,6 @@ func (s *Server) handleStackFileWrite(w http.ResponseWriter, stack stacks.Stack,
 		return
 	}
 
-	target, err := stacks.ResolveFileTarget(stack, kind, index, s.AllowedPaths)
-	if err != nil {
-		writeError(w, fileTargetStatus(err), err.Error())
-		return
-	}
-
 	var payload fileContentPayload
 	if err := decodeFileContentPayload(w, r, &payload); err != nil {
 		if errors.Is(err, errBodyTooLarge) {
@@ -188,11 +181,26 @@ func (s *Server) handleStackFileWrite(w http.ResponseWriter, stack stacks.Stack,
 	}
 	defer unlock()
 
-	previous, err := os.ReadFile(target.Path)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+	// Reload under the lock: the registration may have changed while waiting.
+	fresh, ok := s.StackStore.Get(stack.ID)
+	if !ok {
+		writeError(w, http.StatusNotFound, "stack not found")
 		return
 	}
+	stack = fresh
+
+	target, err := stacks.ResolveFileTarget(stack, kind, index, s.AllowedPaths)
+	if err != nil {
+		writeError(w, fileTargetStatus(err), err.Error())
+		return
+	}
+
+	previousText, err := stacks.ReadEditableFile(target.Path)
+	if err != nil {
+		writeError(w, fileTargetStatus(err), err.Error())
+		return
+	}
+	previous := []byte(previousText)
 
 	if err := stacks.WriteFileAtomic(target.Path, payload.Content); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())

@@ -30,7 +30,12 @@ func CreateEnvFile(stack Stack, name string, allowedPaths []string) (string, err
 	}
 	target := filepath.Join(parent, name)
 
-	if _, err := os.Stat(target); err == nil {
+	if info, err := os.Stat(target); err == nil {
+		// An empty, unregistered file is left over from a create whose
+		// registration failed; adopting it makes the retry succeed.
+		if info.Mode().IsRegular() && info.Size() == 0 && !containsString(stack.EnvFiles, storedPath) {
+			return storedPath, nil
+		}
 		return "", fmt.Errorf("env file already exists: %s", storedPath)
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return "", err
@@ -44,4 +49,13 @@ func CreateEnvFile(stack Stack, name string, allowedPaths []string) (string, err
 		return "", err
 	}
 	return storedPath, nil
+}
+
+func containsString(list []string, value string) bool {
+	for _, item := range list {
+		if item == value {
+			return true
+		}
+	}
+	return false
 }
