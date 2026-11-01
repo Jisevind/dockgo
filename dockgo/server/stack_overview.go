@@ -12,30 +12,36 @@ import (
 // aggregates the live metrics shown on the stacks page.
 func buildStackOverviews(stackList []stacks.Stack, containers []api.ContainerOverview) []api.StackOverview {
 	managed := make(map[string]string)
-	projects := make(map[string]string)
+	projects := make(map[string][]string)
 	for _, stack := range stackList {
 		for _, containerID := range stack.ManagedContainers {
 			managed[containerID] = stack.ID
 		}
 		if stack.ProjectName != "" {
-			if _, exists := projects[stack.ProjectName]; !exists {
-				projects[stack.ProjectName] = stack.ID
-			}
+			projects[stack.ProjectName] = append(projects[stack.ProjectName], stack.ID)
 		}
 	}
 
 	members := make(map[string][]api.ContainerOverview)
 	presentIDs := make(map[string]bool, len(containers))
+	// Containers without a limit report the host total, so the largest limit
+	// seen bounds what a stack's summed limit can mean.
+	var hostMemory uint64
 	for _, container := range containers {
 		presentIDs[container.ID] = true
-		stackID, ok := managed[container.ID]
-		if !ok && container.ComposeProject != "" {
-			stackID, ok = projects[container.ComposeProject]
+		if container.MemoryLimit > hostMemory {
+			hostMemory = container.MemoryLimit
 		}
-		if !ok {
+		if stackID, ok := managed[container.ID]; ok {
+			members[stackID] = append(members[stackID], container)
 			continue
 		}
-		members[stackID] = append(members[stackID], container)
+		if container.ComposeProject == "" {
+			continue
+		}
+		for _, stackID := range projects[container.ComposeProject] {
+			members[stackID] = append(members[stackID], container)
+		}
 	}
 
 	result := make([]api.StackOverview, 0, len(stackList))
@@ -65,9 +71,7 @@ func buildStackOverviews(stackList []stacks.Stack, containers []api.ContainerOve
 			}
 			row.CPUPercent += member.CPUPercent
 			row.MemoryUsed += member.MemoryUsed
-			if member.MemoryLimit > row.MemoryLimit {
-				row.MemoryLimit = member.MemoryLimit
-			}
+			row.MemoryLimit += member.MemoryLimit
 			row.NetRx += member.NetRx
 			row.NetTx += member.NetTx
 			row.DiskRead += member.DiskRead
@@ -78,6 +82,9 @@ func buildStackOverviews(stackList []stacks.Stack, containers []api.ContainerOve
 			for _, volume := range member.Volumes {
 				volumes[volume] = true
 			}
+		}
+		if hostMemory > 0 && row.MemoryLimit > hostMemory {
+			row.MemoryLimit = hostMemory
 		}
 		row.Networks = len(networks)
 		row.Volumes = len(volumes)

@@ -265,3 +265,28 @@ func overviewNames(rows []api.ContainerOverview) []string {
 	}
 	return names
 }
+
+func TestBuildStackOverviewsSharedProjectAndMemory(t *testing.T) {
+	list := []stacks.Stack{
+		{ID: "a", Name: "a", ProjectName: "shop"},
+		{ID: "b", Name: "b", ProjectName: "shop"},
+	}
+	containers := []api.ContainerOverview{
+		{ID: "c1", Name: "api", State: "running", ComposeProject: "shop", MemoryLimit: 1000},
+		{ID: "c2", Name: "worker", State: "running", ComposeProject: "shop", MemoryLimit: 500},
+		{ID: "c3", Name: "other", State: "running", MemoryLimit: 4000},
+	}
+
+	rows := buildStackOverviews(list, containers)
+	if len(rows) != 2 {
+		t.Fatalf("got %d rows, want 2", len(rows))
+	}
+	for _, row := range rows {
+		if row.Containers != 2 {
+			t.Errorf("stack %s containers = %d, want 2", row.Name, row.Containers)
+		}
+		if row.MemoryLimit != 1500 {
+			t.Errorf("stack %s memory limit = %d, want 1500", row.Name, row.MemoryLimit)
+		}
+	}
+}
