@@ -1109,7 +1109,7 @@ func (s *Server) handleContainers(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Cache-Control", "no-cache")
 
-	containers, err := s.Discovery.ListContainers(context.Background())
+	containers, err := s.Discovery.ListContainers(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -1132,7 +1132,7 @@ func (s *Server) handleContainers(w http.ResponseWriter, r *http.Request) {
 
 		image := c.Image
 		if strings.HasPrefix(image, "sha256:") {
-			if resolved, _, _, _, _, err := s.Discovery.GetContainerImageDetails(context.Background(), c.ID); err == nil && resolved != "" {
+			if resolved, _, _, _, _, err := s.Discovery.GetContainerImageDetails(r.Context(), c.ID); err == nil && resolved != "" {
 				image = resolved
 			}
 		}
@@ -1201,7 +1201,7 @@ func (s *Server) handleNetworks(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Cache-Control", "no-cache")
 
-	networks, err := s.Discovery.ListNetworks(context.Background())
+	networks, err := s.Discovery.ListNetworks(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -1228,7 +1228,7 @@ func (s *Server) handleNetworkByID(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Cache-Control", "no-cache")
 
-	detail, err := s.Discovery.GetNetwork(context.Background(), name)
+	detail, err := s.Discovery.GetNetwork(r.Context(), name)
 	if err != nil {
 		if errdefs.IsNotFound(err) {
 			writeError(w, http.StatusNotFound, "network not found")
@@ -1250,7 +1250,7 @@ func (s *Server) handleImages(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Cache-Control", "no-cache")
 
-	images, err := s.Discovery.ListImages(context.Background())
+	images, err := s.Discovery.ListImages(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -1308,7 +1308,7 @@ func (s *Server) handleImageByID(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Cache-Control", "no-cache")
 
-	detail, err := s.Discovery.GetImage(context.Background(), id)
+	detail, err := s.Discovery.GetImage(r.Context(), id)
 	if err != nil {
 		if errdefs.IsNotFound(err) {
 			writeError(w, http.StatusNotFound, "image not found")
@@ -1330,7 +1330,7 @@ func (s *Server) handleVolumes(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Cache-Control", "no-cache")
 
-	volumes, err := s.Discovery.ListVolumes(context.Background())
+	volumes, err := s.Discovery.ListVolumes(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -1388,7 +1388,7 @@ func (s *Server) handleVolumeByID(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Cache-Control", "no-cache")
 
-	detail, err := s.Discovery.GetVolume(context.Background(), name)
+	detail, err := s.Discovery.GetVolume(r.Context(), name)
 	if err != nil {
 		if errdefs.IsNotFound(err) {
 			writeError(w, http.StatusNotFound, "volume not found")
@@ -1410,7 +1410,7 @@ func (s *Server) handleContainersOverview(w http.ResponseWriter, r *http.Request
 
 	w.Header().Set("Cache-Control", "no-cache")
 
-	overviews, err := s.Discovery.ListContainerOverviews(context.Background())
+	overviews, err := s.Discovery.ListContainerOverviews(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
