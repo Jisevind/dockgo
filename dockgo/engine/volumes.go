@@ -41,14 +41,19 @@ func (d *DiscoveryEngine) ListVolumes(ctx context.Context) ([]api.DockerVolume, 
 		return nil, err
 	}
 
-	sizes := map[string]int64{}
-	diskUsage, err := d.Client.DiskUsage(ctx, types.DiskUsageOptions{
-		Types: []types.DiskUsageObject{types.VolumeObject},
+	sizes := d.volumeSizes.get(func(ctx context.Context) (map[string]int64, error) {
+		diskUsage, err := d.Client.DiskUsage(ctx, types.DiskUsageOptions{
+			Types: []types.DiskUsageObject{types.VolumeObject},
+		})
+		if err != nil {
+			return nil, err
+		}
+		return volumeSizes(diskUsage.Volumes), nil
+	}, func(err error) {
+		engineLog.Warn("Failed to determine volume sizes", logger.Any("error", err))
 	})
-	if err != nil {
-		engineLog.WarnContext(ctx, "Failed to determine volume sizes", logger.Any("error", err))
-	} else {
-		sizes = volumeSizes(diskUsage.Volumes)
+	if sizes == nil {
+		sizes = map[string]int64{}
 	}
 
 	return summarizeVolumes(response.Volumes, collectVolumeUsage(containers), sizes), nil
