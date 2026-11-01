@@ -199,11 +199,13 @@ func (s *Server) handleAgentContainers(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), agentOpTimeout)
 	defer cancel()
 
-	response, _, err := s.dispatchToAgent(ctx, agentID, agent.TypeContainersList, nil, nil)
+	response, stopRelay, err := s.dispatchToAgent(ctx, agentID, agent.TypeContainersList, nil, nil)
 	if err != nil {
 		writeError(w, http.StatusServiceUnavailable, err.Error())
 		return
 	}
+	// Free the agent slot and abort the op if the client goes away.
+	defer stopRelay()
 
 	select {
 	case env := <-response:
@@ -330,10 +332,15 @@ func (s *Server) handleAgentList(w http.ResponseWriter, r *http.Request, msgType
 	ctx, cancel := context.WithTimeout(r.Context(), agentOpTimeout)
 	defer cancel()
 
-	response, _, err := s.dispatchToAgent(ctx, agentID, msgType, payload, nil)
+	response, stopRelay, err := s.dispatchToAgent(ctx, agentID, msgType, payload, nil)
 	if err != nil {
 		writeError(w, http.StatusServiceUnavailable, err.Error())
 		return
+	}
+	// Read-only ops free their agent slot and abort when the client goes
+	// away; prunes run to completion so a closed tab never cuts one short.
+	if !isAgentPruneOp(msgType) {
+		defer stopRelay()
 	}
 
 	select {
@@ -352,6 +359,10 @@ func (s *Server) handleAgentList(w http.ResponseWriter, r *http.Request, msgType
 	case <-ctx.Done():
 		writeError(w, http.StatusGatewayTimeout, "agent request timed out")
 	}
+}
+
+func isAgentPruneOp(msgType string) bool {
+	return msgType == agent.TypeImagesPrune || msgType == agent.TypeVolumesPrune
 }
 
 // handleAgentStreamCheck proxies an update scan to an agent, streaming
@@ -777,11 +788,13 @@ func (s *Server) handleAgentServerStats(w http.ResponseWriter, r *http.Request) 
 	ctx, cancel := context.WithTimeout(r.Context(), agentOpTimeout)
 	defer cancel()
 
-	response, _, err := s.dispatchToAgent(ctx, agentID, agent.TypeServerStats, nil, nil)
+	response, stopRelay, err := s.dispatchToAgent(ctx, agentID, agent.TypeServerStats, nil, nil)
 	if err != nil {
 		writeError(w, http.StatusServiceUnavailable, err.Error())
 		return
 	}
+	// Free the agent slot and abort the op if the client goes away.
+	defer stopRelay()
 
 	select {
 	case env := <-response:

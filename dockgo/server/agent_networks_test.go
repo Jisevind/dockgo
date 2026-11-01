@@ -1,11 +1,13 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"dockgo/agent"
 
@@ -199,5 +201,96 @@ func TestVolumesPruneRejectsNonPost(t *testing.T) {
 
 	if rr.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("status = %d, want %d", rr.Code, http.StatusMethodNotAllowed)
+	}
+}
+
+// startAgentListRequest dispatches route to a fake agent with a cancellable
+// request context and returns the request envelope the agent received.
+func startAgentListRequest(t *testing.T, method, route string, handler func(*Server, http.ResponseWriter, *http.Request)) (*websocket.Conn, context.Context, agent.Envelope, context.CancelFunc, <-chan struct{}) {
+	t.Helper()
+
+	srv, _ := newTestServerWithAgent(t)
+	mux := srv.agentTestMux()
+	agentRec, _, err := srv.AgentStore.Create("cancel-host")
+	if err != nil {
+		t.Fatalf("AgentStore.Create() error = %v", err)
+	}
+	conn, ctx := connectTestAgent(t, srv, mux, agentRec)
+
+	reqCtx, cancelReq := context.WithCancel(context.Background())
+	t.Cleanup(cancelReq)
+	separator := "?"
+	if strings.Contains(route, "?") {
+		separator = "&"
+	}
+	req := httptest.NewRequest(method, route+separator+"agent="+agentRec.ID, nil).WithContext(reqCtx)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		handler(srv, httptest.NewRecorder(), req)
+	}()
+
+	_, data, err := conn.Read(ctx)
+	if err != nil {
+		t.Fatalf("conn.Read(request) error = %v", err)
+	}
+	var reqEnv agent.Envelope
+	if err := json.Unmarshal(data, &reqEnv); err != nil {
+		t.Fatalf("request envelope unmarshal error = %v", err)
+	}
+	return conn, ctx, reqEnv, cancelReq, done
+}
+
+// readUntilCancel returns true when the agent receives a cancel for requestID
+// before wait elapses.
+func readUntilCancel(conn *websocket.Conn, parent context.Context, requestID string, wait time.Duration) bool {
+	ctx, cancel := context.WithTimeout(parent, wait)
+	defer cancel()
+	for {
+		_, data, err := conn.Read(ctx)
+		if err != nil {
+			return false
+		}
+		var env agent.Envelope
+		if json.Unmarshal(data, &env) == nil && env.Type == agent.TypeCancel && env.RequestID == requestID {
+			return true
+		}
+	}
+}
+
+func TestAgentOverviewCancelsWhenClientLeaves(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		route   string
+		handler func(*Server, http.ResponseWriter, *http.Request)
+	}{
+		{"containers", "/api/containers/overview", (*Server).handleContainersOverview},
+		{"stacks", "/api/stacks/overview", (*Server).handleStacksOverview},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			conn, ctx, reqEnv, cancelReq, done := startAgentListRequest(t, http.MethodGet, tc.route, tc.handler)
+			if reqEnv.Type != agent.TypeContainersOverview {
+				t.Fatalf("request type = %q, want %q", reqEnv.Type, agent.TypeContainersOverview)
+			}
+
+			cancelReq()
+			<-done
+			if !readUntilCancel(conn, ctx, reqEnv.RequestID, 2*time.Second) {
+				t.Fatal("agent never received a cancel after the client left")
+			}
+		})
+	}
+}
+
+func TestAgentPruneIsNotCancelledWhenClientLeaves(t *testing.T) {
+	conn, ctx, reqEnv, cancelReq, done := startAgentListRequest(t, http.MethodPost, "/api/volumes/prune", (*Server).handleVolumesPrune)
+	if reqEnv.Type != agent.TypeVolumesPrune {
+		t.Fatalf("request type = %q, want %q", reqEnv.Type, agent.TypeVolumesPrune)
+	}
+
+	cancelReq()
+	<-done
+	if readUntilCancel(conn, ctx, reqEnv.RequestID, 200*time.Millisecond) {
+		t.Fatal("prune was cancelled when the client left")
 	}
 }

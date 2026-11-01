@@ -156,11 +156,12 @@ func (s *Server) handleStacksOverview(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), agentOpTimeout)
 		defer cancel()
 
-		response, _, err := s.dispatchToAgent(ctx, agentID, agent.TypeContainersOverview, nil, nil)
+		response, stopRelay, err := s.dispatchToAgent(ctx, agentID, agent.TypeContainersOverview, nil, nil)
 		if err != nil {
 			writeError(w, http.StatusServiceUnavailable, err.Error())
 			return
 		}
+		defer stopRelay()
 
 		select {
 		case env := <-response:
