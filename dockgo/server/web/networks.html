@@ -8,8 +8,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/style.css?v=1.5.0">
+    <link rel="stylesheet" href="/style.css?v=1.5.2">
     <script src="/page.js?v=1.2.0" defer></script>
+    <script src="/sidebar.js?v=1.0.0" defer></script>
     <script src="/networks.js?v=1.0.1" defer></script>
 
     <!-- Favicon -->
@@ -31,7 +32,16 @@
 
 <body>
     <aside class="sidebar">
-        <nav class="sidebar-nav" aria-label="Primary navigation">
+        <button class="sidebar-toggle" type="button" aria-expanded="true" aria-controls="sidebar-nav" title="Toggle navigation">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <line x1="3" y1="12" x2="21" y2="12"></line>
+                <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+            <span class="sidebar-toggle-label">Menu</span>
+        </button>
+        <nav id="sidebar-nav" class="sidebar-nav" aria-label="Primary navigation">
             <a class="sidebar-link" href="/"><span class="nf nf-dashboard" aria-hidden="true"></span>Dashboard</a>
             <a class="sidebar-link" href="/dashboard"><span class="nf nf-dashboard-variant" aria-hidden="true"></span>New Dashboard</a>
             <a class="sidebar-link" href="/stacks"><span class="nf nf-layers" aria-hidden="true"></span>Stacks</a>
