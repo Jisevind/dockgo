@@ -267,7 +267,19 @@ document.addEventListener("DOMContentLoaded", () => {
         statusEl.classList.remove("hidden");
     };
 
-    const fetchContainers = async ({ showLoading = false, busy = false } = {}) => {
+    // Background refreshes (poll, tab focus) are skipped while a request is
+    // pending, so a slow host never accumulates overlapping requests. Only the
+    // latest request may render, so a stale response cannot overwrite rows
+    // after a host switch.
+    let pendingFetches = 0;
+    let latestFetchId = 0;
+
+    const fetchContainers = async ({
+        showLoading = false,
+        busy = false,
+        background = false,
+    } = {}) => {
+        if (background && pendingFetches > 0) return false;
         if (!page) {
             console.error("DockGoPage is not loaded");
             return;
@@ -280,11 +292,15 @@ document.addEventListener("DOMContentLoaded", () => {
             emptyEl.classList.remove("hidden");
         }
 
+        const fetchId = ++latestFetchId;
+        const isStale = () => fetchId !== latestFetchId;
+        pendingFetches++;
         try {
             const response = await fetch(
                 page.withAgentQuery("/api/containers/overview"),
                 { headers: page.getAuthHeaders() },
             );
+            if (isStale()) return false;
 
             if (response.status === 401 || response.status === 403) {
                 if (page.getState().authEnabled) page.showLoginModal();
@@ -300,9 +316,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 throw new Error(message || `HTTP ${response.status}`);
             }
 
-            rows = await response.json();
+            const data = await response.json();
+            if (isStale()) return false;
+            rows = data;
             renderRows();
         } catch (error) {
+            if (isStale()) return false;
             console.error("Failed to fetch containers:", error);
             if (statusEl) {
                 statusEl.textContent = `Failed to load containers: ${error.message}`;
@@ -310,6 +329,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             if (showLoading && emptyEl) emptyEl.classList.add("hidden");
         } finally {
+            pendingFetches--;
             if (busy) setBusy(false);
         }
     };
@@ -350,7 +370,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.addEventListener("visibilitychange", () => {
         if (!document.hidden && rows.length > 0) {
-            fetchContainers();
+            fetchContainers({ background: true });
         }
     });
 
@@ -367,7 +387,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     window.setInterval(() => {
         if (!document.hidden && rows.length > 0) {
-            fetchContainers();
+            fetchContainers({ background: true });
         }
     }, 10000);
 });

@@ -523,7 +523,19 @@ document.addEventListener("DOMContentLoaded", () => {
         statusEl.style.color = "";
     };
 
-    const fetchStacks = async ({ showLoading = false, busy = false } = {}) => {
+    // Background refreshes (poll, tab focus) are skipped while a request is
+    // pending, so a slow host never accumulates overlapping requests. Only the
+    // latest request may render, so a stale response cannot overwrite rows
+    // after a host switch.
+    let pendingFetches = 0;
+    let latestFetchId = 0;
+
+    const fetchStacks = async ({
+        showLoading = false,
+        busy = false,
+        background = false,
+    } = {}) => {
+        if (background && pendingFetches > 0) return false;
         if (!page) {
             console.error("DockGoPage is not loaded");
             return;
@@ -536,11 +548,15 @@ document.addEventListener("DOMContentLoaded", () => {
             emptyEl.classList.remove("hidden");
         }
 
+        const fetchId = ++latestFetchId;
+        const isStale = () => fetchId !== latestFetchId;
+        pendingFetches++;
         try {
             const response = await fetch(
                 page.withAgentQuery("/api/stacks/overview"),
                 { headers: page.getAuthHeaders() },
             );
+            if (isStale()) return false;
 
             if (response.status === 401 || response.status === 403) {
                 if (page.getState().authEnabled) page.showLoginModal();
@@ -551,15 +567,19 @@ document.addEventListener("DOMContentLoaded", () => {
                 throw new Error(await responseErrorMessage(response));
             }
 
-            rows = await response.json();
+            const data = await response.json();
+            if (isStale()) return false;
+            rows = data;
             renderRows();
             return true;
         } catch (error) {
+            if (isStale()) return false;
             console.error("Failed to fetch stacks:", error);
             showStatus(`Failed to load stacks: ${error.message}`);
             if (showLoading && emptyEl) emptyEl.classList.add("hidden");
             return false;
         } finally {
+            pendingFetches--;
             if (busy) setBusy(false);
         }
     };
@@ -790,7 +810,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.addEventListener("visibilitychange", () => {
         if (!document.hidden && rows.length > 0) {
-            fetchStacks();
+            fetchStacks({ background: true });
         }
     });
 
@@ -807,7 +827,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     window.setInterval(() => {
         if (!document.hidden && rows.length > 0) {
-            fetchStacks();
+            fetchStacks({ background: true });
         }
     }, 10000);
 });
