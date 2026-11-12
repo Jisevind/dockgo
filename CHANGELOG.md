@@ -1,3 +1,50 @@
+# Unreleased
+
+### Bug Fixes
+
+* **server:** cancel read-only agent requests when the client leaves ([b0f7ad9](https://github.com/Jisevind/dockgo/commit/b0f7ad94e28a48e5bd218704796adbeb21faa8e5))
+* **web:** skip overlapping background refreshes of overview tables ([7a07081](https://github.com/Jisevind/dockgo/commit/7a0708179a14c14217ba289100f97b80c64ca92c))
+* **web:** keep the collapsed sidebar label in sync with the active link ([3838756](https://github.com/Jisevind/dockgo/commit/3838756e1b62f7352c7184fee9a22dfcf0313919))
+* **server:** let stack edits clear the discovery selector explicitly ([1e29e65](https://github.com/Jisevind/dockgo/commit/1e29e65c3fb3774458205b95e39fa898f80ef87a))
+* **server:** share containers across stacks with one project and sum memory limits ([360f84d](https://github.com/Jisevind/dockgo/commit/360f84ded594b21ca859968cd8c9801519224ea0))
+* **stacks:** allow env file create retry and resolve file writes under the project lock ([c47904b](https://github.com/Jisevind/dockgo/commit/c47904bda2324046f14443dbf1d3a47579ce1be3))
+* **server:** tie docker list and inspect calls to the request context ([8d4556a](https://github.com/Jisevind/dockgo/commit/8d4556a046b60bb07186b90ab202dfbe076de07e))
+* **server:** route agent prune and overview paths exactly and keep agent id on rewrite ([b1cd93c](https://github.com/Jisevind/dockgo/commit/b1cd93ce0f5ce93eba5c6d0149398e32c5b00325))
+* **web:** keep dashboard rows within narrow layouts ([902ad4c](https://github.com/Jisevind/dockgo/commit/902ad4c8169f33089dab4f13de9bdf3b4c35a1aa))
+* **stacks:** preserve stack provenance when updating ([dc05fd5](https://github.com/Jisevind/dockgo/commit/dc05fd53c7cf1c582d9ef98af0047cb3065a7033))
+* **web:** load stack files for agent-hosted stacks ([a6cb495](https://github.com/Jisevind/dockgo/commit/a6cb495780240ce2abc4846bb9fc96cf62ecd347))
+* **agents:** preserve update flags after an update ([198fd95](https://github.com/Jisevind/dockgo/commit/198fd95fe6831b5dc9491254a0e1800b9f644a5f))
+* **web:** unify content width across pages ([2d83cd4](https://github.com/Jisevind/dockgo/commit/2d83cd4451aa8208502dbdb1d18751b91b42c726))
+* **web:** use dashboard status badges on resource pages ([09d6b57](https://github.com/Jisevind/dockgo/commit/09d6b570c4e4e697bb6f43872bece17aea97e83e))
+
+### Features
+
+* **web:** collapse sidebar navigation on small screens ([aeea59e](https://github.com/Jisevind/dockgo/commit/aeea59e78642ef84a58f80ca0c3af84064216e70))
+* **stacks:** add stack details page and registration editor ([c228c99](https://github.com/Jisevind/dockgo/commit/c228c993da7119e31153bcc73afa3ad6619fdb6c))
+* **agents:** add agents management page ([3630926](https://github.com/Jisevind/dockgo/commit/3630926c89b74632d8674d4019c61bc2b2c7e47b))
+* **stacks:** add row actions to the stacks table ([e1c303e](https://github.com/Jisevind/dockgo/commit/e1c303ec4e8a093a26e4a89e38909d5ea5caeb04))
+* **web:** add curated icon font for navigation and actions ([028967a](https://github.com/Jisevind/dockgo/commit/028967ab8c4ff93a8573c7a36ac9d2b5a7e4081b))
+* **dashboard:** add standalone container dashboard ([58c80e1](https://github.com/Jisevind/dockgo/commit/58c80e1afa23df5861dac5e07bc848f2ddfaa231))
+* **stacks:** add ownership state and row actions ([6f4829a](https://github.com/Jisevind/dockgo/commit/6f4829afbfa3a76f7281b514c95846cdfa0025f0))
+* **volumes:** show volume sizes in the table ([30cfe2f](https://github.com/Jisevind/dockgo/commit/30cfe2fe44822bddbd99188c7b71b7cdfc712911))
+* **volumes:** add prune actions with confirmation ([0b9154c](https://github.com/Jisevind/dockgo/commit/0b9154c5576057b3cb617b0e0ffb992d9cb40194))
+* **images:** add prune actions with confirmation ([3512fdb](https://github.com/Jisevind/dockgo/commit/3512fdb78089df32e6df7fa3a576b461d63addb5))
+* **web:** add stack file editor and env file creation ([1f05827](https://github.com/Jisevind/dockgo/commit/1f058275587682296f26da35dd923557ea83d054))
+* **web:** paginate resource tables ([c14d9f8](https://github.com/Jisevind/dockgo/commit/c14d9f850ece98384b9266a381649bdf6458a3a1))
+* **web:** add expandable image and volume overviews ([4092c24](https://github.com/Jisevind/dockgo/commit/4092c2435b23ceb9539caa5c3829cd2e6c213457))
+* **web:** add expandable network overviews ([a0097a5](https://github.com/Jisevind/dockgo/commit/a0097a5b465ba783c10e5dcc87252f8178121ef5))
+* **web:** add table column toggles ([f828350](https://github.com/Jisevind/dockgo/commit/f8283503d50326990f400e286f40577aaf9d0a29))
+* **web:** add container start/stop controls ([05c3cb5](https://github.com/Jisevind/dockgo/commit/05c3cb5b25bfc00014ad3e617379679e90e250be))
+* **web:** add stack registration page ([81d5f72](https://github.com/Jisevind/dockgo/commit/81d5f72084f9718fc345e37a0cb035e29c76ddab))
+* **web:** add registered stacks overview page ([6ed5335](https://github.com/Jisevind/dockgo/commit/6ed533531420c08cad0a9dd359df886955fb8f0f))
+* **web:** make resource tables sortable ([b990920](https://github.com/Jisevind/dockgo/commit/b9909205f5ae8016bde3d01281af4d3f7bdcc86e))
+* **web:** add multi-page resource dashboard ([337bc8f](https://github.com/Jisevind/dockgo/commit/337bc8f70d8f6644acee139114a3adb1af78f908))
+
+### Performance Improvements
+
+* **engine:** serve container stats from a background-refreshed cache ([75a72e2](https://github.com/Jisevind/dockgo/commit/75a72e2e8df2c1c0a4842c272b7aa83f1421ff05))
+* **engine:** serve cached volume sizes and refresh them in the background ([29d991e](https://github.com/Jisevind/dockgo/commit/29d991eb30a242d0e06a3d98115306e039165e68))
+
 # [2.0.0](https://github.com/Jisevind/dockgo/compare/v1.6.0...v2.0.0) (2026-10-20)
 
 
