@@ -2,6 +2,7 @@
 
 ### Bug Fixes
 
+* **engine:** compute container CPU percent from a sampled baseline ([eb22d95](https://github.com/Jisevind/dockgo/commit/eb22d951f5d7ce41ea82042c3ddc93469b2590f3))
 * **server:** cancel read-only agent requests when the client leaves ([b0f7ad9](https://github.com/Jisevind/dockgo/commit/b0f7ad94e28a48e5bd218704796adbeb21faa8e5))
 * **web:** skip overlapping background refreshes of overview tables ([7a07081](https://github.com/Jisevind/dockgo/commit/7a0708179a14c14217ba289100f97b80c64ca92c))
 * **web:** keep the collapsed sidebar label in sync with the active link ([3838756](https://github.com/Jisevind/dockgo/commit/3838756e1b62f7352c7184fee9a22dfcf0313919))
