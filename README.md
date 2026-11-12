@@ -1,5 +1,12 @@
 # DockGo
 
+[![CI](https://github.com/Jisevind/dockgo/actions/workflows/ci.yml/badge.svg)](https://github.com/Jisevind/dockgo/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Jisevind/dockgo)](https://github.com/Jisevind/dockgo/releases/latest)
+[![Go](https://img.shields.io/github/go-mod/go-version/Jisevind/dockgo?filename=dockgo/go.mod)](dockgo/go.mod)
+[![GHCR](https://img.shields.io/badge/ghcr.io-jisevind%2Fdockgo-2496ED?logo=docker&logoColor=white)](https://github.com/Jisevind/dockgo/pkgs/container/dockgo)
+[![License: MIT](https://img.shields.io/github/license/Jisevind/dockgo)](LICENSE)
+[![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-FE5196?logo=conventionalcommits&logoColor=white)](https://www.conventionalcommits.org)
+
 > **A lightweight, secure Docker update agent — single binary, no fuss.**
 
 ![DockGo dashboard showing container updates](screenshots/screenshot-main.png)
