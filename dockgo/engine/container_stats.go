@@ -21,6 +21,15 @@ const containerStatsColdWait = 2 * time.Second
 // containerStatsRefreshTimeout bounds one full background refresh.
 const containerStatsRefreshTimeout = time.Minute
 
+// containerStatsBaselineMaxAge is the oldest previous sample still used as the
+// CPU baseline. Older baselines would report an average over that whole gap
+// rather than current usage, so a fresh baseline is sampled instead.
+const containerStatsBaselineMaxAge = 30 * time.Second
+
+// containerStatsBaselineGap is the wait between a fresh baseline sample and
+// the sample it is compared against.
+const containerStatsBaselineGap = time.Second
+
 // containerStatsCache serves the last stats samples and refreshes them in the
 // background, so listing container overviews never waits on per-container
 // stats calls, which can be slow on busy or older Docker daemons.
@@ -29,6 +38,8 @@ type containerStatsCache struct {
 	stats      map[string]*container.StatsResponse
 	fetchedAt  time.Time
 	refreshing bool
+	// baselineGap overrides containerStatsBaselineGap when non-zero (tests).
+	baselineGap time.Duration
 	// done is closed when the in-flight refresh finishes.
 	done chan struct{}
 }
@@ -48,14 +59,19 @@ func (c *containerStatsCache) get(ctx context.Context, ids []string, fetch conta
 		c.done = make(chan struct{})
 		done := c.done
 		pending := append([]string(nil), ids...)
+		previous := c.stats
+		gap := c.baselineGap
+		if gap == 0 {
+			gap = containerStatsBaselineGap
+		}
+		if time.Since(c.fetchedAt) > containerStatsBaselineMaxAge {
+			previous = nil
+		}
 		go func() {
 			defer close(done)
 			refreshCtx, cancel := context.WithTimeout(context.Background(), containerStatsRefreshTimeout)
 			defer cancel()
-			stats := fetch(refreshCtx, pending)
-			if stats == nil {
-				stats = map[string]*container.StatsResponse{}
-			}
+			stats := sampleContainerStats(refreshCtx, pending, previous, gap, fetch)
 
 			c.mu.Lock()
 			defer c.mu.Unlock()
@@ -83,6 +99,56 @@ func (c *containerStatsCache) get(ctx context.Context, ids []string, fetch conta
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.stats
+}
+
+// sampleContainerStats fetches stats for ids and fills each sample's CPU
+// baseline (PreCPUStats). One-shot stats leave PreCPUStats empty, which would
+// make CPU percent an average since the container started. The previous
+// cached sample is the baseline; without a recent one, a baseline is sampled
+// first and the real sample is taken gap later.
+func sampleContainerStats(ctx context.Context, ids []string, previous map[string]*container.StatsResponse, gap time.Duration, fetch containerStatsFetcher) map[string]*container.StatsResponse {
+	if previous == nil {
+		previous = fetch(ctx, ids)
+		timer := time.NewTimer(gap)
+		select {
+		case <-timer.C:
+		case <-ctx.Done():
+			timer.Stop()
+		}
+	}
+
+	stats := fetch(ctx, ids)
+	if stats == nil {
+		return map[string]*container.StatsResponse{}
+	}
+	for id, sample := range stats {
+		applyCPUBaseline(sample, previous[id])
+	}
+	return stats
+}
+
+// applyCPUBaseline sets sample's PreCPUStats from an earlier sample of the
+// same container when that sample is a usable baseline. A container that
+// restarted in between (usage went backwards) or a baseline that is too old
+// is ignored, leaving CPU percent at zero for this sample.
+func applyCPUBaseline(sample, baseline *container.StatsResponse) {
+	if sample == nil {
+		return
+	}
+	// Never trust Docker's own one-shot PreCPUStats: they are empty.
+	sample.PreCPUStats = container.CPUStats{}
+	if baseline == nil {
+		return
+	}
+	if !baseline.Read.Before(sample.Read) || sample.Read.Sub(baseline.Read) > containerStatsBaselineMaxAge {
+		return
+	}
+	if baseline.CPUStats.CPUUsage.TotalUsage > sample.CPUStats.CPUUsage.TotalUsage ||
+		baseline.CPUStats.SystemUsage > sample.CPUStats.SystemUsage {
+		return
+	}
+	sample.PreCPUStats = baseline.CPUStats
+	sample.PreRead = baseline.Read
 }
 
 // fetchContainerStats takes one-shot stats samples for the given containers

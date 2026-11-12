@@ -207,7 +207,10 @@ func applyContainerStats(row *api.ContainerOverview, stats *container.StatsRespo
 		float64(stats.PreCPUStats.CPUUsage.TotalUsage)
 	systemDelta := float64(stats.CPUStats.SystemUsage) -
 		float64(stats.PreCPUStats.SystemUsage)
-	if cpuDelta > 0 && systemDelta > 0 {
+	// Without a baseline sample (empty PreCPUStats) the deltas are totals since
+	// the container and host started, so CPU percent is left at zero.
+	hasBaseline := stats.PreCPUStats.SystemUsage > 0
+	if hasBaseline && cpuDelta > 0 && systemDelta > 0 {
 		onlineCPUs := int(stats.CPUStats.OnlineCPUs)
 		if onlineCPUs == 0 {
 			onlineCPUs = len(stats.CPUStats.CPUUsage.PercpuUsage)

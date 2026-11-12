@@ -2,10 +2,13 @@ package engine
 
 import (
 	"context"
+	"math"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"dockgo/api"
 
 	"github.com/docker/docker/api/types/container"
 )
@@ -18,8 +21,11 @@ func statsFor(ids []string) map[string]*container.StatsResponse {
 	return out
 }
 
+// testBaselineGap keeps cold refreshes (baseline sample + real sample) fast.
+const testBaselineGap = time.Millisecond
+
 func TestContainerStatsCacheColdWaitReturnsFirstSample(t *testing.T) {
-	var c containerStatsCache
+	c := containerStatsCache{baselineGap: testBaselineGap}
 	fetch := func(_ context.Context, ids []string) map[string]*container.StatsResponse {
 		return statsFor(ids)
 	}
@@ -68,7 +74,7 @@ func TestContainerStatsCacheColdWaitHonorsContext(t *testing.T) {
 }
 
 func TestContainerStatsCacheSingleRefreshUnderConcurrency(t *testing.T) {
-	var c containerStatsCache
+	c := containerStatsCache{baselineGap: testBaselineGap}
 	var calls atomic.Int32
 	release := make(chan struct{})
 	fetch := func(_ context.Context, ids []string) map[string]*container.StatsResponse {
@@ -89,13 +95,14 @@ func TestContainerStatsCacheSingleRefreshUnderConcurrency(t *testing.T) {
 	close(release)
 
 	waitForStats(t, &c, "a")
-	if n := calls.Load(); n != 1 {
-		t.Fatalf("fetch calls = %d, want 1", n)
+	// One refresh: a baseline sample plus the real sample.
+	if n := calls.Load(); n != 2 {
+		t.Fatalf("fetch calls = %d, want 2", n)
 	}
 }
 
 func TestContainerStatsCacheFreshServesWithoutFetch(t *testing.T) {
-	var c containerStatsCache
+	c := containerStatsCache{baselineGap: testBaselineGap}
 	var calls atomic.Int32
 	fetch := func(_ context.Context, ids []string) map[string]*container.StatsResponse {
 		calls.Add(1)
@@ -108,13 +115,13 @@ func TestContainerStatsCacheFreshServesWithoutFetch(t *testing.T) {
 			t.Fatalf("fresh get missing sample")
 		}
 	}
-	if n := calls.Load(); n != 1 {
-		t.Fatalf("fetch calls = %d, want 1", n)
+	if n := calls.Load(); n != 2 {
+		t.Fatalf("fetch calls = %d, want 2 (one cold refresh)", n)
 	}
 }
 
 func TestContainerStatsCacheStaleRefreshesAndPrunes(t *testing.T) {
-	var c containerStatsCache
+	c := containerStatsCache{baselineGap: testBaselineGap}
 	fetch := func(_ context.Context, ids []string) map[string]*container.StatsResponse {
 		return statsFor(ids)
 	}
@@ -153,4 +160,98 @@ func waitForStats(t *testing.T, c *containerStatsCache, id string) map[string]*c
 	}
 	t.Fatalf("stats for %q never populated", id)
 	return nil
+}
+
+// cpuSample builds a stats sample with cumulative CPU counters at read.
+func cpuSample(read time.Time, containerNs, systemNs uint64) *container.StatsResponse {
+	sample := &container.StatsResponse{}
+	sample.Read = read
+	sample.CPUStats.CPUUsage.TotalUsage = containerNs
+	sample.CPUStats.SystemUsage = systemNs
+	sample.CPUStats.OnlineCPUs = 4
+	return sample
+}
+
+func TestApplyContainerStatsNeedsBaseline(t *testing.T) {
+	// A one-shot sample: lifetime counters and empty PreCPUStats.
+	var row api.ContainerOverview
+	applyContainerStats(&row, cpuSample(time.Now(), 28e9, 10e15))
+	if row.CPUPercent != 0 {
+		t.Fatalf("CPUPercent without baseline = %v, want 0", row.CPUPercent)
+	}
+}
+
+func TestApplyContainerStatsUsesBaselineDelta(t *testing.T) {
+	now := time.Now()
+	baseline := cpuSample(now.Add(-5*time.Second), 10e9, 100e9)
+	// 1s of container CPU over 4s of host CPU time on 4 CPUs is one full core.
+	sample := cpuSample(now, 11e9, 104e9)
+	applyCPUBaseline(sample, baseline)
+
+	var row api.ContainerOverview
+	applyContainerStats(&row, sample)
+	if math.Abs(row.CPUPercent-100) > 1e-9 {
+		t.Fatalf("CPUPercent = %v, want 100", row.CPUPercent)
+	}
+}
+
+func TestApplyCPUBaselineRejectsUnusableBaselines(t *testing.T) {
+	now := time.Now()
+	for _, tc := range []struct {
+		name     string
+		baseline *container.StatsResponse
+	}{
+		{"missing", nil},
+		{"too old", cpuSample(now.Add(-2*containerStatsBaselineMaxAge), 10e9, 100e9)},
+		{"not earlier", cpuSample(now, 10e9, 100e9)},
+		{"container restarted", cpuSample(now.Add(-5*time.Second), 50e9, 100e9)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sample := cpuSample(now, 11e9, 104e9)
+			// Docker one-shot PreCPUStats must never be trusted.
+			sample.PreCPUStats.SystemUsage = 1
+			applyCPUBaseline(sample, tc.baseline)
+			if sample.PreCPUStats.SystemUsage != 0 {
+				t.Fatalf("PreCPUStats = %+v, want empty", sample.PreCPUStats)
+			}
+		})
+	}
+}
+
+func TestSampleContainerStatsTakesBaselineWhenCold(t *testing.T) {
+	start := time.Now()
+	var calls int
+	fetch := func(_ context.Context, ids []string) map[string]*container.StatsResponse {
+		calls++
+		n := uint64(calls)
+		return map[string]*container.StatsResponse{
+			"a": cpuSample(start.Add(time.Duration(n)*time.Second), n*1e9, n*4e9),
+		}
+	}
+
+	stats := sampleContainerStats(context.Background(), []string{"a"}, nil, testBaselineGap, fetch)
+	if calls != 2 {
+		t.Fatalf("fetch calls = %d, want 2 (baseline + sample)", calls)
+	}
+	if got := stats["a"].PreCPUStats.CPUUsage.TotalUsage; got != 1e9 {
+		t.Fatalf("baseline usage = %d, want first sample's 1e9", got)
+	}
+}
+
+func TestSampleContainerStatsReusesPreviousSample(t *testing.T) {
+	now := time.Now()
+	previous := map[string]*container.StatsResponse{"a": cpuSample(now.Add(-5*time.Second), 10e9, 100e9)}
+	var calls int
+	fetch := func(_ context.Context, ids []string) map[string]*container.StatsResponse {
+		calls++
+		return map[string]*container.StatsResponse{"a": cpuSample(now, 11e9, 104e9)}
+	}
+
+	stats := sampleContainerStats(context.Background(), []string{"a"}, previous, testBaselineGap, fetch)
+	if calls != 1 {
+		t.Fatalf("fetch calls = %d, want 1", calls)
+	}
+	if got := stats["a"].PreCPUStats.SystemUsage; got != 100e9 {
+		t.Fatalf("baseline system usage = %d, want 100e9", got)
+	}
 }
