@@ -323,8 +323,7 @@ func connectTestAgent(t *testing.T, srv *Server, mux http.Handler, agentRec agen
 		t.Fatalf("RotateKey() error = %v", err)
 	}
 
-	server := httptest.NewServer(mux)
-	t.Cleanup(server.Close)
+	server := newTrackedTestServer(t, mux)
 
 	wsURL := "ws" + server.URL[len("http"):] + "/api/ws/agent"
 

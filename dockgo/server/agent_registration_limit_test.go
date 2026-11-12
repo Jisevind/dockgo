@@ -3,7 +3,9 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -12,14 +14,43 @@ import (
 	"github.com/coder/websocket"
 )
 
+// newTrackedTestServer serves handler on a real listener and closes it when
+// the test ends. Hijacked WebSocket handlers are not tracked by
+// httptest.Server.Close, and they persist agent state after the connection
+// closes, so cleanup also waits for them. Otherwise that state could be
+// written into a TempDir that is already being removed.
+func newTrackedTestServer(t *testing.T, handler http.Handler) *httptest.Server {
+	t.Helper()
+
+	var handlers sync.WaitGroup
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handlers.Add(1)
+		defer handlers.Done()
+		handler.ServeHTTP(w, r)
+	}))
+	t.Cleanup(func() {
+		server.Close()
+
+		drained := make(chan struct{})
+		go func() {
+			handlers.Wait()
+			close(drained)
+		}()
+		select {
+		case <-drained:
+		case <-time.After(5 * time.Second):
+			t.Error("agent handlers did not finish after server close")
+		}
+	})
+	return server
+}
+
 // startAgentTestServer serves the agent handlers on a real listener and returns
 // the agent WebSocket URL. Cleanup is registered with the test.
 func startAgentTestServer(t *testing.T, srv *Server) string {
 	t.Helper()
 
-	server := httptest.NewServer(srv.agentTestMux())
-	t.Cleanup(server.Close)
-
+	server := newTrackedTestServer(t, srv.agentTestMux())
 	return "ws" + server.URL[len("http"):] + "/api/ws/agent"
 }
 

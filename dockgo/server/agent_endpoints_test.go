@@ -145,8 +145,7 @@ func TestAgentWebSocketHandshakeAndDispatch(t *testing.T) {
 		t.Fatalf("Create() error = %v", err)
 	}
 
-	server := httptest.NewServer(mux)
-	defer server.Close()
+	server := newTrackedTestServer(t, mux)
 
 	wsURL := "ws" + server.URL[len("http"):] + "/api/ws/agent"
 
@@ -264,8 +263,7 @@ func TestAgentWebSocketReconnectViaJWT(t *testing.T) {
 		t.Fatalf("Create() error = %v", err)
 	}
 
-	server := httptest.NewServer(mux)
-	defer server.Close()
+	server := newTrackedTestServer(t, mux)
 
 	wsURL := "ws" + server.URL[len("http"):] + "/api/ws/agent"
 
@@ -349,8 +347,7 @@ func TestAgentWebSocketReconnectWithInvalidJWTRejects(t *testing.T) {
 		t.Fatalf("Create() error = %v", err)
 	}
 
-	server := httptest.NewServer(mux)
-	defer server.Close()
+	server := newTrackedTestServer(t, mux)
 
 	wsURL := "ws" + server.URL[len("http"):] + "/api/ws/agent"
 
