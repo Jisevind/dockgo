@@ -1,0 +1,32 @@
+name: CI
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Vet & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: dockgo/go.mod
+          cache-dependency-path: dockgo/go.sum
+
+      - name: Vet
+        working-directory: dockgo
+        run: go vet ./...
+
+      - name: Test
+        working-directory: dockgo
+        run: go test ./...
